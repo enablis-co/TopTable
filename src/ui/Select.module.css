@@ -1,0 +1,18 @@
+.control {
+  position: relative;
+  display: flex;
+}
+
+.select {
+  appearance: none;
+  padding-right: var(--space-6);
+}
+
+.chevron {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  transform: translateY(-50%);
+  color: var(--ink-muted);
+  pointer-events: none;
+}
