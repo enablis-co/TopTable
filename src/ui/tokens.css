@@ -1,0 +1,61 @@
+/*
+ * Design tokens. Every colour, radius, spacing step, font size and font weight used
+ * anywhere in src/ resolves through one of these custom properties.
+ *
+ * This is the only file in src/ allowed to contain a colour literal. Values are lifted
+ * verbatim from docs/style-guide.html (design's file), which KB-5 names as the
+ * implementation of its decisions. Token names are the style guide's own names,
+ * unprefixed, so markup lifted from that file works unmodified.
+ *
+ * No dark-mode block: KB-5 publishes one light palette and no dark variant.
+ */
+:root {
+  /* Surfaces and ink */
+  --paper: #F7F5F0;
+  --surface: #FFFFFF;
+  --sunken: #EFECE4;
+  --ink: #1C1B18;
+  --ink-muted: #6B6862;
+  --ink-faint: #9A968D;
+  --rule: #DDD8CE;
+  --rule-strong: #C4BDB0;
+
+  /* Accent and severity. Hard and soft are left bar and label only, never a fill. */
+  --slate: #23303F;
+  --slate-hover: #2F4055;
+  --hard: #B3261E;
+  --hard-wash: #FBF0EF;
+  --hard-deep: #8C3B34;
+  --soft: #B26A00;
+  --soft-wash: #FBF5EA;
+  --soft-deep: #8A5A16;
+
+  /* TT-7 additions: the style guide writes these two inline rather than as tokens. */
+  --on-slate: #FFFFFF; /* the white the guide writes as #fff on primary buttons */
+  --scrim: rgba(28, 27, 24, 0.32); /* ink at 32%, KB-6's dimmed page behind the slide-over */
+
+  /* Radii. Pill is tags only. */
+  --r-control: 4px;
+  --r-card: 8px;
+  --r-pill: 11px;
+
+  /* Layout spacing scale: 4 · 8 · 12 · 16 · 24 · 32 · 48. No layout value off the scale. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Type. Weights 400 and 500 only, nothing heavier. */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --text-display: 32px;
+  --text-title: 22px;
+  --text-heading: 17px;
+  --text-body: 14px;
+  --text-data: 13px;
+  --text-caption: 12px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+}

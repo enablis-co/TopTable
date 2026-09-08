@@ -1,0 +1,13 @@
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+/* No max-width: the floorplan (TT-11) needs the full width at 27 tables. Screens that
+   want a narrower measure constrain themselves. */
+.main {
+  flex: 1;
+  padding: var(--space-5);
+}

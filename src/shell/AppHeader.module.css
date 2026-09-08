@@ -1,0 +1,57 @@
+.header {
+  position: sticky;
+  top: 0;
+  /* Above in-flow content that scrolls under it (e.g. a Select's positioned
+     control); below the slide-over's scrim, which sits at a higher z-index. */
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-5);
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+}
+
+.lockup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.wordmark {
+  font-size: var(--text-heading);
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-5);
+}
+
+/*
+ * Both states sit at weight 500 so switching sections causes no reflow — the underline is
+ * the mark, not a weight change. Colour never carries the distinction alone (KB-5): the
+ * current tab also gets a 2px solid rule, the others the same width in transparent.
+ */
+.tab {
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: var(--weight-medium);
+  padding: var(--space-2) 0;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tabCurrent {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}

@@ -1,0 +1,8 @@
+.bar {
+  fill: var(--slate);
+}
+
+.dot {
+  fill: none;
+  stroke: var(--ink);
+}

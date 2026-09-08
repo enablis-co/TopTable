@@ -1,65 +1,31 @@
-import { useTopTableStore } from './store/store'
+import { AppShell } from './shell/AppShell'
+import { useNavigation } from './shell/navigation'
+import { Panel } from './ui'
 
 /**
- * Scaffold proof of life, and no more than that.
+ * The shell and the section-to-screen map. Nothing else.
  *
- * TT-2 has to stand the project up and show that state reaches local storage and comes
- * back after a refresh. The three real screens are TT-3 to TT-6, and the shell they hang
- * in — header, tabs, tokens, shared components — is TT-7. This file is replaced by that
- * work; do not extend it.
+ * Each section below is one scaffold line, not a designed empty state — KB-6's three
+ * "must look intentional" states (the empty setup screen, the empty guest list, one rule
+ * registered) belong to the tickets that build those screens, not to this one.
  */
 export default function App() {
-  const event = useTopTableStore((state) => state.event)
-  const room = useTopTableStore((state) => state.room)
-  const guestCount = useTopTableStore((state) => state.guests.length)
-  const setEventName = useTopTableStore((state) => state.setEventName)
-  const setRoom = useTopTableStore((state) => state.setRoom)
-  const reset = useTopTableStore((state) => state.reset)
-
   return (
-    <main style={{ padding: 24, maxWidth: 560 }}>
-      <h1>Top Table</h1>
-      <p>
-        Scaffold only. The setup, guests and plan screens are TT-3 to TT-6, and the shell they
-        sit in is TT-7. Change a value, reload the page, and it is still here.
-      </p>
-
-      <p>
-        <label>
-          Event name{' '}
-          <input
-            value={event.name}
-            onChange={(e) => {
-              setEventName(e.target.value)
-            }}
-          />
-        </label>
-      </p>
-
-      <fieldset>
-        <legend>Room</legend>
-        {(['roundTables', 'seatsEach', 'topTableSeats'] as const).map((field) => (
-          <p key={field}>
-            <label>
-              {field}{' '}
-              <input
-                type="number"
-                min={0}
-                value={room[field]}
-                onChange={(e) => {
-                  setRoom({ [field]: Number(e.target.value) })
-                }}
-              />
-            </label>
-          </p>
-        ))}
-      </fieldset>
-
-      <p>Guests loaded: {guestCount}</p>
-
-      <button type="button" onClick={reset}>
-        Reset to first visit
-      </button>
-    </main>
+    <AppShell>
+      <CurrentScreen />
+    </AppShell>
   )
+}
+
+function CurrentScreen() {
+  const { tab } = useNavigation()
+
+  switch (tab) {
+    case 'setup':
+      return <Panel>The setup screen lands here (TT-3 and TT-4).</Panel>
+    case 'guests':
+      return <Panel>The guest list lands here (TT-5 and TT-6).</Panel>
+    case 'plan':
+      return <Panel>The plan lands here (TT-11 to TT-15).</Panel>
+  }
 }

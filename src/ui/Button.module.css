@@ -1,0 +1,51 @@
+.button {
+  font: inherit;
+  font-size: var(--text-data);
+  padding: 7px 15px;
+  border-radius: var(--r-control);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}
+
+.primary {
+  background: var(--slate);
+  color: var(--on-slate);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--slate-hover);
+}
+
+.secondary {
+  background: transparent;
+  color: var(--slate);
+  border-color: var(--slate);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+.quiet {
+  background: transparent;
+  color: var(--ink-muted);
+  border-color: var(--rule-strong);
+}
+
+.quiet:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+/* Disabled fill per the style guide's token table: sunken with ink-faint text. Higher
+   specificity than the variant rules above regardless of source order, so it always wins. */
+.button:disabled {
+  cursor: not-allowed;
+  background: var(--sunken);
+  color: var(--ink-faint);
+  border-color: var(--rule);
+}

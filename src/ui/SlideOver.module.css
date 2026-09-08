@@ -1,0 +1,68 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  /* Above the app header's own stacking (AppHeader.module.css), so the dimmed
+     page and the panel it contains always sit on top of the sticky header. */
+  z-index: 10;
+  background: var(--scrim);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.panel {
+  width: clamp(420px, 55%, 720px);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--rule);
+  border-radius: var(--r-card) 0 0 var(--r-card);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Overrides the global h2 (Title step) down to Heading, matching Panel's card title. */
+.title {
+  font-size: var(--text-heading);
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+}
+
+.close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--sunken);
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--rule);
+}

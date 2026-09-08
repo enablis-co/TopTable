@@ -1,0 +1,45 @@
+/* Shared by TextField and Select so the treatment is defined once. */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+}
+
+.field {
+  font: inherit;
+  font-size: var(--text-data);
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.field::placeholder {
+  color: var(--ink-muted);
+}
+
+.field:focus {
+  outline: 2px solid var(--slate);
+  outline-offset: -1px;
+  border-color: var(--slate);
+}
+
+.field:disabled {
+  background: var(--sunken);
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
+
+.hint {
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+  margin: 0;
+}
