@@ -1,0 +1,80 @@
+name: main
+
+on:
+  push:
+    branches: [main]
+
+# One release at a time. Two merges landing together must not both read the same latest
+# tag and compute the same next version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # The same checks the pull request ran, run again on the merge commit. The merge result
+  # is a commit neither side tested on its own.
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Work out the next version
+        id: version
+        run: |
+          set -euo pipefail
+
+          # Re-running this workflow on a commit that already carries a tag must not
+          # produce a second one.
+          existing=$(git tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' | head -1)
+          if [ -n "$existing" ]; then
+            echo "$existing already points at this commit. Nothing to release."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Highest existing tag, by version order rather than by date.
+          latest=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
+
+          if [ -z "$latest" ]; then
+            next=v0.1.0
+          else
+            major=$(printf '%s' "${latest#v}" | cut -d. -f1)
+            minor=$(printf '%s' "${latest#v}" | cut -d. -f2)
+            next="v${major}.$((minor + 1)).0"
+          fi
+
+          # Bumping from the highest tag cannot skip one and cannot land on one already
+          # taken. If it somehow has, stop rather than move an existing tag.
+          if git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
+            echo "$next already exists. Refusing to move it." >&2
+            exit 1
+          fi
+
+          echo "Releasing $next, up from ${latest:-no previous tag}."
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Tag and release
+        if: steps.version.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          set -euo pipefail
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git tag -a "$NEXT" -m "$NEXT"
+          git push origin "refs/tags/$NEXT"
+
+          gh release create "$NEXT" --title "$NEXT" --generate-notes

@@ -1,0 +1,25 @@
+# The gate. Called by the pull request workflow and again by main after a merge, so that
+# both run the same definition rather than two copies of it that drift apart.
+name: checks
+
+on:
+  workflow_call:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm run test
