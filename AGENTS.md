@@ -184,8 +184,8 @@ goes stale.
 ## Where this is incomplete
 
 `src/ui/` (tokens, base styles, the shared components) and `src/shell/` (the header and the tab
-frame) exist now; TT-7 built them. `App.tsx` renders one scaffold line per section until the
-screens land: Setup and Guests are TT-3 to TT-6, the plan is TT-11 to TT-15.
+frame) exist now; TT-7 built them. The setup screen is TT-3 and has landed; TT-4 still adds the
+scenario cards to it. Guests is still TT-5 and TT-6. The plan is still TT-11 to TT-15.
 
 The store's write surface is `setEventName`, `setRoom`, `setGuests` and `reset`. Guest add, edit
 and remove are TT-5, because reciprocal `partnerOf` and `conflictsWith` are real domain behaviour

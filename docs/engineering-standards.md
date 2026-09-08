@@ -19,6 +19,7 @@ src/
   store/      The single store, and its persistence
   ui/         Design system: tokens, base styles, shared components
   shell/      App frame: header, tabs, current section
+  screens/    One folder per section screen
   test/       Vitest setup
   App.tsx     The shell and the section-to-screen map
 public/

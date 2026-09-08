@@ -1,0 +1,63 @@
+/* Single column by default. .withRail is added once there is something for the rail to show —
+   guests loaded or a room configured by hand (SetupScreen decides which) — which is also the
+   only time the aria-live row below gets a second column to span across. */
+.screen {
+  --rail-width: 220px;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  column-gap: var(--space-6);
+  row-gap: var(--space-5);
+}
+
+.withRail {
+  grid-template-columns: 1fr var(--rail-width);
+}
+
+@media (max-width: 720px) {
+  .withRail {
+    grid-template-columns: 1fr;
+  }
+
+  .readoutBounds {
+    max-width: none;
+  }
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/*
+ * KB-6 draws the suggestion line running the full width of the card, underneath the rail —
+ * not confined beside it the way the room form and the readout box are. One aria-live region
+ * has to hold both the readout and the suggestion (two regions would double-announce a single
+ * keystroke, in no guaranteed order), so it is this row that spans full width
+ * (grid-column: 1 / -1) rather than the box inside it — see .readoutBounds.
+ */
+.liveRegion {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* Holds the readout box to the same width as the room form above it — KB-6's "after
+   importing" wireframe has the box's right edge line up with the fields, not the rail. Only
+   the suggestion line below it, and the "No guests yet" line that replaces both when there
+   are none, reach the rail's edge. Reads --rail-width and the column-gap back from .screen
+   so the two stay in step. */
+.readoutBounds {
+  max-width: calc(100% - var(--rail-width) - var(--space-6));
+  min-width: 0;
+}
+
+.emptyCapacity {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink);
+}
