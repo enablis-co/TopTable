@@ -139,6 +139,20 @@ rule is not doing its job.
 And do not plan it yourself instead. `planner` has Write and Edit disallowed, and that is the only
 reason its output is a plan rather than a first draft of the code.
 
+### The plan is a file
+
+`planner` returns a report, and the session that ran it saves that report to
+`.claude/plans/<KEY>.md`, for example `.claude/plans/TT-14.md`. The planner does not write it
+itself: Write and Edit being disallowed there is the only thing keeping its output a plan.
+
+The developers and `tester` read that file rather than re-deriving the plan from Tickety. So does
+`reviewer` — as the author's account of what was intended, alongside the ticket it still reads
+cold. A plan is one agent's reading of the source, and the gap between the two is where TT-3's
+suggestion line ended up in the wrong column.
+
+It is gitignored. A plan is a working artefact for one ticket, and a committed one becomes a second
+place for a requirement to live, which is the thing this file keeps warning about.
+
 ## Branches and commits
 
 - Nothing is committed directly to `main`

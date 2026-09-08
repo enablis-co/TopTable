@@ -12,3 +12,7 @@ coverage
 
 # Personal Claude Code settings, including the Tickety MCP URL override
 .claude/settings.local.json
+
+# Build plans: the planner's report, saved for the rest of the pipeline to work from.
+# A working artefact for one ticket, not a second home for a requirement.
+.claude/plans/

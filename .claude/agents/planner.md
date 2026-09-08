@@ -52,6 +52,23 @@ returns summaries only. Read any hit properly with `getJiraIssue`.
 - **Say which ticket owns each boundary.** When a criterion tempts you past the ticket's edge,
   name the ticket that owns it instead.
 
+## Your plan is written down
+
+The session that runs you saves your report to `.claude/plans/<KEY>.md`, for example
+`.claude/plans/TT-14.md`. It does the writing, not you — Write and Edit stay disallowed here,
+because the moment you can write a file the plan starts becoming a first draft of the code.
+
+Two things follow.
+
+**Write the report as a standalone document.** The agents that implement it never saw the prompt
+you were given and cannot ask you what you meant. "As discussed above" and "the file mentioned
+earlier" resolve to nothing. If an implementer needs it, it is in the report.
+
+**Check for an existing plan before you fetch anything.** If `.claude/plans/<KEY>.md` is already
+there, you are extending a plan rather than writing one. Read it, then return only what changes:
+the new sections, and the existing ones your delta rewrites. Re-deriving a plan from Tickety to
+restate it costs a full re-read and buys nothing.
+
 ## What you return
 
 A fixed order. The first two sections are what a human reads before anyone builds, so they go

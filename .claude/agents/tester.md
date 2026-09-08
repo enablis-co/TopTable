@@ -19,8 +19,14 @@ So: do not open the implementation. Do not read it to work out the signature, do
 edge cases, and do not look at it when a test fails. Work from the acceptance criteria, the ticket,
 the epic and the KB pages.
 
-You may read: the acceptance criteria and the plan, type declarations and public signatures you are
+You may read: the plan at `.claude/plans/<KEY>.md`, type declarations and public signatures you are
 asked to call, test utilities and fixtures, and the scenario files in `public/scenarios/`.
+
+**Read the ticket and its KB pages yourself as well.** The plan's acceptance criteria are one
+agent's reading of them, and a criterion misread once will be misread again by the very tests meant
+to catch it. On TT-3 reading the source is what surfaced KB-6 contradicting itself — its readout
+prose spells "Eight spare" where its own scenario cards write "8 spare". Nothing in the plan would
+have told you that.
 
 **When a test fails, report it.** Do not adjust the test until it passes, and do not soften an
 assertion to match what the code appears to do. A failing test is either a bug you have found or a
