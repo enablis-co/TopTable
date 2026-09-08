@@ -1,0 +1,18 @@
+/*
+ * A placeholder, not the design system.
+ *
+ * The tokens, the type scale and the shell are TT-7, taken from KB-5 and the style guide
+ * at docs/style-guide.html. Nothing here is a design decision and nothing should be built
+ * on top of it: TT-7 replaces this file. It is deliberately plain rather than
+ * half-branded, so that no one mistakes it for the real thing.
+ */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}

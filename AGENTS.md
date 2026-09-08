@@ -15,9 +15,57 @@ the screens — is the half you will miss by default.
 **Do not infer a requirement you could have fetched.** If you have not read the ticket, its epic
 and the pages they point at, you are guessing.
 
+## Connecting to Tickety
+
+`.mcp.json` is committed and reads `${TICKETY_MCP_URL:-https://tickety.enablis.co/mcp}`. **The
+public host is not deployed.** The default names where it will live so that nothing in this repo
+has to change on the day it goes up. Until then each of us overrides it locally.
+
+Two things have to be true, and neither is true on a fresh clone.
+
+**1. Tickety is running.** It is a separate repo, cloned alongside this one.
+
 ```bash
-export TICKETY_MCP_URL=http://localhost:3000/mcp   # local; .mcp.json defaults to the public host
+cd ../tickety && npm ci && npm run dev    # serves http://localhost:3000/mcp
 ```
+
+Leave it running. Nothing in this repo starts it, and nothing in this repo should try.
+
+**2. This project points at it.** Create `.claude/settings.local.json`, which is gitignored and
+therefore yours alone. A shell `export` of the same variable also works and is the better choice
+for a terminal session; the settings file is the one that reaches the desktop app, which does not
+read your shell profile.
+
+```json
+{
+  "env": {
+    "TICKETY_MCP_URL": "http://localhost:3000/mcp"
+  }
+}
+```
+
+**Then restart the session.** MCP servers connect once, at startup. Changing the variable or
+`.mcp.json` mid-session does nothing until you restart. Trust the folder when prompted, because
+`env` values in a settings file do not apply before you do.
+
+### Knowing whether it worked
+
+Six tools: `getJiraIssue`, `getConfluencePage`, `getJiraIssueRemoteIssueLinks`,
+`searchJiraIssuesUsingJql`, `addCommentToJiraIssue` and `transitionJiraIssue`. The parameter is
+`issueKey` on the first, `pageId` on the second. Call `getJiraIssue` on `TT-3`; it returns "Set up
+the room".
+
+Read the failure rather than working around it:
+
+| Error | Meaning |
+|---|---|
+| `ENOTFOUND tickety.enablis.co` | The variable never reached the client and it fell back to the undeployed host |
+| `ECONNREFUSED 127.0.0.1:3000` | The variable arrived. Tickety is not running |
+| Tools absent entirely | The server failed at startup, or the project's MCP servers are unapproved |
+
+**A failure here is not a missing capability, and it is not a reason to proceed.** If the tools
+are absent, stop and fix it. Building from the repo alone is the guessing this file exists to
+prevent, and it is worse than not starting, because the result looks finished.
 
 ## Getting a ticket's requirements
 
@@ -77,17 +125,47 @@ rather than raising the model.
 - Every commit message carries the issue key, first: `TT-14: add the capacity rule`
 - Work that belongs to no ticket does not get committed
 
+Two hooks in `.githooks/` refuse the first three, and `npm ci` installs them by pointing
+`core.hooksPath` at that folder. The fourth is yours to keep: if you cannot name the ticket, the
+work is not ready to commit. [docs/git-and-releases.md](docs/git-and-releases.md) has the detail.
+
 ## Done
 
 ```bash
 npm run typecheck && npm run lint && npm run test
 ```
 
+Or `npm run verify`, which is the same three.
+
 All of them, not the tests you just wrote. A change is not done because it worked when you tried
-it by hand. CI runs the same checks on the pull request and again on merge.
+it by hand. CI runs the same three on the pull request and again on merge, from one reusable
+workflow rather than two copies that drift. A merge to `main` then tags a version and cuts a
+release: minor bump each time, starting at `v0.1.0`.
+
+**A failing check blocks the merge only if the check is required.** That is a branch protection
+setting on the repository, not something this repo can enforce.
+
+## The detail is in docs/
+
+This file is the entry point and stays short enough to be read. The standards behind it are in
+[`docs/`](docs/README.md):
+
+| Page | What it covers |
+|---|---|
+| [engineering-standards.md](docs/engineering-standards.md) | Stack, layout, the domain and UI split, TypeScript, testing, the gate |
+| [state.md](docs/state.md) | The single store, what it holds and does not hold, persistence, first visit |
+| [git-and-releases.md](docs/git-and-releases.md) | Branches, commits, the hooks, the pipeline, how versions are applied |
+| [style-guide.html](docs/style-guide.html) | The brand, as a working page. Design's file, not ours to edit |
+
+Nothing in `docs/` restates a requirement. Requirements live in Tickety, and a copy is a copy that
+goes stale.
 
 ## Where this is incomplete
 
-This is the bootstrap. `TT-2` is the ticket that finishes it: the `.claude/agents/` definitions,
-`docs/` for the engineering standards, and the pipeline. Fetch `TT-2` and work from that rather
-than from this file.
+`src/App.tsx` and `src/index.css` are scaffold placeholders and are deliberately plain rather than
+half-branded. TT-7 replaces them with the tokens, the type scale and the shell; the three screens
+are TT-3 to TT-6. Do not extend the placeholder.
+
+The store's write surface is `setEventName`, `setRoom`, `setGuests` and `reset`. Guest add, edit
+and remove are TT-5, because reciprocal `partnerOf` and `conflictsWith` are real domain behaviour
+with their own acceptance criteria. See [docs/state.md](docs/state.md).

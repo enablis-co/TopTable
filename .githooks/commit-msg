@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# Every commit message carries the issue key, first: "TT-14: add the capacity rule".
+#
+# Work that belongs to no ticket does not get committed, so there is no escape hatch here
+# beyond git's own --no-verify. If you are reaching for that, the work wants a ticket.
+#
+# Installed by `npm ci`, which runs the prepare script and points core.hooksPath here.
+
+subject=$(sed -n '1p' "$1")
+
+# Git's own machinery writes these and they are not ours to reformat.
+case "$subject" in
+  "Merge "*|"Revert "*|"fixup!"*|"squash!"*|"amend!"*|"Reapply "*) exit 0 ;;
+esac
+
+if printf '%s' "$subject" | grep -qE '^TT-[0-9]+: .+'; then
+  exit 0
+fi
+
+cat >&2 <<MESSAGE
+
+The commit message does not lead with an issue key.
+
+  wrote     $subject
+  wanted    TT-14: add the capacity rule
+
+The key comes first, then a colon and a space, then what the commit does. Work that
+belongs to no ticket does not get committed; see AGENTS.md, "Branches and commits".
+
+MESSAGE
+exit 1

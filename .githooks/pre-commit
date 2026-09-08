@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# Two rules from AGENTS.md, "Branches and commits":
+#   nothing is committed directly to main
+#   every branch name carries the issue key, as in feat/TT-14-rules-engine
+#
+# This runs before you write a message rather than after, so a wrong branch costs nothing.
+
+# A rebase, a merge or a bisect leaves HEAD detached and commits on your behalf. Not ours
+# to police.
+branch=$(git symbolic-ref --short -q HEAD) || exit 0
+
+if [ "$branch" = "main" ]; then
+  cat >&2 <<MESSAGE
+
+You are on main, and nothing is committed directly to main.
+
+  git switch -c feat/TT-14-rules-engine
+
+Every branch carries the issue key. Everything reaches main through a pull request, so
+that the pipeline has run before the merge.
+
+MESSAGE
+  exit 1
+fi
+
+if ! printf '%s' "$branch" | grep -qE 'TT-[0-9]+'; then
+  cat >&2 <<MESSAGE
+
+The branch name does not carry an issue key.
+
+  on        $branch
+  wanted    feat/TT-14-rules-engine
+
+Rename it and commit again:
+
+  git branch -m feat/TT-14-what-it-does
+
+MESSAGE
+  exit 1
+fi

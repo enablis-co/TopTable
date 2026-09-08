@@ -1,0 +1,11 @@
+name: pull request
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # A failure here blocks the merge. Require this check in the branch protection rule for
+  # main, or the block is a convention rather than a gate.
+  checks:
+    uses: ./.github/workflows/checks.yml

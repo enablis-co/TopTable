@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+.DS_Store
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.vite
+
+# Personal Claude Code settings, including the Tickety MCP URL override
+.claude/settings.local.json
