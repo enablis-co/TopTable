@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="Top Table">
+  <title>Top Table</title>
+  <rect x="7" y="6" width="26" height="7" rx="3.5" fill="#23303F"/>
+  <circle cx="12" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="1.8"/>
+  <circle cx="28" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="1.8"/>
+  <circle cx="20" cy="34" r="4.6" fill="none" stroke="#1C1B18" stroke-width="1.8"/>
+</svg>

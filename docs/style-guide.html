@@ -1,0 +1,310 @@
+<meta charset="utf-8">
+<title>Top Table — style guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:#F7F5F0; --surface:#FFFFFF; --sunken:#EFECE4;
+    --ink:#1C1B18; --ink-muted:#6B6862; --ink-faint:#9A968D;
+    --rule:#DDD8CE; --rule-strong:#C4BDB0;
+    --slate:#23303F; --slate-hover:#2F4055;
+    --hard:#B3261E; --hard-wash:#FBF0EF; --hard-deep:#8C3B34;
+    --soft:#B26A00; --soft-wash:#FBF5EA; --soft-deep:#8A5A16;
+    --r-control:4px; --r-card:8px;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif; font-size:14px; line-height:1.6;
+    font-feature-settings:'tnum' 0;
+  }
+  .wrap { max-width:980px; margin:0 auto; padding:56px 32px 96px; }
+  h1,h2,h3 { font-weight:500; margin:0; letter-spacing:-0.2px; }
+  h1 { font-size:32px; line-height:1.15; }
+  h2 { font-size:22px; line-height:1.2; }
+  h3 { font-size:17px; line-height:1.3; }
+  p { margin:0 0 12px; max-width:62ch; }
+  .muted { color:var(--ink-muted); }
+  .faint { color:var(--ink-faint); }
+  .num { font-variant-numeric:tabular-nums; }
+  section { padding:44px 0; border-top:1px solid var(--rule); }
+  section:first-of-type { border-top:0; }
+  .lede { margin:6px 0 28px; color:var(--ink-muted); max-width:62ch; }
+  code { font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:13px; background:var(--sunken); padding:1px 5px; border-radius:3px; }
+
+  .hero { display:flex; align-items:center; gap:22px; margin-bottom:8px; }
+  .wordmark { font-size:34px; font-weight:500; letter-spacing:-0.5px; }
+
+  .swatches { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-top:20px; }
+  .sw { border:1px solid var(--rule); border-radius:var(--r-card); overflow:hidden; background:var(--surface); }
+  .sw i { display:block; height:56px; }
+  .sw b { display:block; font-weight:500; font-size:13px; padding:8px 10px 0; }
+  .sw span { display:block; font-size:12px; color:var(--ink-muted); padding:0 10px 9px; font-variant-numeric:tabular-nums; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:14px; }
+  th { text-align:left; font-weight:500; color:var(--ink-muted); font-size:12px; padding:0 12px 7px 0; border-bottom:1px solid var(--rule); }
+  td { padding:9px 12px 9px 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  td.n { font-variant-numeric:tabular-nums; }
+
+  .panel { background:var(--surface); border:1px solid var(--rule); border-radius:var(--r-card); padding:18px 20px; }
+  .row { display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  .stack { display:flex; flex-direction:column; gap:10px; }
+
+  .btn { font:inherit; font-size:13px; padding:7px 15px; border-radius:var(--r-control); cursor:pointer; border:1px solid transparent; }
+  .btn-primary { background:var(--slate); color:#fff; }
+  .btn-primary:hover { background:var(--slate-hover); }
+  .btn-secondary { background:transparent; color:var(--slate); border-color:var(--slate); }
+  .btn-secondary:hover { background:var(--sunken); }
+  .btn-quiet { background:transparent; color:var(--ink-muted); border-color:var(--rule-strong); }
+  .btn:focus-visible { outline:2px solid var(--slate); outline-offset:2px; }
+
+  .field { font:inherit; font-size:13px; padding:7px 10px; border:1px solid var(--rule-strong); border-radius:var(--r-control); background:var(--surface); color:var(--ink); min-width:180px; }
+  .field:focus { outline:2px solid var(--slate); outline-offset:-1px; border-color:var(--slate); }
+
+  .tag { display:inline-block; font-size:12px; padding:2px 10px; border-radius:11px; background:var(--sunken); color:var(--ink-muted); border:1px solid var(--rule); }
+
+  .v { padding:8px 12px; margin-bottom:6px; }
+  .v-hard { border-left:3px solid var(--hard); background:var(--hard-wash); }
+  .v-soft { border-left:3px solid var(--soft); background:var(--soft-wash); }
+  .v b { display:block; font-weight:400; font-size:13px; }
+  .v span { font-size:12px; }
+  .v-hard span { color:var(--hard-deep); }
+  .v-soft span { color:var(--soft-deep); }
+
+  .cap { border:1px solid var(--rule-strong); border-radius:var(--r-card); padding:12px 15px; background:var(--surface); max-width:420px; }
+  .cap b { display:block; font-weight:500; font-size:15px; font-variant-numeric:tabular-nums; }
+  .cap span { font-size:12px; color:var(--ink-muted); font-variant-numeric:tabular-nums; }
+
+  .dont { border-left:3px solid var(--rule-strong); padding-left:14px; margin:10px 0; }
+  .dont b { font-weight:500; }
+  .scale-row { display:flex; align-items:baseline; gap:18px; padding:9px 0; border-bottom:1px solid var(--rule); }
+  .scale-row .lab { font-size:12px; color:var(--ink-faint); width:120px; flex:none; font-variant-numeric:tabular-nums; }
+</style>
+
+<div class="wrap">
+
+<div class="hero">
+  <svg viewBox="0 0 40 40" width="56" height="56" role="img" aria-label="Top Table">
+    <rect x="7" y="6" width="26" height="7" rx="3.5" fill="#23303F"/>
+    <circle cx="12" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="1.8"/>
+    <circle cx="28" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="1.8"/>
+    <circle cx="20" cy="34" r="4.6" fill="none" stroke="#1C1B18" stroke-width="1.8"/>
+  </svg>
+  <div>
+    <div class="wordmark">Top Table</div>
+    <div class="muted">Style guide, ink and marker</div>
+  </div>
+</div>
+
+<section>
+  <h2>The mark</h2>
+  <p class="lede">A wide bar with round tables beneath it. A room seen from above, which is the app's main screen. Nothing to decode.</p>
+
+  <div class="panel">
+    <div class="row" style="gap:40px;">
+      <div style="text-align:center;">
+        <svg viewBox="0 0 40 40" width="16" height="16"><rect x="7" y="6" width="26" height="7" rx="3.5" fill="#23303F"/><circle cx="12" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="2.6"/><circle cx="28" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="2.6"/><circle cx="20" cy="34" r="4.6" fill="none" stroke="#1C1B18" stroke-width="2.6"/></svg>
+        <div class="faint" style="font-size:12px; margin-top:6px;">16px</div>
+      </div>
+      <div style="text-align:center;">
+        <svg viewBox="0 0 40 40" width="24" height="24"><rect x="7" y="6" width="26" height="7" rx="3.5" fill="#23303F"/><circle cx="12" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="2.2"/><circle cx="28" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="2.2"/><circle cx="20" cy="34" r="4.6" fill="none" stroke="#1C1B18" stroke-width="2.2"/></svg>
+        <div class="faint" style="font-size:12px; margin-top:6px;">24px</div>
+      </div>
+      <div style="text-align:center;">
+        <svg viewBox="0 0 40 40" width="40" height="40"><rect x="7" y="6" width="26" height="7" rx="3.5" fill="#23303F"/><circle cx="12" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="1.8"/><circle cx="28" cy="24" r="4.6" fill="none" stroke="#1C1B18" stroke-width="1.8"/><circle cx="20" cy="34" r="4.6" fill="none" stroke="#1C1B18" stroke-width="1.8"/></svg>
+        <div class="faint" style="font-size:12px; margin-top:6px;">40px</div>
+      </div>
+      <div style="background:var(--slate); border-radius:var(--r-card); padding:12px 16px; display:flex; align-items:center; gap:10px;">
+        <svg viewBox="0 0 40 40" width="22" height="22"><rect x="7" y="6" width="26" height="7" rx="3.5" fill="#fff"/><circle cx="12" cy="24" r="4.6" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="28" cy="24" r="4.6" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="20" cy="34" r="4.6" fill="none" stroke="#fff" stroke-width="2.2"/></svg>
+        <span style="color:#fff; font-weight:500; font-size:14px;">Top Table</span>
+      </div>
+    </div>
+  </div>
+
+  <p style="margin-top:20px;">Stroke weight increases as the mark gets smaller, from 1.8 at 40px to 2.6 at 16px, so the circles hold their shape. Clear space on all sides is the height of the bar.</p>
+
+  <div class="dont"><b>Never</b> recolour the mark to carry state. It is brand, not interface. Violations use red and amber, the mark stays ink and slate.</div>
+  <div class="dont"><b>Never</b> set the wordmark in anything but Plex Sans 500 with <code>-0.5px</code> tracking. Both T's capitalised, no other case treatment.</div>
+</section>
+
+<section>
+  <h2>Colour</h2>
+  <p class="lede">Warm paper rather than cool grey. Warm neutrals keep their character on a projector, where cool greys wash out to a flat nothing.</p>
+
+  <h3 style="margin-top:26px;">Surfaces and ink</h3>
+  <div class="swatches">
+    <div class="sw"><i style="background:#F7F5F0; border-bottom:1px solid var(--rule);"></i><b>Paper</b><span>#F7F5F0</span></div>
+    <div class="sw"><i style="background:#FFFFFF; border-bottom:1px solid var(--rule);"></i><b>Surface</b><span>#FFFFFF</span></div>
+    <div class="sw"><i style="background:#EFECE4;"></i><b>Sunken</b><span>#EFECE4</span></div>
+    <div class="sw"><i style="background:#1C1B18;"></i><b>Ink</b><span>#1C1B18</span></div>
+    <div class="sw"><i style="background:#6B6862;"></i><b>Ink muted</b><span>#6B6862</span></div>
+    <div class="sw"><i style="background:#9A968D;"></i><b>Ink faint</b><span>#9A968D</span></div>
+    <div class="sw"><i style="background:#DDD8CE;"></i><b>Rule</b><span>#DDD8CE</span></div>
+    <div class="sw"><i style="background:#C4BDB0;"></i><b>Rule strong</b><span>#C4BDB0</span></div>
+  </div>
+
+  <h3 style="margin-top:32px;">Accent and severity</h3>
+  <div class="swatches">
+    <div class="sw"><i style="background:#23303F;"></i><b>Slate</b><span>#23303F</span></div>
+    <div class="sw"><i style="background:#2F4055;"></i><b>Slate hover</b><span>#2F4055</span></div>
+    <div class="sw"><i style="background:#B3261E;"></i><b>Hard</b><span>#B3261E</span></div>
+    <div class="sw"><i style="background:#FBF0EF; border-bottom:1px solid var(--rule);"></i><b>Hard wash</b><span>#FBF0EF</span></div>
+    <div class="sw"><i style="background:#B26A00;"></i><b>Soft</b><span>#B26A00</span></div>
+    <div class="sw"><i style="background:#FBF5EA; border-bottom:1px solid var(--rule);"></i><b>Soft wash</b><span>#FBF5EA</span></div>
+  </div>
+
+  <table>
+    <tr><th style="width:130px;">Token</th><th>Where it goes</th></tr>
+    <tr><td>Paper</td><td>Page background. Never a card.</td></tr>
+    <tr><td>Surface</td><td>Cards, panels, the guest table, the slide-over.</td></tr>
+    <tr><td>Sunken</td><td>Tag pills, inline code, disabled fills.</td></tr>
+    <tr><td>Slate</td><td>Primary buttons and the pinned marker. One primary action per view.</td></tr>
+    <tr><td>Hard</td><td>Violations that stop a plan publishing. Left bar and label only, never a fill.</td></tr>
+    <tr><td>Soft</td><td>Violations that are reported and never block.</td></tr>
+  </table>
+
+  <div class="dont" style="border-left-color:var(--hard); margin-top:22px;"><b>Colour never carries meaning on its own.</b> Hard violations get a solid 3px left bar, soft get the same bar in amber, pinned guests get a filled dot, tables in violation get a dashed outline. Strip every colour out and the screen still reads. This is not an accessibility footnote, it is the projector requirement.</div>
+</section>
+
+<section>
+  <h2>Type</h2>
+  <p class="lede">IBM Plex Sans throughout, two weights. Drawn for technical product work, and its figures are properly designed, which matters when every column in this app is a number that updates as you type.</p>
+
+  <div class="scale-row"><span class="lab">Display 32 / 500</span><span style="font-size:32px; font-weight:500; letter-spacing:-0.5px;">Top Table</span></div>
+  <div class="scale-row"><span class="lab">Title 22 / 500</span><span style="font-size:22px; font-weight:500;">78 seats for 70 guests</span></div>
+  <div class="scale-row"><span class="lab">Heading 17 / 500</span><span style="font-size:17px; font-weight:500;">Start from a scenario</span></div>
+  <div class="scale-row"><span class="lab">Body 14 / 400</span><span style="font-size:14px;">Placing a guest by hand pins them in that seat.</span></div>
+  <div class="scale-row"><span class="lab">Data 13 / 400 tnum</span><span class="num" style="font-size:13px;">9 of 8 seats · 3 pinned · 67 unseated</span></div>
+  <div class="scale-row"><span class="lab">Caption 12 / 400</span><span style="font-size:12px; color:var(--ink-muted);">Change scenario</span></div>
+
+  <p style="margin-top:22px;"><b style="font-weight:500;">Tabular figures on anything that changes.</b> Capacity readouts, seat counts, table fills, guest totals. Proportional figures jitter as the numbers update and the columns stop lining up.</p>
+
+  <div class="panel" style="margin-top:12px; max-width:420px;">
+    <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>Proportional</span><span style="font-variant-numeric:proportional-nums;">111 / 78 / 216</span></div>
+    <div style="display:flex; justify-content:space-between; padding:4px 0;"><span>Tabular</span><span class="num">111 / 78 / 216</span></div>
+  </div>
+
+  <p style="margin-top:22px;">Weights 400 and 500 only. Nothing heavier. Sentence case everywhere, including buttons and column headers. No all-caps labels.</p>
+</section>
+
+<section>
+  <h2>Severity</h2>
+  <p class="lede">The system the whole product turns on. Hard stops a plan publishing. Soft is reported and never blocks. Both are read at a glance from across a room.</p>
+
+  <div class="panel" style="max-width:440px;">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px;">
+      <span style="font-weight:500;">Violations</span><span class="muted" style="font-size:12px;">1 rule registered</span>
+    </div>
+    <div class="v v-hard"><b>Table 8 over capacity</b><span class="num">Hard · 9 of 8</span></div>
+    <div class="v v-soft"><b>Danny and Leah are not sat together</b><span>Soft · partners</span></div>
+  </div>
+
+  <table>
+    <tr><th style="width:130px;">State</th><th>Colour</th><th>Shape</th></tr>
+    <tr><td>Hard violation</td><td>Hard on hard wash</td><td>3px solid left bar</td></tr>
+    <tr><td>Soft violation</td><td>Soft on soft wash</td><td>3px solid left bar, lighter</td></tr>
+    <tr><td>Pinned by hand</td><td>Slate</td><td>Filled 3px dot on the table</td></tr>
+    <tr><td>Table in violation</td><td>Hard</td><td>Dashed outline</td></tr>
+    <tr><td>No violations</td><td>Ink muted</td><td>Plain text, no green tick</td></tr>
+  </table>
+
+  <p style="margin-top:16px;">There is no success colour. A plan with nothing wrong says so in words. Adding green would mean four colours competing on one panel, and it would imply the plan is finished when it has only passed the rules that exist.</p>
+</section>
+
+<section>
+  <h2>Components</h2>
+
+  <h3>Buttons</h3>
+  <p class="lede" style="margin-bottom:14px;">One primary per view. On the plan screen that is Auto-allocate, and nothing else competes with it.</p>
+  <div class="row">
+    <button class="btn btn-primary">Auto-allocate</button>
+    <button class="btn btn-secondary">Add guest</button>
+    <button class="btn btn-quiet">Change scenario</button>
+  </div>
+
+  <h3 style="margin-top:32px;">Fields</h3>
+  <div class="row" style="margin-top:12px;">
+    <input class="field" placeholder="Search name or tag">
+    <input class="field" style="min-width:110px;" placeholder="Round tables">
+    <input class="field" style="min-width:110px;" value="9">
+  </div>
+  <p style="margin-top:12px;">Placeholders are a real example of valid input, never a repeat of the label.</p>
+
+  <h3 style="margin-top:32px;">Tags</h3>
+  <div class="row" style="margin-top:12px;">
+    <span class="tag">uni</span><span class="tag">footie</span><span class="tag">family</span><span class="tag">work</span><span class="tag">neighbours</span>
+  </div>
+  <p style="margin-top:12px;">Always sunken on surface, never coloured. Tags group people, they do not signal anything, and colouring them would compete with severity.</p>
+
+  <h3 style="margin-top:32px;">Capacity readout</h3>
+  <p class="lede" style="margin-bottom:14px;">The most-read component in the app. Three states, all calm. Short is a warning, not an error, and it blocks nothing.</p>
+  <div class="stack" style="max-width:420px;">
+    <div class="cap"><b>78 seats for 70 guests. Eight spare.</b><span>9 × 8, plus a top table of 6</span></div>
+    <div class="cap" style="border-color:var(--slate);"><b>70 seats for 70 guests. Exactly enough.</b><span>8 × 8, plus a top table of 6</span></div>
+    <div class="cap" style="border-color:var(--soft);"><b>62 seats for 70 guests. Eight short.</b><span>7 × 8, plus a top table of 6</span></div>
+  </div>
+
+  <h3 style="margin-top:32px;">Guest row</h3>
+  <div class="panel" style="margin-top:12px; padding:14px 18px;">
+    <table style="margin-top:0;">
+      <tr><th>Name</th><th>Side</th><th>Role</th><th>Tags</th><th>Needs</th></tr>
+      <tr><td>Danny Whitaker</td><td>Groom</td><td>Best man</td><td><span class="tag">uni</span> <span class="tag">footie</span></td><td>—</td></tr>
+      <tr><td>Maureen Shah</td><td>Bride</td><td>Mother of the bride</td><td><span class="tag">family</span></td><td>Step-free access</td></tr>
+      <tr style="border-bottom:0;"><td style="border-bottom:0;">Amara Lindqvist</td><td style="border-bottom:0;">Bride</td><td style="border-bottom:0;">Bridesmaid</td><td style="border-bottom:0;"><span class="tag">uni</span></td><td style="border-bottom:0;">Nuts</td></tr>
+    </table>
+  </div>
+  <p style="margin-top:12px;">Hairline rows, no cards. This list reaches 200. Dietary preferences are not a column, they are a catering count and appear in the form and the table detail only.</p>
+
+  <h3 style="margin-top:32px;">Floorplan</h3>
+  <div class="panel" style="margin-top:12px;">
+    <svg viewBox="0 0 420 150" width="100%" height="150" role="img" aria-label="Floorplan table states">
+      <rect x="130" y="10" width="160" height="26" rx="6" fill="none" stroke="#23303F" stroke-width="1.6"/>
+      <text x="169" y="27" font-family="IBM Plex Sans" font-size="12" fill="#1C1B18">Top table · 6 seats</text>
+      <circle cx="70" cy="98" r="28" fill="none" stroke="#C4BDB0" stroke-width="1.6"/>
+      <text x="64" y="102" font-family="IBM Plex Sans" font-size="12" fill="#6B6862">1</text>
+      <text x="42" y="140" font-family="IBM Plex Sans" font-size="11" fill="#9A968D">empty</text>
+      <circle cx="175" cy="98" r="28" fill="none" stroke="#1C1B18" stroke-width="1.6"/>
+      <text x="169" y="102" font-family="IBM Plex Sans" font-size="12" fill="#1C1B18">2</text>
+      <circle cx="192" cy="80" r="3.4" fill="#23303F"/>
+      <text x="150" y="140" font-family="IBM Plex Sans" font-size="11" fill="#9A968D">has a pin</text>
+      <circle cx="280" cy="98" r="28" fill="none" stroke="#B3261E" stroke-width="1.6" stroke-dasharray="5 3"/>
+      <text x="274" y="102" font-family="IBM Plex Sans" font-size="12" fill="#1C1B18">3</text>
+      <text x="248" y="140" font-family="IBM Plex Sans" font-size="11" fill="#9A968D">in violation</text>
+      <circle cx="370" cy="98" r="28" fill="#EFECE4" stroke="#C4BDB0" stroke-width="1.6"/>
+      <text x="364" y="102" font-family="IBM Plex Sans" font-size="12" fill="#6B6862">4</text>
+      <text x="344" y="140" font-family="IBM Plex Sans" font-size="11" fill="#9A968D">full</text>
+    </svg>
+  </div>
+  <p style="margin-top:12px;">The grid is drawn from config, not fixed. Small and cosy renders five tables, celebrity scale renders twenty-seven, and both have to stay legible.</p>
+</section>
+
+<section>
+  <h2>Spacing and shape</h2>
+  <table>
+    <tr><th style="width:130px;">Token</th><th>Value</th><th>Use</th></tr>
+    <tr><td>Scale</td><td class="n">4 · 8 · 12 · 16 · 24 · 32 · 48</td><td>Everything. No values off the scale.</td></tr>
+    <tr><td>Control radius</td><td class="n">4px</td><td>Buttons, fields, violation blocks</td></tr>
+    <tr><td>Card radius</td><td class="n">8px</td><td>Panels, scenario cards, the slide-over</td></tr>
+    <tr><td>Pill radius</td><td class="n">11px</td><td>Tags only</td></tr>
+    <tr><td>Borders</td><td class="n">1px</td><td>Rule by default, rule strong for fields and emphasis</td></tr>
+    <tr><td>Shadows</td><td>None</td><td>Depth comes from surface against paper</td></tr>
+  </table>
+  <p style="margin-top:16px;">No shadows anywhere. White on warm paper already separates, and soft grey shadows under every card is the look this brand is trying not to be.</p>
+</section>
+
+<section>
+  <h2>Words</h2>
+  <table>
+    <tr><th style="width:180px;">Instead of</th><th>Write</th></tr>
+    <tr><td>Submit</td><td>Save guest</td></tr>
+    <tr><td>Generate seating plan</td><td>Auto-allocate</td></tr>
+    <tr><td>Error: capacity exceeded</td><td>Table 8 over capacity</td></tr>
+    <tr><td>No guests yet</td><td>Start from a scenario, or add your first guest</td></tr>
+    <tr><td>Successfully saved!</td><td>Saved</td></tr>
+    <tr><td>Load Demo Data</td><td>Load demo data</td></tr>
+  </table>
+  <p style="margin-top:16px;">Sentence case, active voice, no exclamation marks. An empty screen is an invitation, not an apology. An action keeps its name through the whole flow, so the button that says Auto-allocate produces a state that says allocated.</p>
+</section>
+
+</div>

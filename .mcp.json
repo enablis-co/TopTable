@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "tickety": {
+      "type": "http",
+      "url": "${TICKETY_MCP_URL:-https://tickety.enablis.co/mcp}"
+    }
+  }
+}

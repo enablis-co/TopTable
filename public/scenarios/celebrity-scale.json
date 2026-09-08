@@ -1,0 +1,3635 @@
+{
+  "meta": {
+    "scenario": "Celebrity scale",
+    "guests": 200,
+    "tables": {
+      "roundTables": 26,
+      "seatsEach": 8,
+      "topTableSeats": 8
+    },
+    "seats": 216,
+    "spare": 16
+  },
+  "guests": [
+    {
+      "id": "g-001",
+      "name": "Priya Shah",
+      "side": "both",
+      "role": "bride",
+      "age": 33,
+      "household": "couple",
+      "partnerOf": "g-002",
+      "conflictsWith": [],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegetarian"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-002",
+      "name": "Tom Whitaker",
+      "side": "both",
+      "role": "groom",
+      "age": 35,
+      "household": "couple",
+      "partnerOf": "g-001",
+      "conflictsWith": [],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-003",
+      "name": "Maureen Shah",
+      "side": "bride",
+      "role": "mother of the bride",
+      "age": 64,
+      "household": "shah-parents",
+      "partnerOf": "g-004",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-004",
+      "name": "Sanjay Shah",
+      "side": "bride",
+      "role": "father of the bride",
+      "age": 67,
+      "household": "shah-parents",
+      "partnerOf": "g-003",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-005",
+      "name": "Barbara Whitaker",
+      "side": "groom",
+      "role": "mother of the groom",
+      "age": 62,
+      "household": "whitaker-parents",
+      "partnerOf": "g-006",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-006",
+      "name": "Geoffrey Whitaker",
+      "side": "groom",
+      "role": "father of the groom",
+      "age": 66,
+      "household": "whitaker-parents",
+      "partnerOf": "g-005",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "gluten free"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-007",
+      "name": "Danny Whitaker",
+      "side": "groom",
+      "role": "best man",
+      "age": 34,
+      "household": "d-whitaker",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "uni",
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-008",
+      "name": "Leah Okonjo",
+      "side": "bride",
+      "role": "chief bridesmaid",
+      "age": 32,
+      "household": "l-okonjo",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "halal"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-009",
+      "name": "Meera Doyle",
+      "side": "bride",
+      "role": "bridesmaid",
+      "age": 35,
+      "household": "party-0",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-010",
+      "name": "Rhys Bennett",
+      "side": "groom",
+      "role": "groomsman",
+      "age": 31,
+      "household": "party-1",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-011",
+      "name": "Tara Bailey",
+      "side": "bride",
+      "role": "bridesmaid",
+      "age": 35,
+      "household": "party-2",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-012",
+      "name": "Arjun Nowak",
+      "side": "groom",
+      "role": "groomsman",
+      "age": 31,
+      "household": "party-3",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-013",
+      "name": "Hannah Nkemelu",
+      "side": "bride",
+      "role": "bridesmaid",
+      "age": 35,
+      "household": "party-4",
+      "partnerOf": null,
+      "conflictsWith": [
+        "g-069"
+      ],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-014",
+      "name": "Nathan Novak",
+      "side": "groom",
+      "role": "groomsman",
+      "age": 27,
+      "household": "party-5",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-015",
+      "name": "Vikram Silva",
+      "side": "bride",
+      "role": "guest",
+      "age": 68,
+      "household": "h-1",
+      "partnerOf": "g-016",
+      "conflictsWith": [],
+      "tags": [
+        "school",
+        "book club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-016",
+      "name": "Christine Silva",
+      "side": "bride",
+      "role": "guest",
+      "age": 63,
+      "household": "h-1",
+      "partnerOf": "g-015",
+      "conflictsWith": [],
+      "tags": [
+        "school",
+        "book club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-017",
+      "name": "Hannah Bennett",
+      "side": "groom",
+      "role": "guest",
+      "age": 38,
+      "household": "h-2",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-018",
+      "name": "Derek Greenwood",
+      "side": "groom",
+      "role": "guest",
+      "age": 80,
+      "household": "h-3",
+      "partnerOf": "g-019",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "away from the speakers"
+      ],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-019",
+      "name": "Marilyn Greenwood",
+      "side": "groom",
+      "role": "guest",
+      "age": 77,
+      "household": "h-3",
+      "partnerOf": "g-018",
+      "conflictsWith": [
+        "g-189"
+      ],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [
+        "step-free access"
+      ],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-020",
+      "name": "Sian Doyle",
+      "side": "groom",
+      "role": "guest",
+      "age": 35,
+      "household": "h-4",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-021",
+      "name": "Elliot Nkemelu",
+      "side": "groom",
+      "role": "guest",
+      "age": 38,
+      "household": "h-5",
+      "partnerOf": "g-022",
+      "conflictsWith": [
+        "g-066"
+      ],
+      "tags": [
+        "school",
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-022",
+      "name": "Nisha Nkemelu",
+      "side": "groom",
+      "role": "guest",
+      "age": 35,
+      "household": "h-5",
+      "partnerOf": "g-021",
+      "conflictsWith": [
+        "g-077"
+      ],
+      "tags": [
+        "school",
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-023",
+      "name": "Freddie Nkemelu",
+      "side": "groom",
+      "role": "guest",
+      "age": 4,
+      "household": "h-5",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "school",
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-024",
+      "name": "Adam Osei",
+      "side": "groom",
+      "role": "guest",
+      "age": 35,
+      "household": "h-6",
+      "partnerOf": "g-025",
+      "conflictsWith": [],
+      "tags": [
+        "school"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-025",
+      "name": "Jodie Osei",
+      "side": "groom",
+      "role": "guest",
+      "age": 30,
+      "household": "h-6",
+      "partnerOf": "g-024",
+      "conflictsWith": [],
+      "tags": [
+        "school"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-026",
+      "name": "Rosie Osei",
+      "side": "groom",
+      "role": "guest",
+      "age": 7,
+      "household": "h-6",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "school"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-027",
+      "name": "Dominic Greenwood",
+      "side": "groom",
+      "role": "guest",
+      "age": 38,
+      "household": "h-7",
+      "partnerOf": "g-028",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-028",
+      "name": "Aisha Greenwood",
+      "side": "groom",
+      "role": "guest",
+      "age": 34,
+      "household": "h-7",
+      "partnerOf": "g-027",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "gluten free"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-029",
+      "name": "Rosie Greenwood",
+      "side": "groom",
+      "role": "guest",
+      "age": 10,
+      "household": "h-7",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-030",
+      "name": "Marcus Ackroyd",
+      "side": "groom",
+      "role": "guest",
+      "age": 30,
+      "household": "h-8",
+      "partnerOf": "g-031",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-031",
+      "name": "Kasia Ackroyd",
+      "side": "groom",
+      "role": "guest",
+      "age": 27,
+      "household": "h-8",
+      "partnerOf": "g-030",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "gluten free"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-032",
+      "name": "Trevor Silva",
+      "side": "bride",
+      "role": "guest",
+      "age": 63,
+      "household": "h-9",
+      "partnerOf": "g-033",
+      "conflictsWith": [],
+      "tags": [
+        "cricket"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-033",
+      "name": "Jean Silva",
+      "side": "bride",
+      "role": "guest",
+      "age": 60,
+      "household": "h-9",
+      "partnerOf": "g-032",
+      "conflictsWith": [],
+      "tags": [
+        "cricket"
+      ],
+      "allergies": [
+        "shellfish"
+      ],
+      "dietaryPreferences": [
+        "halal"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-034",
+      "name": "Rhys Kapoor",
+      "side": "bride",
+      "role": "guest",
+      "age": 40,
+      "household": "h-10",
+      "partnerOf": "g-035",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-035",
+      "name": "Bethan Kapoor",
+      "side": "bride",
+      "role": "guest",
+      "age": 36,
+      "household": "h-10",
+      "partnerOf": "g-034",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-036",
+      "name": "Vikram Doyle",
+      "side": "bride",
+      "role": "guest",
+      "age": 78,
+      "household": "h-11",
+      "partnerOf": "g-037",
+      "conflictsWith": [],
+      "tags": [
+        "travelling",
+        "work"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "step-free access"
+      ],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-037",
+      "name": "Anjali Doyle",
+      "side": "bride",
+      "role": "guest",
+      "age": 74,
+      "household": "h-11",
+      "partnerOf": "g-036",
+      "conflictsWith": [],
+      "tags": [
+        "travelling",
+        "work"
+      ],
+      "allergies": [
+        "dairy"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "near an exit"
+      ],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-038",
+      "name": "Jonah Doyle",
+      "side": "bride",
+      "role": "guest",
+      "age": 9,
+      "household": "h-11",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "travelling",
+        "work"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-039",
+      "name": "Derek Hodgson",
+      "side": "groom",
+      "role": "guest",
+      "age": 72,
+      "household": "h-12",
+      "partnerOf": "g-040",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegetarian"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-040",
+      "name": "Patricia Hodgson",
+      "side": "groom",
+      "role": "guest",
+      "age": 70,
+      "household": "h-12",
+      "partnerOf": "g-039",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-041",
+      "name": "Geoffrey Bhatt",
+      "side": "bride",
+      "role": "guest",
+      "age": 71,
+      "household": "h-13",
+      "partnerOf": "g-042",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "step-free access"
+      ],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-042",
+      "name": "Maureen Bhatt",
+      "side": "bride",
+      "role": "guest",
+      "age": 69,
+      "household": "h-13",
+      "partnerOf": "g-041",
+      "conflictsWith": [
+        "g-160"
+      ],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-043",
+      "name": "Sofia Bhatt",
+      "side": "bride",
+      "role": "guest",
+      "age": 10,
+      "household": "h-13",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-044",
+      "name": "Geoffrey Adeyemi",
+      "side": "bride",
+      "role": "guest",
+      "age": 68,
+      "household": "h-14",
+      "partnerOf": "g-045",
+      "conflictsWith": [],
+      "tags": [
+        "school"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegetarian"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-045",
+      "name": "Anjali Adeyemi",
+      "side": "bride",
+      "role": "guest",
+      "age": 65,
+      "household": "h-14",
+      "partnerOf": "g-044",
+      "conflictsWith": [],
+      "tags": [
+        "school"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-046",
+      "name": "Ravi Fraser",
+      "side": "groom",
+      "role": "guest",
+      "age": 47,
+      "household": "h-15",
+      "partnerOf": "g-047",
+      "conflictsWith": [],
+      "tags": [
+        "work",
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-047",
+      "name": "Tara Fraser",
+      "side": "groom",
+      "role": "guest",
+      "age": 42,
+      "household": "h-15",
+      "partnerOf": "g-046",
+      "conflictsWith": [],
+      "tags": [
+        "work",
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-048",
+      "name": "Rosie Fraser",
+      "side": "groom",
+      "role": "guest",
+      "age": 4,
+      "household": "h-15",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "work",
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-049",
+      "name": "Jonah Fraser",
+      "side": "groom",
+      "role": "guest",
+      "age": 12,
+      "household": "h-15",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "work",
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-050",
+      "name": "Rachel Osei",
+      "side": "groom",
+      "role": "guest",
+      "age": 40,
+      "household": "h-16",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "uni",
+        "choir"
+      ],
+      "allergies": [
+        "dairy"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-051",
+      "name": "Gareth Bailey",
+      "side": "groom",
+      "role": "guest",
+      "age": 45,
+      "household": "h-17",
+      "partnerOf": "g-052",
+      "conflictsWith": [],
+      "tags": [
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegan"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-052",
+      "name": "Leah Bailey",
+      "side": "groom",
+      "role": "guest",
+      "age": 43,
+      "household": "h-17",
+      "partnerOf": "g-051",
+      "conflictsWith": [
+        "g-088"
+      ],
+      "tags": [
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-053",
+      "name": "Danny Joshi",
+      "side": "bride",
+      "role": "guest",
+      "age": 35,
+      "household": "h-18",
+      "partnerOf": "g-054",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-054",
+      "name": "Ellie Joshi",
+      "side": "bride",
+      "role": "guest",
+      "age": 34,
+      "household": "h-18",
+      "partnerOf": "g-053",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegan"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-055",
+      "name": "Isaac Joshi",
+      "side": "bride",
+      "role": "guest",
+      "age": 8,
+      "household": "h-18",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "gluten free"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-056",
+      "name": "Keith Doyle",
+      "side": "bride",
+      "role": "guest",
+      "age": 79,
+      "household": "h-19",
+      "partnerOf": "g-057",
+      "conflictsWith": [],
+      "tags": [
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-057",
+      "name": "Christine Doyle",
+      "side": "bride",
+      "role": "guest",
+      "age": 75,
+      "household": "h-19",
+      "partnerOf": "g-056",
+      "conflictsWith": [],
+      "tags": [
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-058",
+      "name": "Sofia Doyle",
+      "side": "bride",
+      "role": "guest",
+      "age": 10,
+      "household": "h-19",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-059",
+      "name": "Anya Doyle",
+      "side": "bride",
+      "role": "guest",
+      "age": 3,
+      "household": "h-19",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-060",
+      "name": "Carol Patel",
+      "side": "bride",
+      "role": "guest",
+      "age": 78,
+      "household": "h-20",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "away from the speakers"
+      ],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-061",
+      "name": "Roger Kowalski",
+      "side": "groom",
+      "role": "guest",
+      "age": 74,
+      "household": "h-21",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "school",
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-062",
+      "name": "Callum Bennett",
+      "side": "groom",
+      "role": "guest",
+      "age": 36,
+      "household": "h-22",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-063",
+      "name": "Geoffrey Ackroyd",
+      "side": "groom",
+      "role": "guest",
+      "age": 67,
+      "household": "h-23",
+      "partnerOf": "g-064",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-064",
+      "name": "Christine Ackroyd",
+      "side": "groom",
+      "role": "guest",
+      "age": 63,
+      "household": "h-23",
+      "partnerOf": "g-063",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-065",
+      "name": "Elliot Nair",
+      "side": "bride",
+      "role": "guest",
+      "age": 29,
+      "household": "h-24",
+      "partnerOf": "g-066",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-066",
+      "name": "Jodie Nair",
+      "side": "bride",
+      "role": "guest",
+      "age": 27,
+      "household": "h-24",
+      "partnerOf": "g-065",
+      "conflictsWith": [
+        "g-021"
+      ],
+      "tags": [
+        "family"
+      ],
+      "allergies": [
+        "dairy"
+      ],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-067",
+      "name": "Rosie Nair",
+      "side": "bride",
+      "role": "guest",
+      "age": 4,
+      "household": "h-24",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegan"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-068",
+      "name": "Dominic Shah",
+      "side": "bride",
+      "role": "guest",
+      "age": 24,
+      "household": "h-25",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "away from the speakers"
+      ],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-069",
+      "name": "Alan Rahman",
+      "side": "groom",
+      "role": "guest",
+      "age": 68,
+      "household": "h-26",
+      "partnerOf": "g-070",
+      "conflictsWith": [
+        "g-013"
+      ],
+      "tags": [
+        "neighbours",
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-070",
+      "name": "Sylvia Rahman",
+      "side": "groom",
+      "role": "guest",
+      "age": 66,
+      "household": "h-26",
+      "partnerOf": "g-069",
+      "conflictsWith": [],
+      "tags": [
+        "neighbours",
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-071",
+      "name": "Raj Sutcliffe",
+      "side": "groom",
+      "role": "guest",
+      "age": 65,
+      "household": "h-27",
+      "partnerOf": "g-072",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-072",
+      "name": "Sylvia Sutcliffe",
+      "side": "groom",
+      "role": "guest",
+      "age": 60,
+      "household": "h-27",
+      "partnerOf": "g-071",
+      "conflictsWith": [
+        "g-109"
+      ],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-073",
+      "name": "Kev Crabtree",
+      "side": "groom",
+      "role": "guest",
+      "age": 49,
+      "household": "h-28",
+      "partnerOf": "g-074",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-074",
+      "name": "Hannah Crabtree",
+      "side": "groom",
+      "role": "guest",
+      "age": 48,
+      "household": "h-28",
+      "partnerOf": "g-073",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-075",
+      "name": "Kev Adeyemi",
+      "side": "bride",
+      "role": "guest",
+      "age": 34,
+      "household": "h-29",
+      "partnerOf": "g-076",
+      "conflictsWith": [],
+      "tags": [
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-076",
+      "name": "Kasia Adeyemi",
+      "side": "bride",
+      "role": "guest",
+      "age": 29,
+      "household": "h-29",
+      "partnerOf": "g-075",
+      "conflictsWith": [],
+      "tags": [
+        "footie"
+      ],
+      "allergies": [
+        "sesame"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-077",
+      "name": "Ravi Silva",
+      "side": "groom",
+      "role": "guest",
+      "age": 31,
+      "household": "h-30",
+      "partnerOf": "g-078",
+      "conflictsWith": [
+        "g-168",
+        "g-022"
+      ],
+      "tags": [
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-078",
+      "name": "Ffion Silva",
+      "side": "groom",
+      "role": "guest",
+      "age": 28,
+      "household": "h-30",
+      "partnerOf": "g-077",
+      "conflictsWith": [],
+      "tags": [
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-079",
+      "name": "Alan Whitaker",
+      "side": "groom",
+      "role": "guest",
+      "age": 78,
+      "household": "h-31",
+      "partnerOf": "g-080",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-080",
+      "name": "Maureen Whitaker",
+      "side": "groom",
+      "role": "guest",
+      "age": 73,
+      "household": "h-31",
+      "partnerOf": "g-079",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "step-free access"
+      ],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-081",
+      "name": "Meera Ramsden",
+      "side": "groom",
+      "role": "guest",
+      "age": 45,
+      "household": "h-32",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-082",
+      "name": "Callum Osei",
+      "side": "groom",
+      "role": "guest",
+      "age": 49,
+      "household": "h-33",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "book club",
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegan"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-083",
+      "name": "Colin Firth",
+      "side": "groom",
+      "role": "guest",
+      "age": 74,
+      "household": "h-34",
+      "partnerOf": "g-084",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "away from the speakers"
+      ],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-084",
+      "name": "Marilyn Firth",
+      "side": "groom",
+      "role": "guest",
+      "age": 71,
+      "household": "h-34",
+      "partnerOf": "g-083",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "step-free access"
+      ],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-085",
+      "name": "Freddie Firth",
+      "side": "groom",
+      "role": "guest",
+      "age": 4,
+      "household": "h-34",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-086",
+      "name": "Kai Firth",
+      "side": "groom",
+      "role": "guest",
+      "age": 8,
+      "household": "h-34",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-087",
+      "name": "Raj Rao",
+      "side": "bride",
+      "role": "guest",
+      "age": 72,
+      "household": "h-35",
+      "partnerOf": "g-088",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegetarian"
+      ],
+      "accessibility": [
+        "near an exit"
+      ],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-088",
+      "name": "Denise Rao",
+      "side": "bride",
+      "role": "guest",
+      "age": 71,
+      "household": "h-35",
+      "partnerOf": "g-087",
+      "conflictsWith": [
+        "g-052"
+      ],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegan"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-089",
+      "name": "Keith Nair",
+      "side": "bride",
+      "role": "guest",
+      "age": 67,
+      "household": "h-36",
+      "partnerOf": "g-090",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-090",
+      "name": "Jean Nair",
+      "side": "bride",
+      "role": "guest",
+      "age": 62,
+      "household": "h-36",
+      "partnerOf": "g-089",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-091",
+      "name": "Sanjay Rahman",
+      "side": "groom",
+      "role": "guest",
+      "age": 67,
+      "household": "h-37",
+      "partnerOf": "g-092",
+      "conflictsWith": [],
+      "tags": [
+        "travelling"
+      ],
+      "allergies": [
+        "shellfish"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-092",
+      "name": "Anjali Rahman",
+      "side": "groom",
+      "role": "guest",
+      "age": 62,
+      "household": "h-37",
+      "partnerOf": "g-091",
+      "conflictsWith": [],
+      "tags": [
+        "travelling"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-093",
+      "name": "Sam Crabtree",
+      "side": "groom",
+      "role": "guest",
+      "age": 37,
+      "household": "h-38",
+      "partnerOf": "g-094",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [
+        "nuts"
+      ],
+      "dietaryPreferences": [
+        "vegetarian"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-094",
+      "name": "Tara Crabtree",
+      "side": "groom",
+      "role": "guest",
+      "age": 33,
+      "household": "h-38",
+      "partnerOf": "g-093",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-095",
+      "name": "Geoffrey Braithwaite",
+      "side": "groom",
+      "role": "guest",
+      "age": 79,
+      "household": "h-39",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "step-free access"
+      ],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-096",
+      "name": "Arjun Mercer",
+      "side": "groom",
+      "role": "guest",
+      "age": 49,
+      "household": "h-40",
+      "partnerOf": "g-097",
+      "conflictsWith": [],
+      "tags": [
+        "work"
+      ],
+      "allergies": [
+        "shellfish"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-097",
+      "name": "Aisha Mercer",
+      "side": "groom",
+      "role": "guest",
+      "age": 45,
+      "household": "h-40",
+      "partnerOf": "g-096",
+      "conflictsWith": [],
+      "tags": [
+        "work"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-098",
+      "name": "Colin Fraser",
+      "side": "groom",
+      "role": "guest",
+      "age": 68,
+      "household": "h-41",
+      "partnerOf": "g-099",
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-099",
+      "name": "Maureen Fraser",
+      "side": "groom",
+      "role": "guest",
+      "age": 67,
+      "household": "h-41",
+      "partnerOf": "g-098",
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-100",
+      "name": "Ffion Fraser",
+      "side": "bride",
+      "role": "guest",
+      "age": 39,
+      "household": "h-42",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "travelling",
+        "footie"
+      ],
+      "allergies": [
+        "nuts"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-101",
+      "name": "Rhys Nowak",
+      "side": "groom",
+      "role": "guest",
+      "age": 46,
+      "household": "h-43",
+      "partnerOf": "g-102",
+      "conflictsWith": [],
+      "tags": [
+        "school"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-102",
+      "name": "Chloe Nowak",
+      "side": "groom",
+      "role": "guest",
+      "age": 44,
+      "household": "h-43",
+      "partnerOf": "g-101",
+      "conflictsWith": [],
+      "tags": [
+        "school"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-103",
+      "name": "Isaac Nowak",
+      "side": "groom",
+      "role": "guest",
+      "age": 6,
+      "household": "h-43",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "school"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-104",
+      "name": "Milo Nowak",
+      "side": "groom",
+      "role": "guest",
+      "age": 9,
+      "household": "h-43",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "school"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-105",
+      "name": "Sam Silva",
+      "side": "bride",
+      "role": "guest",
+      "age": 28,
+      "household": "h-44",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "school",
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-106",
+      "name": "Trevor Nowak",
+      "side": "bride",
+      "role": "guest",
+      "age": 79,
+      "household": "h-45",
+      "partnerOf": "g-107",
+      "conflictsWith": [
+        "g-136"
+      ],
+      "tags": [
+        "work",
+        "cricket"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-107",
+      "name": "Maureen Nowak",
+      "side": "bride",
+      "role": "guest",
+      "age": 78,
+      "household": "h-45",
+      "partnerOf": "g-106",
+      "conflictsWith": [],
+      "tags": [
+        "work",
+        "cricket"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-108",
+      "name": "Derek Joshi",
+      "side": "bride",
+      "role": "guest",
+      "age": 73,
+      "household": "h-46",
+      "partnerOf": "g-109",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-109",
+      "name": "Hazel Joshi",
+      "side": "bride",
+      "role": "guest",
+      "age": 69,
+      "household": "h-46",
+      "partnerOf": "g-108",
+      "conflictsWith": [
+        "g-072"
+      ],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-110",
+      "name": "Marcus Silva",
+      "side": "bride",
+      "role": "guest",
+      "age": 29,
+      "household": "h-47",
+      "partnerOf": "g-111",
+      "conflictsWith": [],
+      "tags": [
+        "travelling"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-111",
+      "name": "Meera Silva",
+      "side": "bride",
+      "role": "guest",
+      "age": 24,
+      "household": "h-47",
+      "partnerOf": "g-110",
+      "conflictsWith": [],
+      "tags": [
+        "travelling"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-112",
+      "name": "Keith Nowak",
+      "side": "groom",
+      "role": "guest",
+      "age": 66,
+      "household": "h-48",
+      "partnerOf": "g-113",
+      "conflictsWith": [],
+      "tags": [
+        "choir",
+        "work"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegetarian"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-113",
+      "name": "Carol Nowak",
+      "side": "groom",
+      "role": "guest",
+      "age": 61,
+      "household": "h-48",
+      "partnerOf": "g-112",
+      "conflictsWith": [],
+      "tags": [
+        "choir",
+        "work"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-114",
+      "name": "Elliot Bailey",
+      "side": "bride",
+      "role": "guest",
+      "age": 47,
+      "household": "h-49",
+      "partnerOf": "g-115",
+      "conflictsWith": [],
+      "tags": [
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-115",
+      "name": "Sian Bailey",
+      "side": "bride",
+      "role": "guest",
+      "age": 45,
+      "household": "h-49",
+      "partnerOf": "g-114",
+      "conflictsWith": [],
+      "tags": [
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegetarian"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-116",
+      "name": "Tom Ramsden",
+      "side": "groom",
+      "role": "guest",
+      "age": 47,
+      "household": "h-50",
+      "partnerOf": "g-117",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-117",
+      "name": "Priya Ramsden",
+      "side": "groom",
+      "role": "guest",
+      "age": 42,
+      "household": "h-50",
+      "partnerOf": "g-116",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-118",
+      "name": "Keith Osei",
+      "side": "groom",
+      "role": "guest",
+      "age": 63,
+      "household": "h-51",
+      "partnerOf": "g-119",
+      "conflictsWith": [],
+      "tags": [
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-119",
+      "name": "Jean Osei",
+      "side": "groom",
+      "role": "guest",
+      "age": 62,
+      "household": "h-51",
+      "partnerOf": "g-118",
+      "conflictsWith": [],
+      "tags": [
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-120",
+      "name": "Adam Rao",
+      "side": "bride",
+      "role": "guest",
+      "age": 46,
+      "household": "h-52",
+      "partnerOf": "g-121",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-121",
+      "name": "Ffion Rao",
+      "side": "bride",
+      "role": "guest",
+      "age": 41,
+      "household": "h-52",
+      "partnerOf": "g-120",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-122",
+      "name": "Rosie Rao",
+      "side": "bride",
+      "role": "guest",
+      "age": 6,
+      "household": "h-52",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-123",
+      "name": "Jonah Rao",
+      "side": "bride",
+      "role": "guest",
+      "age": 14,
+      "household": "h-52",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-124",
+      "name": "Tom Mehta",
+      "side": "bride",
+      "role": "guest",
+      "age": 41,
+      "household": "h-53",
+      "partnerOf": "g-125",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-125",
+      "name": "Hannah Mehta",
+      "side": "bride",
+      "role": "guest",
+      "age": 40,
+      "household": "h-53",
+      "partnerOf": "g-124",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-126",
+      "name": "Kai Mehta",
+      "side": "bride",
+      "role": "guest",
+      "age": 14,
+      "household": "h-53",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-127",
+      "name": "Kev Greenwood",
+      "side": "groom",
+      "role": "guest",
+      "age": 24,
+      "household": "h-54",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-128",
+      "name": "Sanjay Novak",
+      "side": "bride",
+      "role": "guest",
+      "age": 80,
+      "household": "h-55",
+      "partnerOf": "g-129",
+      "conflictsWith": [],
+      "tags": [
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [
+        "near an exit"
+      ],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-129",
+      "name": "Marilyn Novak",
+      "side": "bride",
+      "role": "guest",
+      "age": 76,
+      "household": "h-55",
+      "partnerOf": "g-128",
+      "conflictsWith": [],
+      "tags": [
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "away from the speakers"
+      ],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-130",
+      "name": "Iris Novak",
+      "side": "bride",
+      "role": "guest",
+      "age": 9,
+      "household": "h-55",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-131",
+      "name": "Sofia Novak",
+      "side": "bride",
+      "role": "guest",
+      "age": 11,
+      "household": "h-55",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-132",
+      "name": "Gareth Nkemelu",
+      "side": "groom",
+      "role": "guest",
+      "age": 29,
+      "household": "h-56",
+      "partnerOf": "g-133",
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "halal"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-133",
+      "name": "Priya Nkemelu",
+      "side": "groom",
+      "role": "guest",
+      "age": 26,
+      "household": "h-56",
+      "partnerOf": "g-132",
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-134",
+      "name": "Femi Adeyemi",
+      "side": "groom",
+      "role": "guest",
+      "age": 30,
+      "household": "h-57",
+      "partnerOf": "g-135",
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegetarian"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-135",
+      "name": "Aisha Adeyemi",
+      "side": "groom",
+      "role": "guest",
+      "age": 28,
+      "household": "h-57",
+      "partnerOf": "g-134",
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-136",
+      "name": "Keith Haigh",
+      "side": "groom",
+      "role": "guest",
+      "age": 81,
+      "household": "h-58",
+      "partnerOf": "g-137",
+      "conflictsWith": [
+        "g-106"
+      ],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-137",
+      "name": "Christine Haigh",
+      "side": "groom",
+      "role": "guest",
+      "age": 76,
+      "household": "h-58",
+      "partnerOf": "g-136",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "near an exit"
+      ],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-138",
+      "name": "Rosie Haigh",
+      "side": "groom",
+      "role": "guest",
+      "age": 15,
+      "household": "h-58",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "halal"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-139",
+      "name": "Maureen Bennett",
+      "side": "groom",
+      "role": "guest",
+      "age": 83,
+      "household": "h-59",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-140",
+      "name": "Dominic Firth",
+      "side": "groom",
+      "role": "guest",
+      "age": 36,
+      "household": "h-60",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-141",
+      "name": "Keith Braithwaite",
+      "side": "groom",
+      "role": "guest",
+      "age": 75,
+      "household": "h-61",
+      "partnerOf": "g-142",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-142",
+      "name": "Marilyn Braithwaite",
+      "side": "groom",
+      "role": "guest",
+      "age": 70,
+      "household": "h-61",
+      "partnerOf": "g-141",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegan"
+      ],
+      "accessibility": [
+        "away from the speakers"
+      ],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-143",
+      "name": "Brian Okonjo",
+      "side": "groom",
+      "role": "guest",
+      "age": 78,
+      "household": "h-62",
+      "partnerOf": "g-144",
+      "conflictsWith": [],
+      "tags": [
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegan"
+      ],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-144",
+      "name": "Marilyn Okonjo",
+      "side": "groom",
+      "role": "guest",
+      "age": 76,
+      "household": "h-62",
+      "partnerOf": "g-143",
+      "conflictsWith": [],
+      "tags": [
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "away from the speakers"
+      ],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-145",
+      "name": "Josh Rahman",
+      "side": "groom",
+      "role": "guest",
+      "age": 47,
+      "household": "h-63",
+      "partnerOf": "g-146",
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-146",
+      "name": "Rachel Rahman",
+      "side": "groom",
+      "role": "guest",
+      "age": 42,
+      "household": "h-63",
+      "partnerOf": "g-145",
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-147",
+      "name": "Rosie Rahman",
+      "side": "groom",
+      "role": "guest",
+      "age": 5,
+      "household": "h-63",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "running club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-148",
+      "name": "Chloe Ackroyd",
+      "side": "groom",
+      "role": "guest",
+      "age": 38,
+      "household": "h-64",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "halal"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-149",
+      "name": "Sam Novak",
+      "side": "groom",
+      "role": "guest",
+      "age": 42,
+      "household": "h-65",
+      "partnerOf": "g-150",
+      "conflictsWith": [],
+      "tags": [
+        "choir",
+        "travelling"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-150",
+      "name": "Meera Novak",
+      "side": "groom",
+      "role": "guest",
+      "age": 39,
+      "household": "h-65",
+      "partnerOf": "g-149",
+      "conflictsWith": [],
+      "tags": [
+        "choir",
+        "travelling"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-151",
+      "name": "Jonah Novak",
+      "side": "groom",
+      "role": "guest",
+      "age": 11,
+      "household": "h-65",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "choir",
+        "travelling"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-152",
+      "name": "Ravi Whitaker",
+      "side": "groom",
+      "role": "guest",
+      "age": 53,
+      "household": "h-66",
+      "partnerOf": "g-153",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-153",
+      "name": "Ffion Whitaker",
+      "side": "groom",
+      "role": "guest",
+      "age": 52,
+      "household": "h-66",
+      "partnerOf": "g-152",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-154",
+      "name": "Nia Whitaker",
+      "side": "groom",
+      "role": "guest",
+      "age": 7,
+      "household": "h-66",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-155",
+      "name": "Esme Whitaker",
+      "side": "groom",
+      "role": "guest",
+      "age": 9,
+      "household": "h-66",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-156",
+      "name": "Danny Firth",
+      "side": "groom",
+      "role": "guest",
+      "age": 40,
+      "household": "h-67",
+      "partnerOf": "g-157",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-157",
+      "name": "Sian Firth",
+      "side": "groom",
+      "role": "guest",
+      "age": 35,
+      "household": "h-67",
+      "partnerOf": "g-156",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-158",
+      "name": "Anya Firth",
+      "side": "groom",
+      "role": "guest",
+      "age": 10,
+      "household": "h-67",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [
+        "sesame"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-159",
+      "name": "Owen Chandra",
+      "side": "bride",
+      "role": "guest",
+      "age": 40,
+      "household": "h-68",
+      "partnerOf": "g-160",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-160",
+      "name": "Leah Chandra",
+      "side": "bride",
+      "role": "guest",
+      "age": 39,
+      "household": "h-68",
+      "partnerOf": "g-159",
+      "conflictsWith": [
+        "g-042"
+      ],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-161",
+      "name": "Rosie Chandra",
+      "side": "bride",
+      "role": "guest",
+      "age": 11,
+      "household": "h-68",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-162",
+      "name": "Milo Chandra",
+      "side": "bride",
+      "role": "guest",
+      "age": 8,
+      "household": "h-68",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-163",
+      "name": "Dominic Sutcliffe",
+      "side": "groom",
+      "role": "guest",
+      "age": 50,
+      "household": "h-69",
+      "partnerOf": "g-164",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-164",
+      "name": "Gemma Sutcliffe",
+      "side": "groom",
+      "role": "guest",
+      "age": 49,
+      "household": "h-69",
+      "partnerOf": "g-163",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-165",
+      "name": "Anya Sutcliffe",
+      "side": "groom",
+      "role": "guest",
+      "age": 9,
+      "household": "h-69",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-166",
+      "name": "Piotr Doyle",
+      "side": "bride",
+      "role": "guest",
+      "age": 40,
+      "household": "h-70",
+      "partnerOf": "g-167",
+      "conflictsWith": [],
+      "tags": [
+        "work",
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-167",
+      "name": "Ffion Doyle",
+      "side": "bride",
+      "role": "guest",
+      "age": 36,
+      "household": "h-70",
+      "partnerOf": "g-166",
+      "conflictsWith": [],
+      "tags": [
+        "work",
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-168",
+      "name": "Geoffrey Fraser",
+      "side": "bride",
+      "role": "guest",
+      "age": 78,
+      "household": "h-71",
+      "partnerOf": "g-169",
+      "conflictsWith": [
+        "g-077"
+      ],
+      "tags": [
+        "running club",
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-169",
+      "name": "Jean Fraser",
+      "side": "bride",
+      "role": "guest",
+      "age": 76,
+      "household": "h-71",
+      "partnerOf": "g-168",
+      "conflictsWith": [],
+      "tags": [
+        "running club",
+        "footie"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegan"
+      ],
+      "accessibility": [
+        "away from the speakers"
+      ],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-170",
+      "name": "Callum Shah",
+      "side": "bride",
+      "role": "guest",
+      "age": 38,
+      "household": "h-72",
+      "partnerOf": "g-171",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [
+        "shellfish"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-171",
+      "name": "Meera Shah",
+      "side": "bride",
+      "role": "guest",
+      "age": 37,
+      "household": "h-72",
+      "partnerOf": "g-170",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-172",
+      "name": "Freddie Shah",
+      "side": "bride",
+      "role": "guest",
+      "age": 13,
+      "household": "h-72",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-173",
+      "name": "Callum Crabtree",
+      "side": "groom",
+      "role": "guest",
+      "age": 42,
+      "household": "h-73",
+      "partnerOf": "g-174",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-174",
+      "name": "Nisha Crabtree",
+      "side": "groom",
+      "role": "guest",
+      "age": 40,
+      "household": "h-73",
+      "partnerOf": "g-173",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-175",
+      "name": "Rhys Mercer",
+      "side": "bride",
+      "role": "guest",
+      "age": 41,
+      "household": "h-74",
+      "partnerOf": "g-176",
+      "conflictsWith": [],
+      "tags": [
+        "book club",
+        "cricket"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-176",
+      "name": "Nisha Mercer",
+      "side": "bride",
+      "role": "guest",
+      "age": 37,
+      "household": "h-74",
+      "partnerOf": "g-175",
+      "conflictsWith": [],
+      "tags": [
+        "book club",
+        "cricket"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "vegan"
+      ],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-177",
+      "name": "Anya Mercer",
+      "side": "bride",
+      "role": "guest",
+      "age": 5,
+      "household": "h-74",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "book club",
+        "cricket"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-178",
+      "name": "Isaac Mercer",
+      "side": "bride",
+      "role": "guest",
+      "age": 5,
+      "household": "h-74",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "book club",
+        "cricket"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-179",
+      "name": "Nisha Novak",
+      "side": "bride",
+      "role": "guest",
+      "age": 43,
+      "household": "h-75",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "neighbours",
+        "footie"
+      ],
+      "allergies": [
+        "nuts"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-180",
+      "name": "Naomi Nkemelu",
+      "side": "groom",
+      "role": "guest",
+      "age": 30,
+      "household": "h-76",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "work"
+      ],
+      "allergies": [
+        "shellfish"
+      ],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-181",
+      "name": "Alan Fraser",
+      "side": "groom",
+      "role": "guest",
+      "age": 81,
+      "household": "h-77",
+      "partnerOf": "g-182",
+      "conflictsWith": [],
+      "tags": [
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-182",
+      "name": "Marilyn Fraser",
+      "side": "groom",
+      "role": "guest",
+      "age": 77,
+      "household": "h-77",
+      "partnerOf": "g-181",
+      "conflictsWith": [],
+      "tags": [
+        "neighbours"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-183",
+      "name": "Malcolm Novak",
+      "side": "groom",
+      "role": "guest",
+      "age": 73,
+      "household": "h-78",
+      "partnerOf": "g-184",
+      "conflictsWith": [],
+      "tags": [
+        "book club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "near an exit"
+      ],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-184",
+      "name": "Carol Novak",
+      "side": "groom",
+      "role": "guest",
+      "age": 72,
+      "household": "h-78",
+      "partnerOf": "g-183",
+      "conflictsWith": [],
+      "tags": [
+        "book club"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "away from the speakers"
+      ],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-185",
+      "name": "Hannah Bailey",
+      "side": "groom",
+      "role": "guest",
+      "age": 53,
+      "household": "h-79",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "travelling",
+        "uni"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-186",
+      "name": "Piotr Lindqvist",
+      "side": "bride",
+      "role": "guest",
+      "age": 37,
+      "household": "h-80",
+      "partnerOf": "g-187",
+      "conflictsWith": [],
+      "tags": [
+        "footie",
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-187",
+      "name": "Chloe Lindqvist",
+      "side": "bride",
+      "role": "guest",
+      "age": 34,
+      "household": "h-80",
+      "partnerOf": "g-186",
+      "conflictsWith": [],
+      "tags": [
+        "footie",
+        "choir"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-188",
+      "name": "Roger Haigh",
+      "side": "groom",
+      "role": "guest",
+      "age": 70,
+      "household": "h-81",
+      "partnerOf": "g-189",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-189",
+      "name": "Sylvia Haigh",
+      "side": "groom",
+      "role": "guest",
+      "age": 65,
+      "household": "h-81",
+      "partnerOf": "g-188",
+      "conflictsWith": [
+        "g-019"
+      ],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-190",
+      "name": "Sofia Haigh",
+      "side": "groom",
+      "role": "guest",
+      "age": 12,
+      "household": "h-81",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-191",
+      "name": "Sam Bhatt",
+      "side": "bride",
+      "role": "guest",
+      "age": 51,
+      "household": "h-82",
+      "partnerOf": "g-192",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-192",
+      "name": "Tara Bhatt",
+      "side": "bride",
+      "role": "guest",
+      "age": 47,
+      "household": "h-82",
+      "partnerOf": "g-191",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-193",
+      "name": "Kai Bhatt",
+      "side": "bride",
+      "role": "guest",
+      "age": 13,
+      "household": "h-82",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [
+        "near an exit"
+      ],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-194",
+      "name": "Nia Bhatt",
+      "side": "bride",
+      "role": "guest",
+      "age": 7,
+      "household": "h-82",
+      "partnerOf": null,
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "quiet"
+    },
+    {
+      "id": "g-195",
+      "name": "Ravi Bailey",
+      "side": "groom",
+      "role": "guest",
+      "age": 42,
+      "household": "h-83",
+      "partnerOf": "g-196",
+      "conflictsWith": [],
+      "tags": [
+        "work"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-196",
+      "name": "Ffion Bailey",
+      "side": "groom",
+      "role": "guest",
+      "age": 38,
+      "household": "h-83",
+      "partnerOf": "g-195",
+      "conflictsWith": [],
+      "tags": [
+        "work"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-197",
+      "name": "Arjun Bhatt",
+      "side": "bride",
+      "role": "guest",
+      "age": 45,
+      "household": "h-84",
+      "partnerOf": "g-198",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-198",
+      "name": "Aisha Bhatt",
+      "side": "bride",
+      "role": "guest",
+      "age": 43,
+      "household": "h-84",
+      "partnerOf": "g-197",
+      "conflictsWith": [],
+      "tags": [
+        "family"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [],
+      "accessibility": [],
+      "socialType": "sociable"
+    },
+    {
+      "id": "g-199",
+      "name": "Ravi Rahman",
+      "side": "bride",
+      "role": "guest",
+      "age": 51,
+      "household": "h-85",
+      "partnerOf": "g-200",
+      "conflictsWith": [],
+      "tags": [
+        "cricket"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "pescatarian"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    },
+    {
+      "id": "g-200",
+      "name": "Bethan Rahman",
+      "side": "bride",
+      "role": "guest",
+      "age": 49,
+      "household": "h-85",
+      "partnerOf": "g-199",
+      "conflictsWith": [],
+      "tags": [
+        "cricket"
+      ],
+      "allergies": [],
+      "dietaryPreferences": [
+        "halal"
+      ],
+      "accessibility": [],
+      "socialType": "livewire"
+    }
+  ]
+}
