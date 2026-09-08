@@ -1,0 +1,6 @@
+.line {
+  margin: 0;
+  margin-top: var(--space-4);
+  font-size: var(--text-body);
+  color: var(--ink-muted);
+}

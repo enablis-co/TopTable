@@ -1,13 +1,15 @@
 import { AppShell } from './shell/AppShell'
 import { useNavigation } from './shell/navigation'
 import { Panel } from './ui'
+import { SetupScreen } from './screens/setup/SetupScreen'
 
 /**
  * The shell and the section-to-screen map. Nothing else.
  *
- * Each section below is one scaffold line, not a designed empty state — KB-6's three
- * "must look intentional" states (the empty setup screen, the empty guest list, one rule
- * registered) belong to the tickets that build those screens, not to this one.
+ * Setup is built (TT-3; TT-4 adds the scenario cards on top of it). Guests and Plan are
+ * still one scaffold line each, not a designed empty state — KB-6's other two "must look
+ * intentional" states (the empty guest list, one rule registered) belong to the tickets
+ * that build those screens, not to this one.
  */
 export default function App() {
   return (
@@ -22,7 +24,7 @@ function CurrentScreen() {
 
   switch (tab) {
     case 'setup':
-      return <Panel>The setup screen lands here (TT-3 and TT-4).</Panel>
+      return <SetupScreen />
     case 'guests':
       return <Panel>The guest list lands here (TT-5 and TT-6).</Panel>
     case 'plan':
