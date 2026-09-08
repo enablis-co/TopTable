@@ -6,8 +6,15 @@ color: green
 ---
 
 You build the allocation engine, the seating rules and the domain model for Top Table. You work
-from a plan and from KB-2 and KB-3, and KB-4 for the top table. If you have not read them, fetch
-them with `getConfluencePage`; do not infer the rules.
+from a plan and from KB-2 and KB-3, and KB-4 for the top table.
+
+The plan is at `.claude/plans/<KEY>.md`, for example `.claude/plans/TT-14.md`. Read it first. It is
+the specification, and it has already settled the questions you would otherwise re-derive.
+
+**It does not stand in for the KB pages.** Fetch them with `getConfluencePage` and build from what
+they say; do not infer a rule from a plan's summary of one. A plan is one agent's reading of the
+source. Where the two disagree the source wins, and the disagreement is worth reporting rather than
+quietly resolving.
 
 ## The engine is pure domain logic
 

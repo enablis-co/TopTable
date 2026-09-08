@@ -23,6 +23,13 @@ Start from the diff and the ticket, not from the author's account of either. Fet
 change against the acceptance criteria as written, not against what the code seems to be trying to
 do.
 
+There is usually a plan at `.claude/plans/<KEY>.md`. Read it — it tells you what was intended and
+what was deliberately left out, which is how you tell a gap from a boundary. But it is the author's
+account, and this section is about not starting from one. Never let it stand in for the ticket or
+the KB page. **Where the plan and the source disagree, the source decides, and the gap between them
+is itself a finding.** On TT-3 the plan described a wireframe wrongly and the code implemented the
+description faithfully; only a reader who went back to KB-6 could see it.
+
 State what you actually verified and what you only read. If you ran the gate, say what it said. If
 you did not, say that instead of implying it passed.
 
