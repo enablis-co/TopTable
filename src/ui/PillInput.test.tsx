@@ -38,11 +38,15 @@ function removeButton(value: string) {
 function ControlledPillInput({
   onChange,
   suggestions,
+  restrictToSuggestions,
+  initialValue = [],
 }: {
   onChange: (next: string[]) => void
   suggestions?: readonly string[]
+  restrictToSuggestions?: boolean
+  initialValue?: string[]
 }) {
-  const [value, setValue] = useState<string[]>([])
+  const [value, setValue] = useState<string[]>(initialValue)
   return (
     <PillInput
       label="Tags"
@@ -52,6 +56,7 @@ function ControlledPillInput({
         onChange(next)
       }}
       suggestions={suggestions}
+      restrictToSuggestions={restrictToSuggestions}
     />
   )
 }
@@ -190,6 +195,160 @@ describe('PillInput', () => {
 
     expect(screen.queryByRole('option', { name: 'sailing' })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'shooting' })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * Follow-up to TT-5, human decision 2026-09-09 — not from a ticket, so these are written from
+ * that instruction rather than from acceptance criteria (see the comment on GuestPanel.tsx's
+ * two `restrictToSuggestions` fields for the full reasoning). Confirmed first, by reading
+ * rather than guessing: neither this file's existing suite above nor GuestPanel.test.tsx's
+ * C10 asserted that an already-added value is *absent* from the suggestion list — the old
+ * `!value.includes(candidate)` filter was untested at exactly the boundary this changes, so
+ * nothing here needed to be inverted.
+ */
+describe('an already-added value shows in the suggestion list, marked, instead of being hidden', () => {
+  it('shows it disabled rather than omitting it, once the typed text matches it', async () => {
+    const user = userEvent.setup()
+    render(
+      <ControlledPillInput onChange={vi.fn()} suggestions={['sailing', 'shooting']} initialValue={['sailing']} />,
+    )
+
+    await user.type(getPillInput('Tags'), 'sai')
+
+    const option = await screen.findByRole('option', { name: /sailing/i })
+    expect(option).toHaveAttribute('aria-disabled', 'true')
+    expect(option).toHaveTextContent('Already added')
+  })
+
+  it('does not commit a second time when the marked, already-added option is chosen', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={onChange} suggestions={['sailing']} initialValue={['sailing']} />)
+
+    await user.type(getPillInput('Tags'), 'sai')
+    await user.click(await screen.findByRole('option', { name: /sailing/i }))
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('button', { name: 'Remove sailing' })).toHaveLength(1)
+  })
+
+  // The gap this also closes: a value can be in `value` without ever being in `suggestions`
+  // (a tag added to the guest currently being edited is not yet in `tagsInUse`, which only
+  // sees guests already saved). `suggestions` is empty here on purpose — the value is found
+  // through `value` alone, not through a suggestions source that happens to also know it.
+  it('shows a value that is only in `value`, with no suggestions source naming it at all', async () => {
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={vi.fn()} suggestions={[]} initialValue={['sailing']} />)
+
+    await user.type(getPillInput('Tags'), 'sai')
+
+    const option = await screen.findByRole('option', { name: /sailing/i })
+    expect(option).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('says a value is already added when a duplicate commit is refused, rather than a silent no-op', async () => {
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={vi.fn()} initialValue={['nuts']} />)
+
+    await user.type(getPillInput('Tags'), 'nuts{Enter}')
+
+    // Scoped to the notice paragraph: an already-matching suggestion's own "Already added"
+    // note is a second, unrelated element carrying the same words.
+    expect(await screen.findByText(/already added/i, { selector: 'p' })).toBeInTheDocument()
+  })
+
+  it('judges a duplicate case-insensitively without changing the case already on the pill', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={onChange} initialValue={['nuts']} />)
+
+    await user.type(getPillInput('Tags'), 'NUTS{Enter}')
+
+    expect(onChange).not.toHaveBeenCalled()
+    // Scoped to the notice paragraph: an already-matching suggestion's own "Already added"
+    // note is a second, unrelated element carrying the same words.
+    expect(await screen.findByText(/already added/i, { selector: 'p' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove nuts' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove NUTS' })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * Follow-up to TT-5, human decision 2026-09-09 (see GuestPanel.tsx). `restrictToSuggestions`
+ * is what backs the allergies and dietary-preference fields specifically; every test above and
+ * below this block renders the component without it and stays on the free-typing behaviour
+ * those fields keep.
+ */
+describe('restrictToSuggestions: a picker over the vocabulary rather than free typing', () => {
+  it('does not commit typed text that matches nothing in the vocabulary on a bare Enter', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={onChange} suggestions={['nuts', 'dairy']} restrictToSuggestions />)
+
+    await user.type(getPillInput('Tags'), 'pollen{Enter}')
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.queryAllByRole('button', { name: /^Remove /i })).toHaveLength(0)
+  })
+
+  it('commits directly on a bare Enter when the typed text exactly matches a known value, case-insensitively', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={onChange} suggestions={['nuts', 'dairy']} restrictToSuggestions />)
+
+    await user.type(getPillInput('Tags'), 'Nuts{Enter}')
+
+    // The typed casing is kept, not quietly swapped for the vocabulary's own casing — the
+    // same "never normalise on write" rule that applies to every other field.
+    expect(onChange).toHaveBeenCalledWith(['Nuts'])
+    expect(removeButton('Nuts')).toBeInTheDocument()
+  })
+
+  it('offers "something else" once the typed text matches nothing, and it commits that text verbatim', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={onChange} suggestions={['nuts', 'dairy']} restrictToSuggestions />)
+
+    await user.type(getPillInput('Tags'), 'sesame seeds')
+    const somethingElse = await screen.findByRole('option', { name: /something else/i })
+    expect(somethingElse).toHaveTextContent('sesame seeds')
+
+    await user.click(somethingElse)
+
+    expect(onChange).toHaveBeenCalledWith(['sesame seeds'])
+    expect(removeButton('sesame seeds')).toBeInTheDocument()
+  })
+
+  it('lets "something else" be reached and chosen with the keyboard, the same as any other option', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={onChange} suggestions={['nuts', 'dairy']} restrictToSuggestions />)
+
+    await user.type(getPillInput('Tags'), 'sesame seeds')
+    await user.keyboard('{ArrowDown}{Enter}')
+
+    expect(onChange).toHaveBeenCalledWith(['sesame seeds'])
+  })
+
+  it('does not offer "something else" once the typed text exactly matches a known value', async () => {
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={vi.fn()} suggestions={['nuts', 'dairy']} restrictToSuggestions />)
+
+    await user.type(getPillInput('Tags'), 'nuts')
+
+    expect(screen.queryByRole('option', { name: /something else/i })).not.toBeInTheDocument()
+  })
+
+  it('still picks a suggestion by clicking it, the same as an unrestricted field', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={onChange} suggestions={['nuts', 'dairy']} restrictToSuggestions />)
+
+    await user.type(getPillInput('Tags'), 'nu')
+    await user.click(await screen.findByRole('option', { name: 'nuts' }))
+
+    expect(onChange).toHaveBeenCalledWith(['nuts'])
   })
 })
 

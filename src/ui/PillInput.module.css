@@ -82,3 +82,29 @@
 .suggestionActive {
   background: var(--sunken);
 }
+
+/* Shown rather than hidden (PillInput.tsx doc comment) — shape-and-text carries "you already
+   have this", not colour alone: muted ink plus the visible note below, matching how
+   field.module.css's own .field:disabled reaches for --ink-faint rather than a colour by
+   itself. Declared after the hover rule above so it wins on an already-added suggestion that
+   is also focused via the arrow keys. */
+.suggestionAdded {
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.suggestionAdded:hover {
+  background: transparent;
+}
+
+.addedNote {
+  color: var(--ink-faint);
+}
+
+/* The "something else" entry reads as a way out of the list above it, not one more item in
+   it — a hairline rule is the same separation technique the guest table uses between rows,
+   never a shadow (KB-5: no shadows anywhere). */
+.somethingElse {
+  border-top: 1px solid var(--rule);
+  color: var(--ink-muted);
+}

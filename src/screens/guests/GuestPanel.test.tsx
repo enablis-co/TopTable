@@ -309,6 +309,73 @@ describe('allergies and dietary preferences never merge (C11)', () => {
   })
 })
 
+/**
+ * Follow-up to TT-5, human decision 2026-09-09 — not from a ticket (see the comment above the
+ * two `restrictToSuggestions` fields on GuestPanel.tsx). Written from that instruction rather
+ * than acceptance criteria, and scoped exactly as it describes: allergies and dietary
+ * preferences close to their known vocabulary, tags and accessibility are untouched.
+ */
+describe('allergies and dietary preferences are a picker, not free typing (follow-up)', () => {
+  it('does not add an allergy typed outside the known vocabulary on a bare Enter', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.type(getPillInput(/allerg/i), 'pollen{Enter}')
+
+    expect(screen.queryByRole('button', { name: /^Remove /i })).not.toBeInTheDocument()
+  })
+
+  it('records an allergy outside the vocabulary through the explicit "something else" option', async () => {
+    const user = userEvent.setup()
+    const { onSave } = renderPanel()
+
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Jo March')
+    await user.selectOptions(combobox(/side/i), 'bride')
+    await user.type(getPillInput(/allerg/i), 'kiwi')
+    await user.click(await screen.findByRole('option', { name: /something else/i }))
+    await user.click(screen.getByRole('button', { name: 'Save guest' }))
+
+    const saved = onSave.mock.calls[0]?.[0] as Guest
+    expect(saved.allergies).toEqual(['kiwi'])
+  })
+
+  it('does not add a dietary preference typed outside the known vocabulary on a bare Enter', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.type(getPillInput(/diet/i), 'low fodmap{Enter}')
+
+    expect(screen.queryByRole('button', { name: /^Remove /i })).not.toBeInTheDocument()
+  })
+
+  // Boundary check: only allergies and dietary preferences are restricted. Tags and
+  // accessibility keep committing arbitrary typed text directly on Enter, exactly as before.
+  it('still commits a tag typed outside any suggestion directly on Enter — tags stay free text', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.type(getPillInput(/tags/i), 'a brand new tag{Enter}')
+
+    expect(screen.getByRole('button', { name: 'Remove a brand new tag' })).toBeInTheDocument()
+  })
+
+  it('still commits an accessibility need typed outside the known list directly on Enter', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.type(getPillInput(/accessib/i), 'a service dog{Enter}')
+
+    expect(screen.getByRole('button', { name: 'Remove a service dog' })).toBeInTheDocument()
+  })
+
+  it('gives the allergies and dietary-preference fields a hint naming the known vocabulary', () => {
+    renderPanel()
+
+    expect(getPillInput(/allerg/i)).toHaveAccessibleDescription(/nuts/i)
+    expect(getPillInput(/diet/i)).toHaveAccessibleDescription(/vegetarian/i)
+  })
+})
+
 describe('age band (C14, C15)', () => {
   it('offers exactly the four bands, each labelled with its bound', () => {
     renderPanel()

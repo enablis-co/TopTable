@@ -50,6 +50,31 @@ function capitalizeFirst(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
+/** "a, b or c", for spelling out a closed vocabulary in a hint without hand-typing it a second
+ *  time — the one copy stays `KNOWN_ALLERGIES` / `KNOWN_DIETARY_PREFERENCES` themselves. */
+function joinWithOr(values: readonly string[]): string {
+  const last = values[values.length - 1]
+  if (last === undefined) return ''
+  const init = values.slice(0, -1)
+  return init.length === 0 ? last : `${init.join(', ')} or ${last}`
+}
+
+/**
+ * Follow-up to TT-5, human decision 2026-09-09 — not a Tickety ticket, and deliberately beyond
+ * what TT-5's own acceptance criteria asked for. `src/domain/types.ts`'s own comment on
+ * `KNOWN_ALLERGIES` and `KNOWN_DIETARY_PREFERENCES` says plainly that those vocabularies "do
+ * not constrain what a guest may carry". That stays true of storage — both fields are still
+ * `string[]`, untouched by this change, and the vocabularies themselves are not widened — and
+ * stops being true of the *input* for these two fields only. `PillInput`'s
+ * `restrictToSuggestions` closes them to the known vocabulary, with "something else" as an
+ * explicit, always-reachable way to record a value outside it (a celery allergy, say — not
+ * offered, but still recordable) — deliberately one extra step, never a dead end. `tags` stays
+ * free text ("by definition", KB-3), and nobody asked for `accessibility` to change, so neither
+ * field below carries this prop.
+ */
+const ALLERGY_HINT = `${capitalizeFirst(joinWithOr(KNOWN_ALLERGIES))} — or something else.`
+const DIETARY_HINT = `${capitalizeFirst(joinWithOr(KNOWN_DIETARY_PREFERENCES))} — or something else.`
+
 /**
  * TT-5, C1-C15. The slide-over form. No store access of its own — `guests` and the save/close
  * callbacks come from `GuestsScreen`, which owns the store the way `SetupScreen` owns it for
@@ -227,6 +252,8 @@ export function GuestPanel({ open, guests, guest, onClose, onSave }: GuestPanelP
               label="Allergies"
               value={draft.allergies}
               suggestions={KNOWN_ALLERGIES}
+              restrictToSuggestions
+              hint={ALLERGY_HINT}
               onChange={(next) => {
                 patch({ allergies: next })
               }}
@@ -235,6 +262,8 @@ export function GuestPanel({ open, guests, guest, onClose, onSave }: GuestPanelP
               label="Dietary preferences"
               value={draft.dietaryPreferences}
               suggestions={KNOWN_DIETARY_PREFERENCES}
+              restrictToSuggestions
+              hint={DIETARY_HINT}
               onChange={(next) => {
                 patch({ dietaryPreferences: next })
               }}
