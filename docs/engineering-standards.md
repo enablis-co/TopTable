@@ -42,7 +42,16 @@ sides — `model-developer` and `ui-developer` — and the boundary is what keep
 each other's code.
 
 **Adding a rule must not require editing a shared file.** Several people add rules at once, and a
-central registry that every one of them has to touch is a queue and a merge conflict.
+central registry that every one of them has to touch is a queue and a merge conflict. Make a rule
+self-contained and discoverable.
+
+Three properties hold for every rule, and one that breaks any of them is wrong however well it
+reads:
+
+- **Rules do not mutate the plan.** They read it and report on it.
+- **Rules do not depend on the order they run in.** Any order gives the same answer.
+- **The same input produces the same output twice.** No clocks, no randomness, no iteration order
+  that depends on object key insertion.
 
 The UI imports from the domain. The domain imports nothing back.
 
@@ -73,6 +82,30 @@ Tests are deterministic. No clocks, no randomness, no dependence on run order. T
 are seeded so that regenerating produces identical output, and they are the fixtures: "Small and
 cosy" forces every placement at 40 seats for 40 guests, "Adding up" is the realistic middle,
 "Celebrity scale" at 200 guests is where things fall over.
+
+## What the suite cannot see
+
+The suite is the first place to look and usually the last. It runs in about two seconds and it
+answers what renders, what text appears, and what roles, attributes and accessible names exist.
+
+**Layout is the exception.** jsdom does no layout at all — `getBoundingClientRect` returns zeros
+there — so width, overlap, wrapping and what sits under what are answerable only in a real
+browser. An element can sit in the wrong grid column with every test in the suite passing.
+
+So a browser pass is for measurement, and for screenshotting the states a human should see. Write
+the measurements down before opening it. Confirming that an element is present, that a state
+renders at all, that there is one live region, or that a control has an accessible name, is
+re-running something the suite already did in two seconds.
+
+**The preview pane's accessibility tree is not Chrome's.** It does not compute name from content,
+so `<button><span>Adding up</span></button>` reads there as an unnamed button, and figures wrapped
+in their own elements for tabular digits vanish from the name it reports. Chrome and jsdom both
+follow the accname spec, so a passing `getByRole('button', { name })` is the evidence that a name
+is real. To test the tool rather than your own markup, probe it with a direct-text button beside a
+nested-text one.
+
+Adding an `aria-label` to supply a name the pane cannot see costs the visible text its place as the
+accessible name, which is a WCAG 2.5.3 failure. Do not fix a name on the pane's word alone.
 
 ## The gate
 
