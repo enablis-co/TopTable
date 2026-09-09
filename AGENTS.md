@@ -204,7 +204,9 @@ goes stale.
 
 `src/ui/` (tokens, base styles, the shared components) and `src/shell/` (the header and the tab
 frame) exist now; TT-7 built them. The setup screen is TT-3 and has landed; TT-4 has added the
-scenario cards to it. Guests is TT-5 and TT-6 and has landed. The plan is still TT-11 to TT-15.
+scenario cards to it. Guests is TT-5 and TT-6 and has landed. The Plan screen's floorplan is TT-11
+and has landed; placing, the seating model, the rules engine and the table detail are TT-12 to TT-15
+and have not.
 
 The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`,
 `addGuest`, `updateGuest` and `removeGuest`. The last three are thin delegates onto
