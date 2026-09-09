@@ -122,9 +122,13 @@ workflow, so there is one definition of the gate rather than two that drift.
 ## Scope
 
 **Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP: drag and drop,
-undo, any rule beyond capacity, auto-allocate respecting anything beyond seats and pins, catering
-output, export, print, sharing and accounts. All of it is already ticketed under TT-21 to TT-25 and
-TT-31 to TT-34.
+undo, catering output, export, print, sharing and accounts. Those are ticketed under TT-23, TT-25
+and TT-31 to TT-34.
+
+**A seating rule is not out of scope.** KB-1 says every rule on KB-2 is in scope, at the severity
+KB-2 gives it, and the rules carry their own tickets inside the TT-10 MVP epic. What is out of
+scope is building one *before its ticket*, which is a different thing from building ahead of the
+board. Check the board; the ranges above are a summary and summaries go stale.
 
 **A thin ticket is thin on purpose.** Never fill one in, and never invent an acceptance criterion
 to have something to build.

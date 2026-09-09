@@ -100,9 +100,13 @@ link. `TT-24` names `KB-4` in a comment and links nothing.
 - **A thin ticket is thin on purpose.** `TT-24` and `TT-25` have a title and nothing else because
   someone else writes that specification. Never fill one in, and never invent an acceptance
   criterion to have something to build.
-- **Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP. Drag and
-  drop, undo, any rule beyond capacity, catering output, export and sharing are all on the board
-  already, under TT-21 to TT-25 and TT-31 to TT-34.
+- **Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP: drag and
+  drop, undo, catering output, export, print, sharing and accounts. Those are on the board under
+  TT-23, TT-25 and TT-31 to TT-34. **Every rule on KB-2 is in scope**, at the severity KB-2 gives
+  it. `TT-14` builds the rules engine and the first three rules; `TT-16` to `TT-22` add the rest.
+  All of them sit inside the `TT-10` MVP epic, so a seating rule is not "ahead of the board" — it
+  is simply someone else's ticket. Read the board rather than this line: it is a summary, and
+  summaries go stale, which is why this one had to be corrected.
 - **The allocation engine is pure domain logic.** No rendering, no React, no store. Rules do not
   mutate the plan, do not depend on the order they run in, and produce the same result twice.
 - **Adding a rule must not require editing a shared file.** Several people add rules at once.
