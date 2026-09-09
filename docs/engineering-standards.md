@@ -122,9 +122,8 @@ workflow, so there is one definition of the gate rather than two that drift.
 ## Scope
 
 **Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP: drag and drop,
-undo, any rule beyond capacity, auto-allocate respecting anything beyond seats and pins, catering
-output, export, print, sharing and accounts. All of it is already ticketed under TT-21 to TT-25 and
-TT-31 to TT-34.
+undo, catering output, export, print, sharing and accounts. All of it is already ticketed under
+TT-23, TT-25 and TT-31 to TT-34.
 
 **A thin ticket is thin on purpose.** Never fill one in, and never invent an acceptance criterion
 to have something to build.
