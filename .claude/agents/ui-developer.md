@@ -70,6 +70,26 @@ KB-5 has the worked examples.
 - Three states must look intentional rather than broken: the empty setup screen, the empty guest
   list, and the violations panel with one rule registered.
 
+## Comments earn their place
+
+A comment is justified only when it stops a future edit breaking something the code does not show.
+Everything else is noise. On TT-11 one file reached eighty lines of prose against thirty-nine of
+code, and the review had to say so.
+
+- **Never narrate history.** No dates, no "a review found", no account of what was tried and
+  reverted. The commit message and the pull request hold that already, with authorship and a diff.
+- **Never record a measurement.** A pixel figure, a contrast ratio or a viewport width is stale the
+  moment anything moves, and nothing in the gate keeps it true.
+- **Never restate the code.** If the comment says what the line plainly does, delete the comment.
+- **Do write the trap.** A source order a rule depends on, an attribute that must be `undefined`
+  rather than `false`, an argument order that inverts a result — one line each, and name the test
+  that guards it.
+- Cite `TT-` and `KB-` ids, which resolve. Do not cite a plan's own `A6`/`R2`/`C3`: `.claude/plans/`
+  is gitignored, so those resolve to nothing the moment the plan is gone.
+
+Past about six lines a comment is usually a design decision, and those belong in the plan or on the
+board rather than in the file.
+
 ## The browser comes last
 
 Build against the suite. It runs in about two seconds and `tester` has already written it from the
