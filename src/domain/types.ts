@@ -43,6 +43,32 @@ export function isAgeBand(value: unknown): value is AgeBand {
   return typeof value === 'string' && (AGE_BANDS as readonly string[]).includes(value)
 }
 
+/**
+ * The 4/10/18 boundaries above, as data a caller can read rather than only as that comment's
+ * prose. `scripts/generate-scenarios.mjs` keeps its own copy of these same three numbers in
+ * its `ageBand()` — it is a plain Node script and cannot import this file (verified: no
+ * `tsx`/`ts-node`/register hook in `devDependencies`, and Node is pinned at 22.14.0 with no
+ * strip-types flag) — and `src/domain/scenarioAges.test.ts` checks the two against each other
+ * at every edge (3/4, 9/10, 17/18) so they cannot drift apart silently.
+ *
+ * `src/screens/guests/GuestPanel.tsx`'s `AGE_BAND_LABELS` states these same three numbers a
+ * third time, in its option-label prose ("under 4", "under 10", "under 18"). Nothing stops it
+ * reading its bounds from here instead — that is `ui-developer`'s edit to make, not this one's.
+ */
+export const AGE_BAND_UPPER_BOUND: Record<Exclude<AgeBand, 'adult'>, number> = {
+  baby: 4,
+  child: 10,
+  teen: 18,
+}
+
+/** Converts a raw age in years to its band, using the boundaries above. */
+export function ageBandFromYears(years: number): AgeBand {
+  if (years < AGE_BAND_UPPER_BOUND.baby) return 'baby'
+  if (years < AGE_BAND_UPPER_BOUND.child) return 'child'
+  if (years < AGE_BAND_UPPER_BOUND.teen) return 'teen'
+  return 'adult'
+}
+
 /** KB-3. Drives the social balance rule in KB-2. */
 export type SocialType = 'livewire' | 'sociable' | 'quiet'
 

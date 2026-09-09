@@ -1,5 +1,5 @@
 import { writeFileSync, mkdirSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 
 // Writes to public/scenarios/ relative to the repo root.
@@ -35,10 +35,14 @@ const SOCIAL = ['livewire', 'sociable', 'quiet']
 // comparison and derivation inside build() below stays on the numeric age. g.age >= 70 on
 // line ~68 short-circuits a chance() call, so changing when an age crosses a threshold would
 // shift every r() call after it and silently rewrite the rest of the file. These boundaries
-// duplicate src/domain/types.ts's AGE_BANDS/AgeBand — this is .mjs and cannot import a .ts
-// file — and src/domain/scenarioAges.test.ts is the guard against the two drifting apart.
-const AGE_BANDS = ['baby', 'child', 'teen', 'adult']
-function ageBand(years) {
+// duplicate src/domain/types.ts's AGE_BANDS/AgeBand/AGE_BAND_UPPER_BOUND — this is .mjs and
+// cannot import a .ts file (verified: no tsx/ts-node/register hook, Node pinned at 22.14.0,
+// no strip-types flag) — and src/domain/scenarioAges.test.ts imports this function directly
+// (Vitest, unlike plain Node, can load a .mjs module from a .ts test) and checks it against
+// the domain's boundaries at every edge, so the two cannot drift apart silently. Exported for
+// that import; importing this file runs no other side effect — see isMain below.
+export const AGE_BANDS = ['baby', 'child', 'teen', 'adult']
+export function ageBand(years) {
   if (years < 4) return 'baby'
   if (years < 10) return 'child'
   if (years < 18) return 'teen'
@@ -186,51 +190,59 @@ function build(name, total, roundTables, seatsEach, topSeats, conflictPairs, see
   }
 }
 
-const scenarios = [
-  build('Small and cosy', 40, 4, 8, 8, 1, 20260922),
-  build('Adding up', 70, 9, 8, 6, 3, 20260929),
-  build('Celebrity scale', 200, 26, 8, 8, 9, 20261014)
-]
+// Node's ESM equivalent of `require.main === module`: true when this file is run directly
+// (`npm run generate:scenarios`), false when it is imported for its exports — as
+// src/domain/scenarioAges.test.ts does for `ageBand`/`AGE_BANDS`. Guarded so that import can
+// never write a file, touch the console, or spend the time building three scenarios.
+const isMain = typeof process.argv[1] === 'string' && import.meta.url === pathToFileURL(process.argv[1]).href
 
-// Convert at serialisation only, after every numeric draw in build() is already made. `meta`
-// is untouched — it is computed from constants and guests.length, neither of which the band
-// conversion changes.
-const banded = scenarios.map((s) => ({
-  ...s,
-  guests: s.guests.map((g) => ({ ...g, age: ageBand(g.age) })),
-}))
+if (isMain) {
+  const scenarios = [
+    build('Small and cosy', 40, 4, 8, 8, 1, 20260922),
+    build('Adding up', 70, 9, 8, 6, 3, 20260929),
+    build('Celebrity scale', 200, 26, 8, 8, 9, 20261014)
+  ]
 
-mkdirSync(OUT, { recursive: true })
-const slugs = ['small-and-cosy', 'adding-up', 'celebrity-scale']
-banded.forEach((s, i) => {
-  writeFileSync(join(OUT, `${slugs[i]}.json`), JSON.stringify(s, null, 2))
-})
+  // Convert at serialisation only, after every numeric draw in build() is already made. `meta`
+  // is untouched — it is computed from constants and guests.length, neither of which the band
+  // conversion changes.
+  const banded = scenarios.map((s) => ({
+    ...s,
+    guests: s.guests.map((g) => ({ ...g, age: ageBand(g.age) })),
+  }))
 
-// Validates the banded payload actually being shipped, not the internal numeric one, so a
-// bug in ageBand() itself would be caught here too.
-for (const s of banded) {
-  const ids = new Set(s.guests.map(g => g.id))
-  const errs = []
-  for (const g of s.guests) {
-    if (g.partnerOf) {
-      if (!ids.has(g.partnerOf)) errs.push(`${g.id} partner missing`)
-      else if (s.guests.find(x => x.id === g.partnerOf).partnerOf !== g.id) errs.push(`${g.id} partner not reciprocal`)
+  mkdirSync(OUT, { recursive: true })
+  const slugs = ['small-and-cosy', 'adding-up', 'celebrity-scale']
+  banded.forEach((s, i) => {
+    writeFileSync(join(OUT, `${slugs[i]}.json`), JSON.stringify(s, null, 2))
+  })
+
+  // Validates the banded payload actually being shipped, not the internal numeric one, so a
+  // bug in ageBand() itself would be caught here too.
+  for (const s of banded) {
+    const ids = new Set(s.guests.map(g => g.id))
+    const errs = []
+    for (const g of s.guests) {
+      if (g.partnerOf) {
+        if (!ids.has(g.partnerOf)) errs.push(`${g.id} partner missing`)
+        else if (s.guests.find(x => x.id === g.partnerOf).partnerOf !== g.id) errs.push(`${g.id} partner not reciprocal`)
+      }
+      for (const c of g.conflictsWith) {
+        if (!ids.has(c)) errs.push(`${g.id} conflict missing`)
+        else if (!s.guests.find(x => x.id === c).conflictsWith.includes(g.id)) errs.push(`${g.id} conflict not reciprocal`)
+        if (c === g.id) errs.push(`${g.id} self conflict`)
+      }
+      if (!g.name || !g.side || !AGE_BANDS.includes(g.age)) errs.push(`${g.id} missing core field`)
     }
-    for (const c of g.conflictsWith) {
-      if (!ids.has(c)) errs.push(`${g.id} conflict missing`)
-      else if (!s.guests.find(x => x.id === c).conflictsWith.includes(g.id)) errs.push(`${g.id} conflict not reciprocal`)
-      if (c === g.id) errs.push(`${g.id} self conflict`)
+    const roles = TOP_TABLE.map(t => t[0])
+    for (const role of roles) {
+      const c = s.guests.filter(g => g.role === role).length
+      if (c !== 1) errs.push(`role ${role} count ${c}`)
     }
-    if (!g.name || !g.side || !AGE_BANDS.includes(g.age)) errs.push(`${g.id} missing core field`)
+    const m = s.meta
+    console.log(`${m.scenario}: ${m.guests} guests, ${m.tables.roundTables}x${m.tables.seatsEach}+${m.tables.topTableSeats}=${m.seats} seats, ${m.spare} spare`)
+    console.log(`  households ${new Set(s.guests.map(g => g.household)).size} · couples ${s.guests.filter(g => g.partnerOf).length / 2} · conflicts ${s.guests.reduce((a, g) => a + g.conflictsWith.length, 0) / 2} · under 18 ${s.guests.filter(g => ['baby', 'child', 'teen'].includes(g.age)).length}`)
+    console.log(`  allergies ${s.guests.filter(g => g.allergies.length).length} · diets ${s.guests.filter(g => g.dietaryPreferences.length).length} · access ${s.guests.filter(g => g.accessibility.length).length} · tags ${new Set(s.guests.flatMap(g => g.tags)).size}`)
+    console.log(errs.length ? `  FAIL ${errs.slice(0, 6).join('; ')}` : '  validation passed')
   }
-  const roles = TOP_TABLE.map(t => t[0])
-  for (const role of roles) {
-    const c = s.guests.filter(g => g.role === role).length
-    if (c !== 1) errs.push(`role ${role} count ${c}`)
-  }
-  const m = s.meta
-  console.log(`${m.scenario}: ${m.guests} guests, ${m.tables.roundTables}x${m.tables.seatsEach}+${m.tables.topTableSeats}=${m.seats} seats, ${m.spare} spare`)
-  console.log(`  households ${new Set(s.guests.map(g => g.household)).size} · couples ${s.guests.filter(g => g.partnerOf).length / 2} · conflicts ${s.guests.reduce((a, g) => a + g.conflictsWith.length, 0) / 2} · under 18 ${s.guests.filter(g => ['baby', 'child', 'teen'].includes(g.age)).length}`)
-  console.log(`  allergies ${s.guests.filter(g => g.allergies.length).length} · diets ${s.guests.filter(g => g.dietaryPreferences.length).length} · access ${s.guests.filter(g => g.accessibility.length).length} · tags ${new Set(s.guests.flatMap(g => g.tags)).size}`)
-  console.log(errs.length ? `  FAIL ${errs.slice(0, 6).join('; ')}` : '  validation passed')
 }

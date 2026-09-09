@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { isAgeBand } from './types'
+import { ageBandFromYears, isAgeBand } from './types'
+import { ageBand as generatorAgeBand } from '../../scripts/generate-scenarios.mjs'
 
 /**
  * TT-5. Guards two things about the shipped scenario data under public/scenarios/:
@@ -29,6 +30,22 @@ import { isAgeBand } from './types'
  * KB-3 does not publish a couple count or an allergy count for any scenario, so C17's mention of
  * those two (in the criterion's own prose, not in its cited figures) is not asserted here against
  * an invented number — see the tester's report.
+ *
+ * ADDITION (model-developer, TT-5/TT-6 review fix): the two describes above cannot catch a
+ * moved age-band boundary. `isAgeBand` only confirms the result is one of the four valid
+ * strings, not which years map to which band, and none of the KB-3 counts above change if a
+ * boundary shifts — change the generator's `years < 10` to `years < 12` and every assertion in
+ * this file still passes while the shipped data and the guest form's labels disagree about
+ * what a nine-year-old is. Review found this file was not, in fact, the guard the plan claimed
+ * it to be. Closed below by importing both `ageBand` (`scripts/generate-scenarios.mjs`) and
+ * `ageBandFromYears` (`src/domain/types.ts`) directly and checking them against each other,
+ * and against the published boundary, at every edge. Unlike the tests above, this one reads
+ * both implementations rather than only a public predicate — it is a bug-guard, not a
+ * black-box acceptance test, and says so rather than pretending otherwise.
+ *
+ * `generate-scenarios.mjs` is safe to import here: its build-and-write driver only runs when
+ * the file is executed directly (`npm run generate:scenarios`), behind an `isMain` check, so
+ * importing it for `ageBand` alone writes no file and prints nothing.
  */
 
 const DIR = dirname(fileURLToPath(import.meta.url))
@@ -127,5 +144,25 @@ describe('regenerating changes age and nothing else (C17)', () => {
     expect(conflictPairCount(file)).toBe(9)
     expect(tagCount(file)).toBe(11)
     expect(accessibilityNeedCount(file)).toBe(21)
+  })
+})
+
+describe('the generator and the domain agree on the 4/10/18 boundaries, edge by edge', () => {
+  it.each([
+    [3, 'baby'],
+    [4, 'child'],
+    [9, 'child'],
+    [10, 'teen'],
+    [17, 'teen'],
+    [18, 'adult'],
+  ] as const)('age %i bands as %s in both the generator and the domain', (years, expected) => {
+    expect(generatorAgeBand(years)).toBe(expected)
+    expect(ageBandFromYears(years)).toBe(expected)
+  })
+
+  it('agree at every age from 0 to 100, not only the six named edges', () => {
+    for (let years = 0; years <= 100; years++) {
+      expect(generatorAgeBand(years)).toBe(ageBandFromYears(years))
+    }
   })
 })
