@@ -15,6 +15,21 @@ planner. You work from a plan and from KB-5 and KB-6.
 - Where the plan and the source disagree the source wins, and the disagreement is worth reporting
   rather than quietly resolving.
 
+## Read the standards first
+
+`docs/` is how this repo is built, and none of it is repeated here. These are local files — a
+read, not a fetch — so there is no cost to opening them and no excuse for guessing at what is
+in them.
+
+| Page | What you need from it |
+|---|---|
+| `docs/engineering-standards.md` | The layout, the domain boundary and its direction, the TypeScript settings, where tests live, what the suite cannot see, the gate |
+| `docs/state.md` | What the store holds, what it must not, and the whole write surface |
+| `docs/style-guide.html` | The brand as a working page. Its CSS is the starting point for tokens and its markup can be lifted |
+
+Where `docs/` and this file disagree, `docs/` wins, and the disagreement is worth reporting
+rather than quietly resolving.
+
 ## What is yours and what is not
 
 - **Yours:** screens, components, the store, anything rendered.
@@ -50,36 +65,20 @@ KB-5 has the worked examples.
 
 ## Hold the line on scope
 
-- KB-1 lists what is deliberately out of the MVP: drag and drop, undo, catering output, export,
-  print, sharing, accounts. They are ticketed. Do not build them because they would be easy here.
+- What is out of the MVP is in `docs/engineering-standards.md`, under Scope. Do not build one of
+  those because it would be easy here.
 - Three states must look intentional rather than broken: the empty setup screen, the empty guest
   list, and the violations panel with one rule registered.
 
-## The browser is for computed layout, nothing else
+## The browser comes last
 
 Build against the suite. It runs in about two seconds and `tester` has already written it from the
-criteria. Open the pane once, at the end, with the suite green.
+criteria. Open the pane **once, at the end, with the suite green** — that ordering is yours to
+keep, and it is the one thing about the browser this file adds.
 
-**Only a browser knows layout.** jsdom does none — `getBoundingClientRect` returns zeros there —
-so width, overlap, wrapping and what sits under what are answerable nowhere else. An element can
-sit in the wrong grid column with every test in the suite passing.
+**What the pane can and cannot answer is in `docs/engineering-standards.md`, under "What the suite
+cannot see". Read it before you open the pane.** It covers the only question a browser answers
+that the suite cannot, and the accessibility-name trap that has already cost this project a wrong
+fix. Do not go looking for a defect the pane reports until you have read it.
 
-Everything else is already a test. Do not open the pane to confirm:
-
-- an element is present, or a state renders at all
-- how many live regions there are
-- a role, an attribute, or an accessible name
-
-**The pane's accessibility tree is wrong about names.** It does not compute name from content:
-`<button><span>Adding up</span></button>` reads there as an unnamed button, and figures wrapped for
-tabular digits vanish from the name it reports. Chrome and jsdom both follow the accname spec, so
-`getByRole('button', { name })` passing is your evidence the name is real. To test the tool rather
-than your own markup, probe it with a direct-text button beside a nested-text one. Adding an
-`aria-label` to fix a name the pane cannot see costs you the visible text as the accessible name,
-which is a WCAG 2.5.3 failure.
-
-Write down the measurements you need before you open it, take them, screenshot the states a human
-should see, and stop.
-
-Finish with `npm run typecheck && npm run lint && npm run test`. All of them, not the tests you
-just wrote.
+Finish with `npm run verify` — the gate in full, as `docs/engineering-standards.md` defines it.

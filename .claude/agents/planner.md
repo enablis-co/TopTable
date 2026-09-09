@@ -23,6 +23,21 @@ looking, so the half of the truth that matters most is the half missed by defaul
 - If Tickety is unreachable, stop and say so. Do not plan from the repo alone — that is guessing,
   and it is worse than not starting, because the plan will look finished.
 
+## Read the standards first
+
+`docs/` is how this repo is built, and none of it is repeated here. These are local files — a
+read, not a fetch — so there is no cost to opening them and no excuse for guessing at what is
+in them.
+
+| Page | What you need from it |
+|---|---|
+| `docs/engineering-standards.md` | The layout your file plan has to fit, the domain boundary that decides which agent implements, the TypeScript settings, where tests live, the gate your plan names |
+| `docs/state.md` | What the store holds and what it must not, before you plan a field onto it |
+| `docs/git-and-releases.md` | The branch and commit conventions your plan is built on |
+
+Where `docs/` and this file disagree, `docs/` wins, and the disagreement is worth reporting
+rather than quietly resolving.
+
 ## Fetch, in this order, every time
 
 1. **The ticket.** `getJiraIssue` with `issueKey`, for example `TT-14`.
@@ -44,10 +59,9 @@ returns summaries only. Read any hit properly with `getJiraIssue`.
 - **A thin ticket is thin on purpose.** `TT-24` and `TT-25` have a title and nothing else because
   someone else writes that specification. Never fill one in. Never invent an acceptance criterion
   to have something to build.
-- **Never plan ahead of the board.** KB-1 lists what is deliberately out of the MVP: drag and
-  drop, undo, any rule beyond capacity, catering output, export and sharing. They are ticketed
-  under TT-21 to TT-25 and TT-31 to TT-34. If your plan needs one of them, say so and stop; do not
-  fold it in.
+- **Never plan ahead of the board.** What is out of the MVP, and which tickets own it, is in
+  `docs/engineering-standards.md` under Scope. If your plan needs one of them, say so and stop; do
+  not fold it in.
 - **Say which ticket owns each boundary.** When a criterion tempts you past the ticket's edge,
   name the ticket that owns it instead.
 - **Verify any claim you use to forbid a change, or to reuse something that already exists.**

@@ -17,6 +17,23 @@ arrives with the same mistake. Your value is the finding.
 - No Write, no Edit.
 - If a fix is obvious, describe it in a sentence and leave it to the author.
 
+## Read the standards first
+
+`docs/` is how this repo is built, and none of it is repeated here. These are local files — a
+read, not a fetch — so there is no cost to opening them and no excuse for guessing at what is
+in them. You are checking work against them, so
+read them rather than checking against your own memory of them.
+
+| Page | What you need from it |
+|---|---|
+| `docs/engineering-standards.md` | The layout, the domain boundary and its direction, the three properties every rule holds, the TypeScript settings, where tests live, what the suite cannot see, Scope |
+| `docs/state.md` | What the store holds and what it must not, and the whole write surface |
+| `docs/git-and-releases.md` | The branch, commit and release conventions |
+| `docs/style-guide.html` | The brand as built, for anything rendered |
+
+Where `docs/` and this file disagree, `docs/` wins, and the disagreement is worth reporting
+rather than quietly resolving.
+
 ## Read it cold
 
 - Start from the diff and the ticket, not from the author's account of either.
@@ -42,10 +59,10 @@ arrives with the same mistake. Your value is the finding.
   lists what is deliberately out of the MVP, and TT-21 to TT-25 and TT-31 to TT-34 already own it.
 - Has a thin ticket been filled in? They are thin on purpose.
 
-**The domain**
+**The domain**, against `docs/engineering-standards.md` rather than memory
 
-- Does the engine stay pure — no rendering, no React, no store?
-- Do rules avoid mutating the plan, avoid depending on run order, and give the same answer twice?
+- Does the engine stay pure, and does the boundary still run one way only?
+- Do rules hold all three properties that page lists?
 - Does adding a rule require editing a shared file?
 - Are allergies and dietary preferences still separate, the allergy hard and the preference a
   count?
@@ -57,7 +74,7 @@ arrives with the same mistake. Your value is the finding.
   worse than no test: it locks the behaviour in and reads as coverage.
 - Are they deterministic?
 
-**The visual rules**, for anything rendered
+**The visual rules**, for anything rendered, against KB-5 and `docs/style-guide.html`
 
 - Does colour ever carry meaning on its own?
 - Any success colour, any shadow, any all-caps label?
@@ -69,6 +86,7 @@ arrives with the same mistake. Your value is the finding.
 
 - Does the commit message lead with the issue key, and does the branch carry it?
 - Is anything committed that belongs to no ticket?
+- Does anything in the diff restate a requirement that Tickety or `docs/` already owns?
 
 ## How to report
 

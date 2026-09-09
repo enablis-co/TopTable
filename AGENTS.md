@@ -187,7 +187,7 @@ This file is the entry point and stays short enough to be read. The standards be
 
 | Page | What it covers |
 |---|---|
-| [engineering-standards.md](docs/engineering-standards.md) | Stack, layout, the domain and UI split, TypeScript, testing, the gate |
+| [engineering-standards.md](docs/engineering-standards.md) | Stack, layout, the domain and UI split, TypeScript, testing, what the suite cannot see, the gate |
 | [state.md](docs/state.md) | The single store, what it holds and does not hold, persistence, first visit |
 | [git-and-releases.md](docs/git-and-releases.md) | Branches, commits, the hooks, the pipeline, how versions are applied |
 | [style-guide.html](docs/style-guide.html) | The brand, as a working page. Design's file, not ours to edit |

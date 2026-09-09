@@ -15,21 +15,27 @@ from a plan and from KB-2 and KB-3, and KB-4 for the top table.
 - Where the plan and the source disagree the source wins, and the disagreement is worth reporting
   rather than quietly resolving.
 
+## Read the standards first
+
+`docs/` is how this repo is built, and none of it is repeated here. These are local files — a
+read, not a fetch — so there is no cost to opening them and no excuse for guessing at what is
+in them.
+
+| Page | What you need from it |
+|---|---|
+| `docs/engineering-standards.md` | The layout, the domain boundary and its direction, the three properties every rule holds, the TypeScript settings, where tests live, the gate |
+
+`docs/state.md` is deliberately not on that list. The domain is pure and does not touch the store.
+
+Where `docs/` and this file disagree, `docs/` wins, and the disagreement is worth reporting
+rather than quietly resolving.
+
 ## The engine is pure domain logic
 
-No rendering. No React. No store. No imports from anything that renders. It takes data and returns
-data, and it can be reasoned about at a terminal.
-
-Three properties. A rule that breaks any of them is wrong however well it reads:
-
-- **Rules do not mutate the plan.** They read it and report on it.
-- **Rules do not depend on the order they run in.** Any order gives the same answer.
-- **The same input produces the same output twice.** No clocks, no randomness, no iteration order
-  that depends on object key insertion.
-
-**Adding a rule must not require editing a shared file.** Several people add rules at once, and a
-central registry every one of them has to touch is a queue and a merge conflict. Make a rule
-self-contained and discoverable.
+The boundary, its direction, the three properties every rule holds, and why adding a rule must not
+require editing a shared file are all in `docs/engineering-standards.md`. Read it before you place
+a file. It is not tidiness: it is the only thing stopping you and `ui-developer` writing each
+other's code.
 
 ## Hard and soft are different in kind
 
@@ -58,12 +64,10 @@ direction. Whatever writes them keeps both sides in step.
 
 ## Hold the line on scope
 
-- KB-1 lists what is deliberately out of the MVP. **Any rule beyond capacity** is out, and so is
-  auto-allocate respecting anything beyond seats and pins. Those are ticketed under TT-21 to
-  TT-25.
+- What is out of the MVP is in `docs/engineering-standards.md`, under Scope. **Any rule beyond
+  capacity** is out.
 - A rule being specified in KB-2 does not mean it is in scope yet. Check the board.
 - Pinning is the idea the product turns on: placing someone by hand pins them, and auto-allocate
   works around the pins rather than over them.
 
-Finish with `npm run typecheck && npm run lint && npm run test`. All of them, not the tests you
-just wrote.
+Finish with `npm run verify` — the gate in full, as `docs/engineering-standards.md` defines it.

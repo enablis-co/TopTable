@@ -5,7 +5,7 @@ reach the requirements, which are not in this repo. These pages are the detail b
 
 | Page | What it covers |
 |---|---|
-| [engineering-standards.md](engineering-standards.md) | Stack, project layout, the domain and UI split, TypeScript settings, testing, the gate |
+| [engineering-standards.md](engineering-standards.md) | Stack, project layout, the domain and UI split, TypeScript settings, testing, what the suite cannot see, the gate |
 | [state.md](state.md) | The single store, what it holds and does not hold, persistence and first visit |
 | [git-and-releases.md](git-and-releases.md) | Branches, commits, the hooks, the pipeline, how versions are applied |
 | [style-guide.html](style-guide.html) | The brand, as a working page. Open it in a browser. Design's file, not ours to edit |
