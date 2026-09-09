@@ -2,15 +2,16 @@
 
 ## One store
 
-[`src/store/store.ts`](../src/store/store.ts) holds the event, the room config and the guest list.
-That is the whole of the product's persistent state, because everything is local: there is no
-server copy and nothing to reconcile against.
+[`src/store/store.ts`](../src/store/store.ts) holds the event, the room config, the guest list and
+which scenario (if any) is loaded. That is the whole of the product's persistent state, because
+everything is local: there is no server copy and nothing to reconcile against.
 
 ```ts
 type TopTableData = {
-  event: EventDetails   // { name: string }
-  room: RoomConfig      // { roundTables, seatsEach, topTableSeats }
-  guests: Guest[]       // KB-3, thirteen fields
+  event: EventDetails    // { name: string }
+  room: RoomConfig       // { roundTables, seatsEach, topTableSeats }
+  guests: Guest[]        // KB-3, thirteen fields
+  scenario: ScenarioState // ScenarioId | 'custom' | null — which scenario is loaded, if any (TT-4)
 }
 ```
 
@@ -28,8 +29,8 @@ setup screen, TT-3. Nothing that can be recomputed from the three fields above b
 
 ## The write surface
 
-`setEventName`, `setRoom`, `setGuests` and `reset`. That is what TT-2 needs to stand the project up
-and prove persistence.
+`setEventName`, `setRoom`, `setGuests`, `importScenario` and `reset`. `setEventName`, `setRoom` and
+`setGuests` are what TT-2 needs to stand the project up and prove persistence.
 
 **Guest add, edit and remove are not here yet, and that is deliberate.** `partnerOf` and
 `conflictsWith` are reciprocal — present on both guests, resolvable from either direction — so
@@ -39,13 +40,23 @@ and it belongs to TT-5 rather than being improvised here.
 
 `setGuests` replaces the whole list, because a scenario import is a replacement and not a merge.
 
+**`importScenario` (TT-4) replaces the guest list and the room together, in one `set` call**, so
+the replacement is atomic rather than a convention two separate writes have to honour. The event
+name is untouched — TT-4 does not set it. The room it writes comes from the scenario's own manifest
+entry, not from the caller, so a caller cannot pair one scenario's id with another's room.
+
+**`setRoom` detaches from a loaded scenario.** Any patch — including one that leaves every number
+unchanged — moves `scenario` from a loaded id to `'custom'`, because editing the room is what "you
+changed something" means here. A store that has never imported anything stays `null`: there is
+nothing yet to be "Custom" relative to.
+
 ## Persistence
 
 Zustand's `persist` middleware, one key, `top-table`.
 
 ```ts
 export const STORAGE_KEY = 'top-table'
-export const STORAGE_VERSION = 1
+export const STORAGE_VERSION = 2
 ```
 
 **Storage is not a trusted input.** It survives across releases, it is editable by hand in dev
@@ -69,12 +80,17 @@ there is no real shape to migrate from, and a migration written against a hypoth
 is untested code guarding data that never existed. Once there is a released version, this becomes a
 real `migrate` and the honest answer changes.
 
-`partialize` writes the three data fields and never the actions.
+`partialize` writes the four data fields and never the actions.
 
 ## First visit
 
 ```ts
-{ event: { name: '' }, room: { roundTables: 0, seatsEach: 0, topTableSeats: 0 }, guests: [] }
+{
+  event: { name: '' },
+  room: { roundTables: 0, seatsEach: 0, topTableSeats: 0 },
+  guests: [],
+  scenario: null,
+}
 ```
 
 Zeroed room numbers are the unconfigured state. KB-6's first-visit screen shows empty config fields

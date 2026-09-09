@@ -5,6 +5,9 @@
 export { Button } from './Button'
 export type { ButtonProps, ButtonVariant } from './Button'
 
+export { CardButton } from './CardButton'
+export type { CardButtonProps } from './CardButton'
+
 export { TextField } from './TextField'
 export type { TextFieldProps } from './TextField'
 

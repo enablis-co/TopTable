@@ -1,0 +1,27 @@
+.card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  padding: var(--space-4);
+}
+
+.card:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}
+
+.card:disabled {
+  cursor: not-allowed;
+  background: var(--sunken);
+  color: var(--ink-faint);
+}

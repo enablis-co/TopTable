@@ -61,3 +61,12 @@
   font-size: var(--text-body);
   color: var(--ink);
 }
+
+/* KB-6's after-import wireframe puts the chip and the "Change scenario" control on one row,
+   chip first. .main is a flex column, so this is the only new layout the screen needs. */
+.chipRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}

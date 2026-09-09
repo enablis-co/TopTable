@@ -10,7 +10,8 @@ type StatusStripProps = {
 /**
  * The rail: three label/value pairs and the one secondary action this screen offers. Its
  * lead action is a `Button` with `variant="secondary"` on purpose — KB-5 allows one primary
- * control per view, and on this screen that will be TT-4's scenario cards, not this rail.
+ * control per view, and on this screen that is the import confirmation's Load button, not
+ * this rail.
  */
 export function StatusStrip({ guestCount, totalSeats, onGoToGuests }: StatusStripProps) {
   return (

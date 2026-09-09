@@ -1,11 +1,16 @@
-import { cx } from '../../ui'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { Button, cx } from '../../ui'
 import { useTopTableStore } from '../../store/store'
 import { useNavigation } from '../../shell/navigation'
 import { suggestExactRoom, totalSeats } from '../../domain/capacity'
+import type { ScenarioId } from '../../domain/scenarios'
+import type { Guest } from '../../domain/types'
 import { RoomForm } from './RoomForm'
 import { CapacityReadout } from './CapacityReadout'
 import { StatusStrip } from './StatusStrip'
 import { SuggestionLine } from './SuggestionLine'
+import { ScenarioChip } from './ScenarioChip'
+import { ScenarioPicker } from './ScenarioPicker'
 import styles from './SetupScreen.module.css'
 
 /**
@@ -31,8 +36,10 @@ export function SetupScreen() {
   const event = useTopTableStore((s) => s.event)
   const room = useTopTableStore((s) => s.room)
   const guests = useTopTableStore((s) => s.guests)
+  const scenario = useTopTableStore((s) => s.scenario)
   const setEventName = useTopTableStore((s) => s.setEventName)
   const setRoom = useTopTableStore((s) => s.setRoom)
+  const importScenario = useTopTableStore((s) => s.importScenario)
   const { goTo } = useNavigation()
 
   // Nothing on this screen reads a guest's contents, only the count.
@@ -40,16 +47,73 @@ export function SetupScreen() {
   const hasGuests = guestCount > 0
   const isConfigured = totalSeats(room) > 0
   const showRail = hasGuests || isConfigured
+  // TT-4's "importing over existing data asks first" asks a different question from
+  // isConfigured, which needs a non-zero seat *total* to decide whether the rail has
+  // anything worth showing. A half-typed room — {5, 0, 0} while the other two fields are
+  // still empty — totals zero seats and is still a number the user typed, so an import
+  // would destroy it. Reusing isConfigured here skipped the prompt for exactly that case.
+  const hasTypedRoom = room.roundTables > 0 || room.seatsEach > 0 || room.topTableSeats > 0
+  // Both are things a scenario import overwrites; the event name is not, so it does not count.
+  const hasExistingData = hasGuests || hasTypedRoom
+
+  // TT-4: the picker collapses behind a chip once a scenario is loaded, and "Change
+  // scenario" brings it back. Derived rather than stored — showCards is view state, not
+  // product data (Assumed A12) — so it is correct even if persistence ever became async.
+  const [revealed, setRevealed] = useState(false)
+  const changeScenarioRef = useRef<HTMLButtonElement | null>(null)
+  const focusChangeControl = useRef(false)
+  const showCards = scenario === null || revealed
+
+  const handleImport = (id: ScenarioId, guests: Guest[]) => {
+    // Flag set before the store write, not after: if the zustand notification ever commits
+    // on its own (a flushSync, a batching change), the layout effect below would run with
+    // the flag still false and no further render would arrive to consume it — leaving it
+    // armed to fire on the next unrelated render and yank focus mid-keystroke.
+    focusChangeControl.current = true
+    importScenario(id, guests)
+    setRevealed(false)
+  }
+
+  // Moves focus to "Change scenario" once an import completes (C33): the collapse removes
+  // whatever the user was operating (the confirm prompt's Load button, or the card itself),
+  // and focus falling to <body> is a defect against TT-7's focus-visible obligation. The
+  // one-shot ref flag, set only by handleImport and cleared the first time it is read, is
+  // what keeps this off every other render — including the reveal, where autoFocusFirstCard
+  // moves focus instead (A14).
+  useLayoutEffect(() => {
+    if (!focusChangeControl.current) return
+    focusChangeControl.current = false
+    changeScenarioRef.current?.focus()
+  })
 
   return (
     <div className={cx(styles.screen, showRail && styles.withRail)}>
       <h1 className="tt-visually-hidden">Setup</h1>
       <div className={styles.main}>
-        {/*
-          TT-4 lands here, above the form: the scenario cards, the "or set it up yourself"
-          divider below them, and the loaded/Custom chip above the event name field. There
-          is nothing to divide until TT-4 exists, so no divider is built in this ticket.
-        */}
+        {scenario !== null && (
+          <div className={styles.chipRow}>
+            <ScenarioChip scenario={scenario} />
+            {!showCards && (
+              <Button
+                variant="quiet"
+                ref={changeScenarioRef}
+                onClick={() => {
+                  setRevealed(true)
+                }}
+              >
+                Change scenario
+              </Button>
+            )}
+          </div>
+        )}
+        {showCards && (
+          <ScenarioPicker
+            hasExistingData={hasExistingData}
+            currentGuestCount={guestCount}
+            autoFocusFirstCard={revealed}
+            onImport={handleImport}
+          />
+        )}
         <RoomForm
           eventName={event.name}
           room={room}
