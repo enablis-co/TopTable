@@ -79,6 +79,18 @@ describe('addGuest (C5, C8)', () => {
     expect(result.find((g) => g.id === 'g-1')?.conflictsWith).toEqual(['g-2'])
     expect(result.find((g) => g.id === 'g-2')?.conflictsWith).toEqual(['g-1'])
   })
+
+  it('does not duplicate the reciprocal id when the named conflict already carries it from a one-sided stored state', () => {
+    // Storage is not a trusted input (docs/state.md) and isTopTableData checks no individual
+    // guest field, so a guest already, one-sidedly, naming the id the new guest is about to
+    // receive is representable on disk. The reciprocal write must not take that at face value
+    // and push a second copy.
+    const alreadyLinked = makeGuest('g-1', { conflictsWith: ['g-2'] })
+
+    const result = addGuest([alreadyLinked], makeGuest('g-2', { conflictsWith: ['g-1'] }))
+
+    expect(result.find((g) => g.id === 'g-1')?.conflictsWith).toEqual(['g-2'])
+  })
 })
 
 describe('updateGuest (C7, C8)', () => {
@@ -150,6 +162,20 @@ describe('updateGuest (C7, C8)', () => {
     expect(afterSecond.find((g) => g.id === 'g-2')?.conflictsWith).toEqual(['g-1'])
   })
 
+  it('does not duplicate the reciprocal id when the other side already carries it from a one-sided stored state', () => {
+    // Unlike the test above, the mismatch here is not between two saves of the same edit —
+    // it is between what the edited guest's own previous state shows (no conflict recorded)
+    // and what the other guest already, wrongly, carries. dedupeIds only ever normalises the
+    // incoming guest's own array, so the diff below sees this as a brand new addition and the
+    // reciprocal push has to be idempotent on its own, independent of that diff.
+    const a = makeGuest('g-1') // conflictsWith: [] — g-2 is "new" from g-1's own history
+    const bOneSided = makeGuest('g-2', { conflictsWith: ['g-1'] }) // already has it, one-sided
+
+    const result = updateGuest([a, bOneSided], { ...a, conflictsWith: ['g-2'] })
+
+    expect(result.find((g) => g.id === 'g-2')?.conflictsWith).toEqual(['g-1'])
+  })
+
   it('throws if no guest matches the given id', () => {
     expect(() => updateGuest([makeGuest('g-1')], makeGuest('g-not-present'))).toThrow()
   })
@@ -174,6 +200,24 @@ describe('removeGuest (C13)', () => {
     const guests = [makeGuest('g-1'), makeGuest('g-2')]
 
     expect(removeGuest(guests, 'g-does-not-exist')).toEqual(guests)
+  })
+})
+
+describe('removeGuest and future pins (R5)', () => {
+  it('is the whole of what removeGuest cleans up today — partnerOf and conflictsWith, and nothing else, because no plan state exists yet (docs/state.md). Pins join this list when TT-11 to TT-15 lands, and belong inside this function, not beside it', () => {
+    const target = makeGuest('g-1', { partnerOf: 'g-2', conflictsWith: ['g-3'] })
+    const partner = makeGuest('g-2', { partnerOf: 'g-1' })
+    const conflictOwner = makeGuest('g-3', { conflictsWith: ['g-1'] })
+
+    const result = removeGuest([target, partner, conflictOwner], 'g-1')
+
+    // Read this test's title, and the OBLIGATION comment on removeGuest, before adding a
+    // pin-clearing step anywhere else in the codebase (plan risk R5). This assertion is the
+    // marker to extend — with a third reconciled field — once pins exist.
+    expect(result).toEqual([
+      { ...partner, partnerOf: null },
+      { ...conflictOwner, conflictsWith: [] },
+    ])
   })
 })
 
@@ -277,6 +321,14 @@ describe('reciprocity bug guards', () => {
 
   it('addGuest throws when partnerOf names an id absent from the guest list', () => {
     expect(() => addGuest([], makeGuest('g-1', { partnerOf: 'ghost' }))).toThrow(GUEST_ERROR_SHAPE)
+  })
+
+  it('addGuest throws when a guest with that id already exists, rather than appending a second record or silently overwriting the first', () => {
+    const existing = makeGuest('g-1', { name: 'Original' })
+
+    expect(() => addGuest([existing], makeGuest('g-1', { name: 'Duplicate' }))).toThrow(
+      GUEST_ERROR_SHAPE,
+    )
   })
 })
 

@@ -8,6 +8,16 @@ import type { Guest } from './types'
  *
  * Pure throughout: every function returns a new array and new objects for the guests it
  * changes, never mutates an input, and never touches a guest it does not need to change.
+ *
+ * One policy for a bad id, held consistently across all three writers below rather than as
+ * three separate habits: a write throws when the id it was given cannot be honoured without
+ * either guessing at the caller's intent or silently discarding something — `addGuest` given
+ * an id already in the list (overwrite the existing guest? append a second row sharing its
+ * id, so every `find` in the codebase becomes ambiguous? neither is a repair), `updateGuest`
+ * given an id that names nobody (there is no record to reconcile the patch against). A write
+ * is a silent no-op only when the state the caller wants is already true and nothing is lost
+ * by not acting on it — `removeGuest` given an id already absent, where "this guest is gone"
+ * is both what was asked for and what already holds.
  */
 
 /**
@@ -64,13 +74,22 @@ function validateRelationships(guests: Guest[], guest: Guest): void {
  * A `conflictsWith` id repeated within `guest`'s own array is deduplicated (`dedupeIds`)
  * before it is stored or used to drive the reciprocal write — the same pair named twice in
  * one array is one conflict, not two (C9), and the array `guest` is stored under gets the
- * same treatment the reciprocal side already got.
+ * same treatment the reciprocal side already got. The reciprocal push onto the *other*
+ * guest's `conflictsWith` is separately guarded by an `includes` check, so it stays
+ * idempotent even against a target that already carries the id — storage is not a trusted
+ * input (`docs/state.md`) and `isTopTableData` validates no individual guest field, so a
+ * one-sided `conflictsWith` is representable there before this function ever runs.
  *
  * Throws (see `validateRelationships`) rather than silently accepting a `partnerOf` or
  * `conflictsWith` id that does not resolve, is the guest's own id, or names a guest already
- * partnered to someone else.
+ * partnered to someone else. Also throws if `guest.id` already names a guest in `guests` —
+ * see the file header for why this, and not a silent no-op or an overwrite, is the policy.
  */
 export function addGuest(guests: Guest[], guest: Guest): Guest[] {
+  if (guests.some((candidate) => candidate.id === guest.id)) {
+    throw new Error(`Guest ${guest.id}: already exists`)
+  }
+
   validateRelationships(guests, guest)
 
   const conflictsWith = dedupeIds(guest.conflictsWith)
@@ -86,7 +105,7 @@ export function addGuest(guests: Guest[], guest: Guest): Guest[] {
   if (conflictsWith.length > 0) {
     const conflictIds = new Set(conflictsWith)
     next = next.map((candidate) =>
-      conflictIds.has(candidate.id)
+      conflictIds.has(candidate.id) && !candidate.conflictsWith.includes(guest.id)
         ? { ...candidate, conflictsWith: [...candidate.conflictsWith, guest.id] }
         : candidate,
     )
@@ -103,7 +122,12 @@ export function addGuest(guests: Guest[], guest: Guest): Guest[] {
  *
  * `guest.conflictsWith` is deduplicated (`dedupeIds`) before it is stored or diffed against,
  * the same as in `addGuest` — a duplicate within the incoming array collapses to one entry
- * rather than being carried into storage verbatim (C9).
+ * rather than being carried into storage verbatim (C9). The add side of that diff is also
+ * guarded by an `includes` check against the *other* guest's own array, so reconciling stays
+ * idempotent even when that guest already carries the id from a one-sided stored state
+ * (`docs/state.md`: storage is not a trusted input, and `isTopTableData` checks no individual
+ * guest field) — without the guard, reconciling the same edit twice, or reconciling against a
+ * target that already (wrongly) has the id, would grow a duplicate nothing here would remove.
  *
  * Throws if no guest has `guest.id`, and throws the same relationship errors as `addGuest`.
  */
@@ -137,7 +161,7 @@ export function updateGuest(guests: Guest[], guest: Guest): Guest[] {
 
   if (added.size > 0 || removed.size > 0) {
     next = next.map((candidate) => {
-      if (added.has(candidate.id)) {
+      if (added.has(candidate.id) && !candidate.conflictsWith.includes(guest.id)) {
         return { ...candidate, conflictsWith: [...candidate.conflictsWith, guest.id] }
       }
       if (removed.has(candidate.id)) {
@@ -156,6 +180,16 @@ export function updateGuest(guests: Guest[], guest: Guest): Guest[] {
  * is absent — a double-fired remove is plausible and there is nothing to corrupt.
  *
  * Undo is out of the MVP (KB-1), so this is final: nothing here holds a copy to restore from.
+ *
+ * OBLIGATION, held here on behalf of TT-11 to TT-15 (plan risk R5): TT-5's criterion "deleting
+ * a guest clears them from... any plan" has no plan state to clear from today — pins arrive
+ * only with the ticket that introduces placing (`docs/state.md`). When they do, clearing a
+ * removed guest's pin belongs *inside this function* — extending its signature and return
+ * shape the same way it already owns `partnerOf` and `conflictsWith` — and not as a step the
+ * caller of `removeGuest` also has to remember to perform. A pin-clearing path added beside
+ * this one instead of inside it is exactly how a deleted guest ends up staying pinned. See
+ * the "removeGuest and future pins" test below, which names this obligation for whoever reads
+ * this file while building TT-11 to TT-15.
  */
 export function removeGuest(guests: Guest[], id: string): Guest[] {
   if (!guests.some((candidate) => candidate.id === id)) {
