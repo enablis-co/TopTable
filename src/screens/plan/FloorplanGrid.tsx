@@ -62,11 +62,27 @@ type GridStyle = CSSProperties & { '--floorplan-columns': number }
  *    leave a keyboard user stranded at smaller counts and viewports. A focus stop that
  *    occasionally scrolls nothing is the accepted, common-practice cost against that.
  *
- *    `role="region"` replaces this `<ul>`'s implicit `list` role — the same trade this codebase
- *    already makes on `PillInput`'s and `ConflictPicker`'s suggestion lists (`role="listbox"`
- *    over a bare `<ul>`) — so its `<li>` children are no longer guaranteed a `listitem` role.
- *    Nothing here depends on that role: point 2 above is exactly why `PlanTable.test.tsx` and
- *    `PlanScreen.test.tsx` both locate tables via `[data-occupancy]` instead.
+ *    A second review, 2026-09-09, found that fix incomplete. `role="region"` had been put
+ *    directly on the `<ul>`, replacing its *implicit* `list` role — and unlike `PillInput`'s and
+ *    `ConflictPicker`'s `role="listbox"` (whose `option` children stay countable), a `region`
+ *    gives its children nothing. So the round tables stopped being exposed as list items, and a
+ *    screen reader user lost the item count — "list, 9 items" is the most useful thing this
+ *    container can announce. "No test depends on that role" was not evidence it was harmless:
+ *    `dom-accessibility-api` (what the suite's `getByRole` runs on) maps `li` to `listitem`
+ *    unconditionally, with no check on what role its parent actually carries, so
+ *    `queryAllByRole('listitem')` passes whether or not the parent still reads as a list to a
+ *    real browser — the suite is blind to this, not indifferent.
+ *
+ *    The fix: `overflow-x: auto`, `tabIndex`, `role="region"` and the `aria-label` all moved onto
+ *    a wrapper `<div>` (`.gridScroll` in FloorplanGrid.module.css) around the `<ul>`, which goes
+ *    back to being a plain, unadorned list. A `<div>` has no implicit role of its own for
+ *    `region` to replace, so nothing is lost by putting it there, and the `<ul>`/`<li>` pair
+ *    keeps its `list`/`listitem` roles exactly as if no accessibility fix had touched it at all.
+ *    See FloorplanGrid.module.css's own comment on `.gridScroll` for the layout half of this —
+ *    moving `overflow-x: auto` up one level does not change what actually gets scrolled. Nothing
+ *    here turns a table into a button, and nothing depends on `listitem` either way: point 2
+ *    above is exactly why `PlanTable.test.tsx` and `PlanScreen.test.tsx` both locate tables via
+ *    `[data-occupancy]` instead.
  */
 export function FloorplanGrid({ room, seating }: FloorplanGridProps) {
   const slots = floorplanFromRoom(room)
@@ -85,20 +101,18 @@ export function FloorplanGrid({ room, seating }: FloorplanGridProps) {
         </ul>
       )}
       {roundSlots.length > 0 && (
-        // tabIndex/role/aria-label: see this file's header comment, point 3. This is the
-        // element `overflow-x: auto` makes scrollable, so it is the element a keyboard user
-        // has to be able to reach and operate.
-        <ul
-          className={styles.grid}
-          style={gridStyle}
-          tabIndex={0}
-          role="region"
-          aria-label="Round tables"
-        >
-          {roundSlots.map((slot) => (
-            <PlanTable key={slot.id} slot={slot} occupants={occupantsAt(seating, slot.id)} />
-          ))}
-        </ul>
+        // tabIndex/role/aria-label live on this wrapper, not the <ul> below — see this file's
+        // header comment, point 3 (as amended). This is the element `overflow-x: auto` makes
+        // scrollable (FloorplanGrid.module.css's `.gridScroll`), so it is the element a keyboard
+        // user has to be able to reach and operate. The <ul> stays a plain list so its <li>
+        // tables keep their `listitem` role.
+        <div className={styles.gridScroll} tabIndex={0} role="region" aria-label="Round tables">
+          <ul className={styles.grid} style={gridStyle}>
+            {roundSlots.map((slot) => (
+              <PlanTable key={slot.id} slot={slot} occupants={occupantsAt(seating, slot.id)} />
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )

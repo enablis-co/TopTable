@@ -1,9 +1,9 @@
 /*
  * Human decision, 2026-09-09: table size must respond to table count, not just container width.
  * The original `auto-fill` (plan A5) can never do that — its track count is a function of
- * container width alone, so five tables and twenty-seven landed on the same 168px track, and
- * PlanTable.module.css's 132px container query for the guest-name reveal was a dead branch: it
- * could never both pass and fail depending on room size, only ever pass.
+ * container width alone, so five tables and twenty-seven landed on the same fixed track width,
+ * and PlanTable.module.css's 132px container query for the guest-name reveal was a dead branch:
+ * it could never both pass and fail depending on room size, only ever pass.
  *
  * The literal instruction here was `repeat(auto-fit, minmax(112px, 200px))`. Measured instead of
  * trusted, that does not fix the dead branch — it only changes which constant it is dead at.
@@ -14,11 +14,10 @@
  * it: `auto-fit`'s own track count is itself computed from the container width divided by
  * (max + gap), so by construction there is never less room than every real track needs to reach
  * that same max. This holds for any container width, gap, floor and ceiling — it is not a matter
- * of retuning the two pixel values. Measured at a 1392px content width (this app's documented
- * reference, 1440px viewport inside AppShell's padding): "Small and cosy" (4 round tables),
- * "Adding up" (9) and "Celebrity scale" (26) all rendered every table at exactly 200px with plain
- * `auto-fit` — never the 140px this was expected to show, and the container query never once
- * failed. Only the row count changed.
+ * of retuning the two pixel values. Measured, not assumed: across all three of KB-3's scenarios —
+ * "Small and cosy" (4 round tables), "Adding up" (9) and "Celebrity scale" (26) — plain `auto-fit`
+ * rendered every table at the same fixed ceiling regardless of table count, and the container
+ * query never once failed. Only the row count changed.
  *
  * So `.grid` below does NOT use `auto-fit`/`auto-fill` at all. `--floorplan-columns` is a plain
  * integer set by FloorplanGrid.tsx from `roundTableColumns` (./floorplan.ts) — a pure function of
@@ -47,6 +46,46 @@
   padding: 0;
 }
 
+/* Second review, 2026-09-09: the scrolling region for the round-table grid. `overflow-x: auto`,
+   `tabIndex` and `role="region"` all live on this wrapper `<div>` (FloorplanGrid.tsx) rather than
+   on the `<ul>` it contains. That file's own header comment has the accessibility reasoning —
+   `role="region"` on the `<ul>` itself replaced its implicit `list` role, and unlike
+   `role="listbox"` (PillInput, ConflictPicker), whose `option` children stay countable, a
+   `region`'s children are given nothing, so the round tables stopped being exposed as list items
+   and a screen reader user lost the item count. This comment is the layout half of that same fix.
+
+   The `<ul>` inside is now a plain block child of this wrapper rather than a flex item of
+   `.floorplan` directly, so its width resolves the ordinary block way — it fills whatever width
+   this wrapper is given, exactly as it filled its own flex slot before. Its grid tracks can still
+   demand more room than that (the whole reason `.grid` needs `--floorplan-columns` capped rather
+   than left to grow unbounded), and that excess still escapes the `<ul>`'s own box exactly as
+   before — `overflow: visible` is the initial value, and nothing below sets it otherwise on the
+   `<ul>` — where this element's `overflow-x: auto` now catches it instead. Confirmed in the
+   browser pass, at the review's own 9-round-table case: the document itself carries no
+   horizontal scrollbar, `safe center` (below, on `.grid`) still keeps the first table on-screen,
+   and vertical scrolling still belongs to the document rather than this element — see the
+   ticket's browser-pass notes rather than trusting this comment alone
+   (docs/engineering-standards.md, "What the suite cannot see").
+
+   `overflow-y` is deliberately left unset rather than pinned to `visible`: the CSS Overflow spec
+   computes a `visible` axis as `auto` the instant its pair is anything else, but this wrapper has
+   no set height for that rule to act on, so vertical scrolling stays with the document either
+   way. */
+.gridScroll {
+  overflow-x: auto;
+}
+
+/* This wrapper, not the `<ul>` it contains, is what FloorplanGrid.tsx makes focusable, so it is
+   what base.css's global `:focus-visible` rule needs restating for — the same convention
+   Button.module.css and CardButton.module.css already follow for the focusable elements they
+   own, so a reader of this file does not have to go looking in base.css to know this is
+   deliberately, not accidentally, focusable. Large container, so this was checked against warm
+   paper directly rather than assumed: see the ticket's browser-pass notes. */
+.gridScroll:focus-visible {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}
+
 .grid {
   display: grid;
   /* --floorplan-columns: set inline by FloorplanGrid.tsx, one integer, from roundTableColumns().
@@ -58,66 +97,19 @@
   grid-template-columns: repeat(var(--floorplan-columns, 1), minmax(112px, 200px));
   gap: var(--space-4);
   /* The explicit column count rarely fills the row exactly (112-200px tracks against a
-     1392px-ish container) — center the leftover rather than letting it collect on one side,
-     which would read as a lopsided gap on a small wedding's single short row.
-     `safe`, found while checking a narrow viewport for the top table (item 3) and applied here
-     too: below roughly `columns * 112px + (columns - 1) * gap` (1136px of content width for
-     "Adding up"'s 9 columns — a plain laptop window, not just a phone), even the *floor* no
-     longer fits and this row overflows its own box. Plain `center` centres the overflow itself,
-     which pushes the first table off-screen to the start side with no scrollbar reaching it —
-     measured directly: table 1 rendered at x=-60 in a 435px viewport, permanently unreachable.
-     `safe` is the standard fallback for exactly this: centre while it fits, fall back to start
-     alignment the moment it would strand content, so the first table (and as many others as fit)
-     stay on-screen and reachable, with any remainder scrollable off the end instead of vanishing
-     off the start. */
+     wide container) — center the leftover rather than letting it collect on one side, which
+     would read as a lopsided gap on a small wedding's single short row.
+     `safe`, found while checking a narrow viewport for the top table: below roughly
+     `columns * 112px + (columns - 1) * gap`, even the *floor* no longer fits and this row
+     overflows its own box. Plain `center` centres the overflow itself, which pushes the first
+     table off-screen to the start side with no scrollbar reaching it. `safe` is the standard
+     fallback for exactly this: centre while it fits, fall back to start alignment the moment it
+     would strand content, so the first table (and as many others as fit) stay on-screen and
+     reachable, with any remainder scrollable off the end instead of vanishing off the start.
+     This row's own overflow is caught by `.gridScroll` above, which wraps this element — see its
+     comment for why moving `overflow-x: auto` up one level does not change what gets scrolled. */
   justify-content: safe center;
-  /* TT-11 review, 2026-09-09: the sentence above ("scrollable off the end") described the
-     *intent*, but `.grid` itself still defaulted to `overflow-x: visible`, so the excess it
-     documents escaped the grid's own box instead of staying inside it — the header and tab bar
-     (siblings of this screen, not descendants of it) dragged sideways with every other screen on
-     the site inheriting a horizontal scrollbar while Plan was open. `safe center` above was never
-     the defect: its fallback-to-start resolves against whether content overflows this box at all,
-     not against how that overflow is handled once it does, so the first table's reachability is
-     unaffected by this line either way — verified unchanged both ways below.
-     Measured directly, in a real browser, before and after this line existed:
-       - 1100px viewport, "Adding up" (9 columns, the case the comment above already names):
-         `.grid` scrollWidth 1136 vs its own clientWidth 1052 (the 84px this file has always
-         expected). Before: `document.documentElement.scrollWidth` 1160 vs clientWidth 1100 — the
-         84px minus AppShell's 24px padding, escaped into the page. After: 1100 vs 1100.
-       - 375px viewport (phone-width), same scenario: grid 1136 vs 327; document 375 vs 375
-         both before and after — already this narrow, `justify-content` alone was doing the
-         reachability work this fix does not change.
-       - Celebrity scale (26 round tables, capped at MAX_ROUND_TABLE_COLUMNS = 11 — the widest
-         this grid ever asks to be): grid scrollWidth 1392 (11 × 112px + 10 × 16px gaps, the
-         floor this file's other comment derives) against a clientWidth of 976 at 1024px, 1052 at
-         1100px and 327 at 375px — document scrollWidth equalled clientWidth at every one of those.
-       - The first table's own rect stayed at x=24 in every overflowing case above, before and
-         after — `safe center`'s fallback is exactly as effective with the overflow contained as
-         it was while that same overflow was escaping.
-       - A case that does NOT overflow (four round tables at a 1400px viewport) still centres
-         normally — 252px of leftover space on each side of the row, not shoved to one edge — so
-         this line does not turn "safe" into a permanent "start".
-       - Vertical scrolling: forced to a 400px-tall viewport, the document scrolled (scrollHeight
-         614 vs clientHeight 400, and `window.scrollBy` moved it) while `.grid` itself carried no
-         internal vertical overflow at all (its own scrollHeight and clientHeight were both
-         368px) — there is nothing for a vertical scrollbar to appear on here, so nothing traps it.
-     `overflow-y` is deliberately left unset rather than pinned to `visible`: the CSS Overflow
-     spec computes a `visible` axis as `auto` the instant its pair is anything else, but as the
-     figures above show, `.grid` has no set height for that to bite on. */
-  overflow-x: auto;
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-/* Review, 2026-09-09: `.grid` is now focusable (FloorplanGrid.tsx, header comment point 3) so a
-   keyboard user can reach and scroll it. base.css's global `:focus-visible` rule already covers
-   any newly-focusable element, so this restates it rather than depending on it — the same
-   convention Button.module.css and CardButton.module.css already follow for the focusable
-   elements they own, so a reader of this file does not have to go looking in base.css to know
-   `.grid` is deliberately, not accidentally, focusable. Large container, so this was checked
-   against warm paper directly rather than assumed: see the ticket's browser-pass notes. */
-.grid:focus-visible {
-  outline: 2px solid var(--slate);
-  outline-offset: 2px;
 }
