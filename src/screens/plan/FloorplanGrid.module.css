@@ -1,19 +1,76 @@
+/*
+ * Human decision, 2026-09-09: table size must respond to table count, not just container width.
+ * The original `auto-fill` (plan A5) can never do that — its track count is a function of
+ * container width alone, so five tables and twenty-seven landed on the same 168px track, and
+ * PlanTable.module.css's 132px container query for the guest-name reveal was a dead branch: it
+ * could never both pass and fail depending on room size, only ever pass.
+ *
+ * The literal instruction here was `repeat(auto-fit, minmax(112px, 200px))`. Measured instead of
+ * trusted, that does not fix the dead branch — it only changes which constant it is dead at.
+ * `auto-fit` only ever changes behaviour by collapsing tracks that end up with no grid item in
+ * them; once a track has one, its width is resolved by the ordinary "grow every track toward its
+ * max, using whatever free space is left after every track has taken its min" algorithm. When
+ * the max is a *fixed length* (not `1fr`), that algorithm always has enough free space to reach
+ * it: `auto-fit`'s own track count is itself computed from the container width divided by
+ * (max + gap), so by construction there is never less room than every real track needs to reach
+ * that same max. This holds for any container width, gap, floor and ceiling — it is not a matter
+ * of retuning the two pixel values. Measured at a 1392px content width (this app's documented
+ * reference, 1440px viewport inside AppShell's padding): "Small and cosy" (4 round tables),
+ * "Adding up" (9) and "Celebrity scale" (26) all rendered every table at exactly 200px with plain
+ * `auto-fit` — never the 140px this was expected to show, and the container query never once
+ * failed. Only the row count changed.
+ *
+ * So `.grid` below does NOT use `auto-fit`/`auto-fill` at all. `--floorplan-columns` is a plain
+ * integer set by FloorplanGrid.tsx from `roundTableColumns` (./floorplan.ts) — a pure function of
+ * the round-table count, not a DOM measurement, so it stays exactly as testable as everything
+ * else in this codebase. Below `MAX_ROUND_TABLE_COLUMNS` (11, derived in that file) tables get
+ * one row and grow toward the 200px ceiling, same as design's small-wedding drawing; at or beyond
+ * it, the grid caps at 11 columns and *that* is what makes each track's width actually shrink as
+ * more tables compete for it, down to the 112px floor, with further tables adding rows instead.
+ *
+ * The top table is not a child of `.grid` at all — see `.floorplan` and `.topRow` below, and
+ * FloorplanGrid.tsx's own header comment for why a `grid-column: 1 / -1` sibling would have
+ * defeated even this.
+ */
+.floorplan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* A one-item list. Exists so the top table's `<li>` (A9) is owned by a real list container — a
+   bare `<li>` outside any `<ul>`/`<ol>` does not carry the "listitem" ARIA role. The table's own
+   width cap and centring are PlanTable.module.css's `.top` rule, not this file's concern. */
+.topRow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .grid {
   display: grid;
-  /* 168px, not the plan's invented 96px (R4). Measured at a real 1440px viewport (1392px of
-     content width inside AppShell's padding), 96px let auto-fill pack 12 tracks at ~101px
-     each — a 75px content box against PlanTable.module.css's 132px container-query
-     threshold, for "Small and cosy" (4 round tables) and "Celebrity scale" (26) alike. So
-     C3's guest names were unreachable at any room size, not merely tight.
-     auto-fill's track count is a step function of this floor, not a smooth one: at this same
-     1392px width, anything from 141px to 160px still lands on 8 tracks (a 160px track, 134px
-     content box — only 2px of headroom over the 132px query, discovered by measuring rather
-     than trusting the arithmetic). 168px sits past that step, on 7 tracks of ~185px
-     (~159px content box, verified in-browser) — comfortably clear rather than balanced on
-     the edge of a container query. The floor is deliberately independent of --space-*: R4
-     already treats this file's pixel values as tuned constants, not layout spacing. */
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  /* --floorplan-columns: set inline by FloorplanGrid.tsx, one integer, from roundTableColumns().
+     The `, 1` fallback only matters if something ever renders this class without setting the
+     custom property — real usage always sets it. 112px/200px: the floor and ceiling this whole
+     file's header comment is about; 112px is the smallest a table stays legible at (the browser
+     measurement this was checked against is recorded in this ticket's follow-up commit), 200px
+     is what stops a small wedding's tables growing enormous, matching design's own proportion. */
+  grid-template-columns: repeat(var(--floorplan-columns, 1), minmax(112px, 200px));
   gap: var(--space-4);
+  /* The explicit column count rarely fills the row exactly (112-200px tracks against a
+     1392px-ish container) — center the leftover rather than letting it collect on one side,
+     which would read as a lopsided gap on a small wedding's single short row.
+     `safe`, found while checking a narrow viewport for the top table (item 3) and applied here
+     too: below roughly `columns * 112px + (columns - 1) * gap` (1136px of content width for
+     "Adding up"'s 9 columns — a plain laptop window, not just a phone), even the *floor* no
+     longer fits and this row overflows its own box. Plain `center` centres the overflow itself,
+     which pushes the first table off-screen to the start side with no scrollbar reaching it —
+     measured directly: table 1 rendered at x=-60 in a 435px viewport, permanently unreachable.
+     `safe` is the standard fallback for exactly this: centre while it fits, fall back to start
+     alignment the moment it would strand content, so the first table (and as many others as fit)
+     stay on-screen and reachable, with any remainder scrollable off the end instead of vanishing
+     off the start. */
+  justify-content: safe center;
   list-style: none;
   margin: 0;
   padding: 0;

@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   floorplanFromRoom,
   normaliseRoom,
@@ -6,6 +9,8 @@ import {
   planTotals,
   occupantsAt,
   NOTHING_SEATED,
+  roundTableColumns,
+  MAX_ROUND_TABLE_COLUMNS,
 } from './floorplan'
 import type { SeatingView, TableOccupants } from './floorplan'
 import type { Guest, RoomConfig } from '../../domain/types'
@@ -369,5 +374,75 @@ describe('determinism', () => {
     expect(floorplanFromRoom(room)).toEqual(floorplanFromRoom(room))
     // And for two separately-constructed but equal room objects, not just the same reference.
     expect(floorplanFromRoom({ ...room })).toEqual(floorplanFromRoom({ ...room }))
+  })
+})
+
+/*
+ * Human decision, 2026-09-09: table size has to shrink as the round-table count grows, which
+ * `auto-fit`/`auto-fill` cannot do on their own (FloorplanGrid.module.css's header comment has
+ * the full case — measured, not assumed: at this app's 1392px reference content width, 4, 9 and
+ * 26 round tables all rendered at exactly 200px with plain `auto-fit`). `roundTableColumns` is
+ * the pure function that makes the column count itself respond to the count instead — below the
+ * cap, one row of exactly as many columns as tables; at or beyond it, capped and wrapping.
+ */
+describe('roundTableColumns — the column count responds to the table count (human decision, 2026-09-09)', () => {
+  it('below the cap, uses exactly as many columns as there are tables — one row', () => {
+    expect(roundTableColumns(1)).toBe(1)
+    expect(roundTableColumns(4)).toBe(4)
+    expect(roundTableColumns(9)).toBe(9)
+  })
+
+  it('at exactly the cap, uses the cap', () => {
+    expect(roundTableColumns(MAX_ROUND_TABLE_COLUMNS)).toBe(MAX_ROUND_TABLE_COLUMNS)
+  })
+
+  it('beyond the cap, stays at the cap rather than growing further — this is what makes extra tables add rows, not narrower columns', () => {
+    expect(roundTableColumns(MAX_ROUND_TABLE_COLUMNS + 1)).toBe(MAX_ROUND_TABLE_COLUMNS)
+    expect(roundTableColumns(26)).toBe(MAX_ROUND_TABLE_COLUMNS)
+    expect(roundTableColumns(200)).toBe(MAX_ROUND_TABLE_COLUMNS)
+  })
+
+  it('never returns fewer than one column, even for a degenerate zero or negative count', () => {
+    expect(roundTableColumns(0)).toBe(1)
+    expect(roundTableColumns(-5)).toBe(1)
+  })
+
+  it('is a pure function: the same count always produces the same column count', () => {
+    expect(roundTableColumns(9)).toBe(roundTableColumns(9))
+  })
+})
+
+/*
+ * A narrow regression guard, not a repeat of floorplanStyles.test.ts's more thorough
+ * declared-vs-wins treatment of PlanTable.module.css (which this file does not touch): this
+ * checks a single fact in FloorplanGrid.module.css as text — that `.grid`'s column count is
+ * driven by the `--floorplan-columns` custom property `roundTableColumns` feeds it, and that
+ * `auto-fit`/`auto-fill` have not quietly come back. Both would compile and might even look
+ * right in a screenshot at one specific table count while reintroducing the exact dead branch
+ * this ticket's follow-up exists to close — see this file's own `roundTableColumns` describe
+ * block and FloorplanGrid.module.css's header comment for why. A stylesheet-text check cannot
+ * prove the browser actually renders different sizes at different counts (only the browser pass
+ * can, and that is where this was actually confirmed) — it can only prove the mechanism that
+ * makes that possible is still the one in the file, not silently reverted.
+ */
+describe('FloorplanGrid.module.css — .grid is driven by the JS-computed column count, not auto-fit/auto-fill', () => {
+  function readFloorplanGridCss(): string {
+    const dir = dirname(fileURLToPath(import.meta.url))
+    return readFileSync(join(dir, 'FloorplanGrid.module.css'), 'utf8')
+  }
+
+  // The file's own header comment discusses auto-fit/auto-fill in prose, by name, at some
+  // length — that is exactly the record of why they were rejected, and worth keeping. Comments
+  // are stripped before checking for absence, so this test guards the actual declaration rather
+  // than penalising the file for explaining itself.
+  function stripComments(css: string): string {
+    return css.replace(/\/\*[\s\S]*?\*\//g, '')
+  }
+
+  it('declares grid-template-columns from var(--floorplan-columns), not auto-fit or auto-fill', () => {
+    const css = stripComments(readFloorplanGridCss())
+    expect(css).toMatch(/grid-template-columns\s*:\s*repeat\(\s*var\(--floorplan-columns/i)
+    expect(css).not.toMatch(/auto-fit/i)
+    expect(css).not.toMatch(/auto-fill/i)
   })
 })
