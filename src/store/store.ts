@@ -3,6 +3,11 @@ import { persist, type PersistStorage, type StorageValue } from 'zustand/middlew
 import type { EventDetails, Guest, RoomConfig } from '../domain/types'
 import { isScenarioId, scenarioById } from '../domain/scenarios'
 import type { ScenarioId } from '../domain/scenarios'
+import {
+  addGuest as domainAddGuest,
+  removeGuest as domainRemoveGuest,
+  updateGuest as domainUpdateGuest,
+} from '../domain/guests'
 
 /**
  * The single store. It holds the event, the room config, the guest list and which scenario
@@ -12,8 +17,10 @@ import type { ScenarioId } from '../domain/scenarios'
  * The plan, the violations and the allocation engine's output are not here. They are
  * derived from this data plus the rules, and they arrive with their own tickets.
  *
- * The write surface is five actions: setEventName, setRoom, setGuests, importScenario and
- * reset.
+ * The write surface is eight actions: setEventName, setRoom, setGuests, importScenario,
+ * reset, addGuest, updateGuest and removeGuest. The last three are thin delegates onto
+ * `src/domain/guests.ts` — reciprocal `partnerOf`/`conflictsWith` writes are real domain
+ * behaviour (TT-5) and are not improvised here.
  */
 
 export const STORAGE_KEY = 'top-table'
@@ -23,7 +30,7 @@ export const STORAGE_KEY = 'top-table'
  * discarded rather than migrated, which is the honest option while there is no released
  * version to migrate from.
  */
-export const STORAGE_VERSION = 2
+export const STORAGE_VERSION = 3
 
 /** null: nothing imported. 'custom': imported, then the room was edited (TT-4). */
 export type ScenarioState = ScenarioId | 'custom' | null
@@ -45,6 +52,12 @@ export type TopTableActions = {
   importScenario: (id: ScenarioId, guests: Guest[]) => void
   /** Back to first visit. */
   reset: () => void
+  /** Appends a guest and applies reciprocity (TT-5). See `src/domain/guests.ts`. */
+  addGuest: (guest: Guest) => void
+  /** Replaces a guest and reconciles its relationships (TT-5). See `src/domain/guests.ts`. */
+  updateGuest: (guest: Guest) => void
+  /** Drops a guest and unpicks every reference to them (TT-5). See `src/domain/guests.ts`. */
+  removeGuest: (id: string) => void
 }
 
 export type TopTableStore = TopTableData & TopTableActions
@@ -141,6 +154,14 @@ export const useTopTableStore = create<TopTableStore>()(
       importScenario: (id, guests) => set({ room: { ...scenarioById(id).room }, guests, scenario: id }),
 
       reset: () => set({ ...firstVisitState }),
+
+      // Thin delegates onto src/domain/guests.ts. No reciprocity logic here — see the header
+      // comment above and docs/state.md.
+      addGuest: (guest) => set((state) => ({ guests: domainAddGuest(state.guests, guest) })),
+
+      updateGuest: (guest) => set((state) => ({ guests: domainUpdateGuest(state.guests, guest) })),
+
+      removeGuest: (id) => set((state) => ({ guests: domainRemoveGuest(state.guests, id) })),
     }),
     {
       name: STORAGE_KEY,
