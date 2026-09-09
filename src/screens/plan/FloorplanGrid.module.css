@@ -1,6 +1,18 @@
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  /* 168px, not the plan's invented 96px (R4). Measured at a real 1440px viewport (1392px of
+     content width inside AppShell's padding), 96px let auto-fill pack 12 tracks at ~101px
+     each — a 75px content box against PlanTable.module.css's 132px container-query
+     threshold, for "Small and cosy" (4 round tables) and "Celebrity scale" (26) alike. So
+     C3's guest names were unreachable at any room size, not merely tight.
+     auto-fill's track count is a step function of this floor, not a smooth one: at this same
+     1392px width, anything from 141px to 160px still lands on 8 tracks (a 160px track, 134px
+     content box — only 2px of headroom over the 132px query, discovered by measuring rather
+     than trusting the arithmetic). 168px sits past that step, on 7 tracks of ~185px
+     (~159px content box, verified in-browser) — comfortably clear rather than balanced on
+     the edge of a container query. The floor is deliberately independent of --space-*: R4
+     already treats this file's pixel values as tuned constants, not layout spacing. */
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   gap: var(--space-4);
   list-style: none;
   margin: 0;

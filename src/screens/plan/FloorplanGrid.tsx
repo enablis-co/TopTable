@@ -10,10 +10,11 @@ type FloorplanGridProps = {
 
 /**
  * TT-11, C1, C2, KB-6 "Plan". The grid of tables, top table first, in one `<ul>` — not a
- * computed column count: `repeat(auto-fill, minmax(96px, 1fr))` reflows on its own as
+ * computed column count: `repeat(auto-fill, minmax(168px, 1fr))` reflows on its own as
  * `RoomConfig` changes (C1). `auto-fill`, deliberately not `auto-fit` (A5): `auto-fit`
  * collapses empty tracks and would stretch a five-table room across the full row, making a
- * small wedding's tables enormous.
+ * small wedding's tables enormous. The 168px floor itself — and why 96px was a defect, not
+ * tuning — is explained in this file's own `.module.css`, not repeated here.
  *
  * Named `FloorplanGrid`, not `Floorplan`: the pure view model this file calls into already
  * owns the name `floorplan.ts`, and TypeScript refuses two files in one directory that
