@@ -77,6 +77,22 @@ export function validateDraft(draft: GuestDraft): { name?: string; side?: string
 }
 
 /**
+ * Removes duplicate entries, keeping first-occurrence order. Reviewer finding (TT-5/TT-6
+ * review): `src/domain/guests.ts` already normalises `conflictsWith` this way before it is
+ * stored, but `tags`, `allergies`, `dietaryPreferences` and `accessibility` never pass through
+ * that file at all — they are plain guest attributes, not relationships — so nothing dedupes
+ * them. `PillInput`'s own `commit` now refuses to add a pill already present, which stops a
+ * *new* duplicate being typed in, but storage is not a trusted input (docs/state.md): a guest
+ * loaded from an already-tainted stored record — hand-edited, or saved before that PillInput
+ * fix existed — can still carry a duplicate into `draftFromGuest` untouched. Deduping here, at
+ * the point a draft becomes a `Guest`, means every save heals it, whether or not the field
+ * that carries the duplicate was itself edited this time.
+ */
+function dedupe(values: string[]): string[] {
+  return [...new Set(values)]
+}
+
+/**
  * Converts a valid draft to a `Guest`. Only call this once `validateDraft` returns no errors
  * — `side` is still typed `Side | ''` here, so an empty side throws rather than silently
  * writing an invalid `Guest.side`, which stays non-optional.
@@ -97,10 +113,10 @@ export function guestFromDraft(draft: GuestDraft, id: string): Guest {
     household: household === '' ? null : household,
     partnerOf: draft.partnerOf,
     conflictsWith: draft.conflictsWith,
-    tags: draft.tags,
-    allergies: draft.allergies,
-    dietaryPreferences: draft.dietaryPreferences,
-    accessibility: draft.accessibility,
+    tags: dedupe(draft.tags),
+    allergies: dedupe(draft.allergies),
+    dietaryPreferences: dedupe(draft.dietaryPreferences),
+    accessibility: dedupe(draft.accessibility),
     socialType: draft.socialType,
   }
 }

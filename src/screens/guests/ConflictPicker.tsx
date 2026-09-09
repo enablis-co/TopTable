@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import type { Guest } from '../../domain/types'
 import { Button, Tag, TextField } from '../../ui'
 import styles from './ConflictPicker.module.css'
@@ -42,6 +43,17 @@ export function ConflictPicker({ label, guests, editingId, value, onChange }: Co
     onChange(value.filter((candidate) => candidate !== id))
   }
 
+  // Reviewer finding: this field had no Escape handling at all, so the keystroke fell straight
+  // through to SlideOver's document-level handler and closed the whole panel — the same loss
+  // PillInput had. Mirrors PillInput's own fix: while results are showing, Escape's job is to
+  // dismiss them and go no further; only once there are none left does Escape reach the dialog.
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Escape' && results.length > 0) {
+      event.stopPropagation()
+      setQuery('')
+    }
+  }
+
   return (
     <div className={styles.picker}>
       {selected.length > 0 && (
@@ -70,6 +82,7 @@ export function ConflictPicker({ label, guests, editingId, value, onChange }: Co
         onChange={(e) => {
           setQuery(e.target.value)
         }}
+        onKeyDown={handleKeyDown}
       />
       {/* Always rendered, even with no results yet: a caller needs a stable reference to the
           listbox itself (by its accessible name) before anything has been typed, and scopes

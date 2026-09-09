@@ -89,6 +89,24 @@ describe('PillInput', () => {
     expect(input).toHaveValue('')
   })
 
+  // Regression (TT-5/TT-6 review, merge blocker): typing a value already present as a pill
+  // and pressing Enter appended a second, identical entry — a duplicate React key, and for
+  // `allergies` specifically a safety field the kitchen reads by name, so two guests' worth of
+  // "Nuts, Nuts" is worse than a cosmetic bug.
+  it('does not commit a duplicate of an existing pill', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ControlledPillInput onChange={onChange} />)
+
+    const input = getPillInput('Tags')
+    await user.type(input, 'nuts{Enter}')
+    onChange.mockClear()
+    await user.type(input, 'nuts{Enter}')
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('button', { name: 'Remove nuts' })).toHaveLength(1)
+  })
+
   it('does nothing when Enter is pressed with no text typed', async () => {
     const onChange = vi.fn()
     const user = userEvent.setup()
@@ -172,5 +190,50 @@ describe('PillInput', () => {
 
     expect(screen.queryByRole('option', { name: 'sailing' })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'shooting' })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * Regression (TT-5/TT-6 review): Escape here never called `stopPropagation`, so it always
+ * bubbled past this field to whatever ancestor handles Escape — in the real guest panel,
+ * `SlideOver`'s document-level handler, which closed the whole thirteen-field form. A plain
+ * wrapping `<div onKeyDown>` stands in for that ancestor here: it is the same React bubbling
+ * PillInput would traverse to reach `SlideOver` in the real component tree, without pulling in
+ * `SlideOver` itself or the rest of the panel.
+ */
+describe('Escape and the suggestion list (regression)', () => {
+  it('stops Escape reaching an ancestor handler while a suggestion list is open', async () => {
+    const parentKeyDown = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <div onKeyDown={parentKeyDown}>
+        <ControlledPillInput onChange={vi.fn()} suggestions={['sailing', 'shooting']} />
+      </div>,
+    )
+
+    const input = getPillInput('Tags')
+    await user.type(input, 'sai')
+    expect(await screen.findByRole('option', { name: 'sailing' })).toBeInTheDocument()
+    // Typing itself bubbles keydowns to the parent; only the Escape press is under test.
+    parentKeyDown.mockClear()
+
+    await user.keyboard('{Escape}')
+
+    expect(parentKeyDown).not.toHaveBeenCalled()
+  })
+
+  it('lets Escape reach an ancestor handler once there is no suggestion list open', async () => {
+    const parentKeyDown = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <div onKeyDown={parentKeyDown}>
+        <ControlledPillInput onChange={vi.fn()} suggestions={['sailing', 'shooting']} />
+      </div>,
+    )
+
+    await user.click(getPillInput('Tags'))
+    await user.keyboard('{Escape}')
+
+    expect(parentKeyDown).toHaveBeenCalledTimes(1)
   })
 })

@@ -43,7 +43,12 @@ export function PillInput({ label, value, onChange, suggestions, hint, placehold
 
   function commit(pill: string) {
     const next = pill.trim()
-    if (next === '') return
+    // Reviewer finding (TT-5/TT-6 review), merge blocker: `visibleSuggestions` already hides
+    // anything already in `value`, but that only stops a *suggestion* from being re-offered —
+    // it did nothing for free text. Typing a value that already exists as a pill and pressing
+    // Enter must not append a second, identical entry (duplicate React key on the pill list,
+    // and for `allergies` specifically, a safety-critical field the kitchen reads by name).
+    if (next === '' || value.includes(next)) return
     onChange([...value, next])
     setText('')
     setSuggestionIndex(-1)
@@ -81,6 +86,14 @@ export function PillInput({ label, value, onChange, suggestions, hint, placehold
     }
 
     if (event.key === 'Escape') {
+      // Reviewer finding: SlideOver closes the whole panel on Escape (deliberately, so a
+      // keyboard user can dismiss the form same as clicking ×). That must only happen once
+      // there is nothing more local for Escape to do — while a suggestion list is open, this
+      // keystroke's job is to dismiss *that*, and it must not also reach SlideOver's
+      // document-level handler and discard the rest of the form.
+      if (visibleSuggestions.length > 0) {
+        event.stopPropagation()
+      }
       setSuggestionIndex(-1)
     }
   }

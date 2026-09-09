@@ -19,14 +19,30 @@
   color: var(--ink-muted);
 }
 
+/* Reviewer finding — below roughly 700px the Side/Role/Age (and Household/Partner) selects
+   clipped their own text ("Adult (18 an…"), hiding the age boundaries A19 exists to show.
+   flex-wrap is the fix KB-5's projector requirement would recognise (a cramped row becomes
+   two lines rather than illegible text), but it only fires once a child actually refuses to
+   shrink any further — see the floor below, which is the half that makes it happen. */
 .row {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
 }
 
+/* Verified against the real running app, not just the stylesheet (a browser check no test
+   file can replace): `flex-wrap` alone did nothing, because `min-width: 0` is exactly what
+   let a flex child keep shrinking instead of ever needing to wrap — three selects stayed on
+   one line at 700px, each narrower than its own selected text. A floor set on a nested
+   <select> instead of here does not work either: the wrap decision is made on these direct
+   children, so a wider descendant just overflows its own shrunken parent rather than forcing
+   it wider. 172px matches the reviewer's own "fine" measurement at 1440px (113px of text in
+   172px of room) — comfortable for the widest option in any field here ("Mother of the
+   groom", "Adult (18 and over)") — applied uniformly so a text field or pill list wraps at
+   the same point a select does, rather than only one of the three ever getting a floor. */
 .row > * {
   flex: 1;
-  min-width: 0;
+  min-width: 172px;
 }
 
 /* Shape half of "colour never carries meaning alone" (KB-5), matching the minimal

@@ -340,3 +340,94 @@ describe('age band (C14, C15)', () => {
     expect(saved.age).toBe('adult')
   })
 })
+
+/**
+ * Regression (TT-5/TT-6 review). `docs/state.md`: "storage is not a trusted input." PillInput's
+ * own `commit` now refuses a duplicate pill, so typing one in cannot happen any more — but a
+ * guest already carrying a duplicate in `tags`, `allergies`, `dietaryPreferences` or
+ * `accessibility` (a hand-edited store, or one saved before that fix existed) loads straight
+ * into the draft via `draftFromGuest` untouched. `conflictsWith` already gets this treatment in
+ * `src/domain/guests.ts`; this is the same guarantee for the four arrays that never pass
+ * through that file. Saving without touching any of the four fields is the point: the healing
+ * has to happen on every save, not only one that happens to edit the tainted field.
+ */
+describe('duplicate values already on a loaded guest are cleaned up on save (regression)', () => {
+  it('dedupes tags, allergies, dietary preferences and accessibility carried in from an already-tainted guest', async () => {
+    const tainted = makeGuest('g-1', {
+      name: 'Priya Kapoor',
+      side: 'bride',
+      tags: ['uni', 'uni'],
+      allergies: ['nuts', 'nuts'],
+      dietaryPreferences: ['vegan', 'vegan'],
+      accessibility: ['step-free access', 'step-free access'],
+    })
+    const user = userEvent.setup()
+    const { onSave } = renderPanel({ guest: tainted, guests: [tainted] })
+
+    await user.click(screen.getByRole('button', { name: 'Save guest' }))
+
+    const saved = onSave.mock.calls[0]?.[0] as Guest
+    expect(saved.tags).toEqual(['uni'])
+    expect(saved.allergies).toEqual(['nuts'])
+    expect(saved.dietaryPreferences).toEqual(['vegan'])
+    expect(saved.accessibility).toEqual(['step-free access'])
+  })
+})
+
+/**
+ * Regression (TT-5/TT-6 review). Escape inside a pill field bubbled past this panel to
+ * `SlideOver`'s document-level handler with nothing to stop it, closing the whole thirteen-field
+ * form — the same loss `SlideOver.tsx`'s own scrim-click comment says was deliberately guarded
+ * against. Escape is still a sanctioned way to close the panel (same weight as ×) once there is
+ * nothing more local for it to do; these tests pin down both halves.
+ */
+describe('Escape does not discard the form (regression)', () => {
+  it('closes the panel on Escape when focus is in a field with nothing open to dismiss', async () => {
+    const user = userEvent.setup()
+    const { onClose } = renderPanel()
+
+    await user.click(getPillInput(/tags/i))
+    await user.keyboard('{Escape}')
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('dismisses an open tag suggestion on Escape instead of discarding the form', async () => {
+    const other = makeGuest('other', { name: 'Owen Firth', tags: ['uni'] })
+    const user = userEvent.setup()
+    const { onClose } = renderPanel({ guests: [other] })
+
+    await user.type(getPillInput(/tags/i), 'un')
+    expect(await screen.findByRole('option', { name: 'uni' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it("dismisses the conflict picker's open results on Escape instead of discarding the form, then closes on a second Escape once they are gone", async () => {
+    const self = makeGuest('self', { name: 'Nora Byrne' })
+    const otherOne = makeGuest('otherOne', { name: 'Owen Firth' })
+    const guests = [self, otherOne]
+    const user = userEvent.setup()
+    const { onClose } = renderPanel({ guest: self, guests })
+
+    const conflictField = getPillInput(/search guests/i)
+    await user.type(conflictField, 'Owen')
+    const results = await screen.findByRole('listbox', { name: /search guests/i })
+    await within(results).findByRole('option', { name: /Owen Firth/i })
+
+    await user.keyboard('{Escape}')
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(conflictField).toHaveValue('')
+
+    // The same Escape, pressed again now that there are no results left to dismiss, reaches
+    // the dialog exactly as it would have the first time on any other field.
+    await user.keyboard('{Escape}')
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
