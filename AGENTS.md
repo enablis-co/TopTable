@@ -103,10 +103,11 @@ link. `TT-24` names `KB-4` in a comment and links nothing.
 - **Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP: drag and
   drop, undo, catering output, export, print, sharing and accounts. Those are on the board under
   TT-23, TT-25 and TT-31 to TT-34. **Every rule on KB-2 is in scope**, at the severity KB-2 gives
-  it. `TT-14` builds the rules engine and the first three rules; `TT-16` to `TT-22` add the rest.
-  All of them sit inside the `TT-10` MVP epic, so a seating rule is not "ahead of the board" — it
-  is simply someone else's ticket. Read the board rather than this line: it is a summary, and
-  summaries go stale, which is why this one had to be corrected.
+  it. KB-2 has nine rules: `TT-14` builds the engine and the first three, and `TT-17` to `TT-22`
+  add the remaining six. `TT-16` is not a rule — it scores a plan across the soft ones. All of them
+  sit inside the `TT-10` MVP epic, so a seating rule is not "ahead of the board", it is simply
+  someone else's ticket. Read the board rather than this line: it is a summary, and summaries go
+  stale, which is why this one had to be corrected twice.
 - **The allocation engine is pure domain logic.** No rendering, no React, no store. Rules do not
   mutate the plan, do not depend on the order they run in, and produce the same result twice.
 - **Adding a rule must not require editing a shared file.** Several people add rules at once.
