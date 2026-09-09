@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import type { Guest, Role, Side, SocialType } from '../../domain/types'
 import {
+  AGE_BAND_UPPER_BOUND,
   AGE_BANDS,
   KNOWN_ACCESSIBILITY_NEEDS,
   KNOWN_ALLERGIES,
@@ -29,13 +30,20 @@ const SIDES: Side[] = ['bride', 'groom', 'both']
 const ROLES: Role[] = [...OTHER_ROLES, ...PROTOCOL_ROLES]
 const SOCIAL_TYPES: SocialType[] = ['livewire', 'sociable', 'quiet']
 
-/** A19: the boundaries only exist in the answer to B1 — the option label is the only place
- *  a user can see them. */
+/**
+ * A19: the boundaries only exist in the answer to B1 — the option label is the only place a
+ * user can see them. Follow-up to TT-5 (human decision, 2026-09-09): derived from
+ * `AGE_BAND_UPPER_BOUND` (src/domain/types.ts) rather than a third hand-typed copy of 4/10/18
+ * — that file's own comment on `AGE_BAND_UPPER_BOUND` names this edit as still owed, and
+ * nothing before this caught the two drifting apart. `adult` has no upper bound of its own
+ * (it is the open-ended top band), so its label reuses `teen`'s upper bound as the "and over"
+ * figure — the same boundary read from the other side, not a fourth number.
+ */
 const AGE_BAND_LABELS: Record<AgeBand, string> = {
-  baby: 'Baby (under 4)',
-  child: 'Child (under 10)',
-  teen: 'Teen (under 18)',
-  adult: 'Adult (18 and over)',
+  baby: `Baby (under ${AGE_BAND_UPPER_BOUND.baby})`,
+  child: `Child (under ${AGE_BAND_UPPER_BOUND.child})`,
+  teen: `Teen (under ${AGE_BAND_UPPER_BOUND.teen})`,
+  adult: `Adult (${AGE_BAND_UPPER_BOUND.teen} and over)`,
 }
 
 function capitalizeFirst(value: string): string {

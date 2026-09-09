@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GuestPanel } from './GuestPanel'
 import { useTopTableStore } from '../../store/store'
+import { AGE_BAND_UPPER_BOUND } from '../../domain/types'
 import type { Guest } from '../../domain/types'
 
 /**
@@ -338,6 +339,29 @@ describe('age band (C14, C15)', () => {
 
     const saved = onSave.mock.calls[0]?.[0] as Guest
     expect(saved.age).toBe('adult')
+  })
+
+  /**
+   * Follow-up to TT-5, human decision 2026-09-09: `AGE_BAND_LABELS` used to hand-type "under
+   * 4", "under 10" and "under 18" a second time, alongside `AGE_BAND_UPPER_BOUND` in
+   * src/domain/types.ts, with nothing to catch the two drifting apart. Built from the imported
+   * constant rather than repeated as literals here, so this actually fails if GuestPanel.tsx
+   * ever stops deriving the labels from it — the test above this one pins the current rendered
+   * strings, which would keep passing even if both copies drifted to the same wrong numbers
+   * together.
+   */
+  it('keeps every label\'s bound equal to AGE_BAND_UPPER_BOUND, so the two cannot drift apart', () => {
+    renderPanel()
+    const options = within(combobox(/age/i))
+      .getAllByRole('option')
+      .map((o) => o.textContent?.trim())
+
+    expect(options).toEqual([
+      `Baby (under ${AGE_BAND_UPPER_BOUND.baby})`,
+      `Child (under ${AGE_BAND_UPPER_BOUND.child})`,
+      `Teen (under ${AGE_BAND_UPPER_BOUND.teen})`,
+      `Adult (${AGE_BAND_UPPER_BOUND.teen} and over)`,
+    ])
   })
 })
 
