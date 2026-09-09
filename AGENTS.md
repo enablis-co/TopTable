@@ -199,8 +199,16 @@ goes stale.
 
 `src/ui/` (tokens, base styles, the shared components) and `src/shell/` (the header and the tab
 frame) exist now; TT-7 built them. The setup screen is TT-3 and has landed; TT-4 has added the
-scenario cards to it. Guests is still TT-5 and TT-6. The plan is still TT-11 to TT-15.
+scenario cards to it. Guests is TT-5 and TT-6 and has landed. The plan is still TT-11 to TT-15.
 
-The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScenario` and `reset`.
-Guest add, edit and remove are TT-5, because reciprocal `partnerOf` and `conflictsWith` are real
-domain behaviour with their own acceptance criteria. See [docs/state.md](docs/state.md).
+The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`,
+`addGuest`, `updateGuest` and `removeGuest`. The last three are thin delegates onto
+`src/domain/guests.ts`, which owns reciprocal `partnerOf` and `conflictsWith` and is the only place
+that logic lives. See [docs/state.md](docs/state.md).
+
+**`Guest.age` no longer matches KB-3.** It holds one of four `AgeBand`s — baby, child, teen, adult —
+by a product decision of 2026-09-09, where KB-3 still types it `number` and calls it "always
+present". A band cannot answer KB-2's generation-mix rule ("at least one guest over 30 and one under
+30"), because `adult` spans both sides of that line, so **TT-21 cannot be built until KB-2's owner
+re-specifies that rule against bands.** Do not invent a replacement boundary. The comment on
+`Guest.age` in `src/domain/types.ts` is the record of the divergence until the pages are updated.
