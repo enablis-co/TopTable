@@ -23,7 +23,7 @@ in them.
 
 | Page | What you need from it |
 |---|---|
-| `docs/engineering-standards.md` | The layout, the domain boundary and its direction, the three properties every rule holds, the TypeScript settings, where tests live, the gate |
+| `docs/engineering-standards.md` | The layout, the domain boundary and its direction, the three properties every rule holds, the TypeScript settings, **what a comment is for**, where tests live, the gate |
 
 `docs/state.md` is deliberately not on that list. The domain is pure and does not touch the store.
 
@@ -71,25 +71,5 @@ direction. Whatever writes them keeps both sides in step.
   neighbouring rule because the engine is open in front of you.
 - Pinning is the idea the product turns on: placing someone by hand pins them, and auto-allocate
   works around the pins rather than over them.
-
-## Comments earn their place
-
-A comment is justified only when it stops a future edit breaking something the code does not show.
-Everything else is noise. On TT-11 one file reached eighty lines of prose against thirty-nine of
-code, and the review had to say so.
-
-- **Never narrate history.** No dates, no "a review found", no account of what was tried and
-  reverted. The commit message and the pull request hold that already, with authorship and a diff.
-- **Never record a measurement.** A pixel figure, a contrast ratio or a viewport width is stale the
-  moment anything moves, and nothing in the gate keeps it true.
-- **Never restate the code.** If the comment says what the line plainly does, delete the comment.
-- **Do write the trap.** A source order a rule depends on, an attribute that must be `undefined`
-  rather than `false`, an argument order that inverts a result — one line each, and name the test
-  that guards it.
-- Cite `TT-` and `KB-` ids, which resolve. Do not cite a plan's own `A6`/`R2`/`C3`: `.claude/plans/`
-  is gitignored, so those resolve to nothing the moment the plan is gone.
-
-Past about six lines a comment is usually a design decision, and those belong in the plan or on the
-board rather than in the file.
 
 Finish with `npm run verify` — the gate in full, as `docs/engineering-standards.md` defines it.

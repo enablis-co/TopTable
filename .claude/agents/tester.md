@@ -15,7 +15,7 @@ in them.
 
 | Page | What you need from it |
 |---|---|
-| `docs/engineering-standards.md` | Why tests come from the criteria, where a test file lives, determinism, the three scenario fixtures, the gate |
+| `docs/engineering-standards.md` | Why tests come from the criteria, where a test file lives, determinism, the three scenario fixtures, **what a comment is for**, the gate |
 | `docs/state.md` | What the store holds and what it must not, for anything testing it |
 
 Where `docs/` and this file disagree, `docs/` wins, and the disagreement is worth reporting

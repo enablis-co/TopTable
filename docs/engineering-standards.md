@@ -68,6 +68,26 @@ The UI imports from the domain. The domain imports nothing back.
 `npm run typecheck` covers `src` and `vite.config.ts`. Lint is ESLint with type-aware rules, which
 means it needs the same TypeScript project and is slower than you might expect. That is the trade.
 
+## Comments
+
+A comment is justified only when it stops a future edit breaking something the code does not show.
+Everything else is noise, and noise costs twice: writing it, and reading past it.
+
+| Do not write | Why |
+|---|---|
+| Narrated history — dates, "a review found", what was tried and reverted | The commit message and the pull request hold it already, with authorship and a diff |
+| A measurement — a pixel figure, a contrast ratio, a viewport width | Stale the moment anything moves, and nothing in the gate keeps it true |
+| A restatement of the line below it | If the code says it, the comment is a second copy that can go wrong |
+| A plan's own `A6`/`R2`/`C3` | `.claude/plans/` is gitignored, so those resolve to nothing once the plan is deleted. `TT-` and `KB-` ids resolve; use those |
+
+**Do write the trap.** A source order a rule depends on, an attribute that must be `undefined`
+rather than `false`, an argument order that inverts a result. One line each, and name the test that
+guards it.
+
+Past about six lines a comment is usually a design decision, and those belong in the plan or on the
+board rather than in the file. A test's name, a type, or a better-named function is almost always a
+better home than a paragraph for what the comment was trying to say.
+
 ## Testing
 
 Vitest, jsdom. Tests describe behaviour in the product's vocabulary — guests, tables, seats, pins,
