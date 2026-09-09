@@ -206,9 +206,25 @@ The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScen
 `src/domain/guests.ts`, which owns reciprocal `partnerOf` and `conflictsWith` and is the only place
 that logic lives. See [docs/state.md](docs/state.md).
 
-**`Guest.age` no longer matches KB-3.** It holds one of four `AgeBand`s — baby, child, teen, adult —
-by a product decision of 2026-09-09, where KB-3 still types it `number` and calls it "always
-present". A band cannot answer KB-2's generation-mix rule ("at least one guest over 30 and one under
-30"), because `adult` spans both sides of that line, so **TT-21 cannot be built until KB-2's owner
-re-specifies that rule against bands.** Do not invent a replacement boundary. The comment on
-`Guest.age` in `src/domain/types.ts` is the record of the divergence until the pages are updated.
+### Two places the code no longer matches KB-3
+
+Both are product decisions of 2026-09-09, taken with the consequences stated. Neither page has been
+updated, so **KB-3 is the stale copy and the code is current** — the reverse of the usual direction,
+and the reason they are written down here.
+
+**`Guest.age` is a band, not a number.** It holds one of four `AgeBand`s — baby, child, teen,
+adult — where KB-3 types it `number` and calls it "always present". The consequence that outlives
+this ticket: KB-2's generation-mix rule is written as "at least one guest over 30 and one under 30",
+and `adult` spans both sides of that line, so **the rule as published cannot be evaluated from the
+data as stored.** It is a soft rule, so it would not fail to build — it would report an unresolvable
+violation on every table, forever. Whoever picks it up needs KB-2's owner to re-specify it first.
+Do not invent a replacement boundary.
+
+**Allergies and dietary preferences are entered from a closed picker.** The stored type is still
+`string[]`, so KB-3's typing holds — but KB-3 says the `KNOWN_*` vocabularies "do not constrain what
+a guest may carry", and for these two fields the input now does. There is an explicit "something
+else" path, so a rare allergy stays recordable: `KNOWN_ALLERGIES` carries KB-3's four values where
+fourteen allergens are regulated, and widening that list is KB-3's owner's call, not ours.
+
+The comments on `Guest.age` in `src/domain/types.ts` and on the two fields in
+`src/screens/guests/GuestPanel.tsx` are the record until the pages catch up.
