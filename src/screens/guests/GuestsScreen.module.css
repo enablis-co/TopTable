@@ -1,0 +1,22 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.search {
+  width: 320px;
+  max-width: 100%;
+}
+
+/* Pushes the button to the far right whether or not the search field is present (empty
+   state has no search field to space against). */
+.addButton {
+  margin-left: auto;
+}

@@ -22,6 +22,9 @@ export type { PanelProps } from './Panel'
 export { SlideOver } from './SlideOver'
 export type { SlideOverProps } from './SlideOver'
 
+export { PillInput } from './PillInput'
+export type { PillInputProps } from './PillInput'
+
 export { Mark } from './Mark'
 export type { MarkSize } from './Mark'
 

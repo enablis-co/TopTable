@@ -1,0 +1,5 @@
+.summary {
+  margin: 0;
+  font-size: var(--text-data);
+  color: var(--ink);
+}

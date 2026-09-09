@@ -1,0 +1,76 @@
+/*
+ * No overflow:hidden on .surface, deliberately: it would clip GuestRowMenu's popover for any
+ * row near the bottom of the table. The header cells carry no background of their own, so
+ * they already match .surface's own background and the corners lose nothing by not clipping.
+ */
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-data);
+}
+
+.table th {
+  text-align: left;
+  font-weight: var(--weight-medium);
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+  color: var(--ink);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr {
+  background: transparent;
+  transition: background-color 500ms ease;
+}
+
+/* KB-5: "colour never carries meaning alone... every state pairs a colour with a shape." The
+   sunken tint alone is a ~4% luminance difference and disappears on a projector or in
+   greyscale; the border-left is the shape half, matching the technique CapacityReadout and
+   GuestPanel's own .error already use for the same rule, in the neutral slate token rather
+   than hard or soft — a save is not a violation. Applied to the leading cell rather than the
+   <tr> itself: a border set directly on a table row is not part of the border-collapse model
+   most browsers honour, so it would silently fail to render there.
+   `.table tbody tr.highlight`, not the flatter `.highlight`: verified against the real running
+   app, this rule was losing its own `background` outright — `.table tbody tr` above already
+   sets `background: transparent` at higher specificity (two type selectors plus a class beats
+   one class alone), so the tint this rule declares was never actually painting, in the
+   original code as much as this one. Matching that rule's own selector shape, plus the class,
+   is what it takes to win. */
+.table tbody tr.highlight {
+  background: var(--sunken);
+}
+
+.highlight td:first-child {
+  border-left: 3px solid var(--slate);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* The row menu's own trailing cell — no header labels it (see the component comment). Narrow
+   and right-aligned so it reads as a margin note beside the data, not a sixth data column. */
+.actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}

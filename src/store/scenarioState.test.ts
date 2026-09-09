@@ -19,7 +19,7 @@ function makeGuests(count: number): Guest[] {
     name: `Guest ${index}`,
     side: 'both',
     role: 'guest',
-    age: 30,
+    age: 'adult',
     household: null,
     partnerOf: null,
     conflictsWith: [],
