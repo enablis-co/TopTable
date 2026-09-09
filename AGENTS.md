@@ -101,8 +101,8 @@ link. `TT-24` names `KB-4` in a comment and links nothing.
   someone else writes that specification. Never fill one in, and never invent an acceptance
   criterion to have something to build.
 - **Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP. Drag and
-  drop, undo, any rule beyond capacity, catering output, export and sharing are all on the board
-  already, under TT-21 to TT-25 and TT-31 to TT-34.
+  drop, undo, catering output, export and sharing are all on the board already, under TT-23,
+  TT-25 and TT-31 to TT-34.
 - **The allocation engine is pure domain logic.** No rendering, no React, no store. Rules do not
   mutate the plan, do not depend on the order they run in, and produce the same result twice.
 - **Adding a rule must not require editing a shared file.** Several people add rules at once.
