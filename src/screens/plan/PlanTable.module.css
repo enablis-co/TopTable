@@ -1,22 +1,41 @@
 /*
  * KB-5: "colour never carries meaning alone... every state pairs a colour with a shape."
  * data-occupancy, data-pinned and data-violation are three independent marks (A1), so this
- * file is written so no two state rules ever contest the same property — the exact failure
- * R3 names: `.highlight`'s `background` never painting in GuestTable.module.css because
- * `.table tbody tr` already set `background: transparent` at higher specificity. Checked
- * here, not just trusted:
+ * file is written so no two state rules contest the same property UNLESS the collision is
+ * deliberate, documented and order-tested — the exact failure R3 names: `.highlight`'s
+ * `background` never painting in GuestTable.module.css because `.table tbody tr` already set
+ * `background: transparent` at higher specificity. Checked here, not just trusted:
  *
- *   - `color` is declared by the two data-occupancy rules only, and data-occupancy holds
- *     exactly one value at a time, so they are mutually exclusive.
+ *   - `color` is declared by the empty and full data-occupancy rules only, and data-occupancy
+ *     holds exactly one value at a time, so they are mutually exclusive.
  *   - `background` is declared by the full rule alone.
- *   - `border-style` and `border-color` are declared by the violation rule alone — which is
- *     what lets a violating top table override .top's slate border, since a data-attribute
- *     selector (0,2,0) beats a bare class (0,1,0) regardless of source order.
  *   - The pin mark touches only ::after, so it composes with every other state untouched.
  *
- * The one same-specificity pair left is .table (0,1,0) against .round/.top (also 0,1,0),
- * where source order decides — so .round and .top MUST stay written after .table. Do not
- * reorder this file.
+ * `border-color` is the ONE deliberately contested property, added 2026-09-09. Human decision:
+ * the reviewer measured the full state's sunken fill at 1.084:1 against paper — invisible in
+ * greyscale and on a projector — so "hollow ring vs sunken-filled disc" was never actually
+ * surviving colour being stripped; only the text was. Design's own floorplan SVG already draws
+ * the fix (docs/style-guide.html: an occupied table's circle strokes `--ink`, an empty one
+ * `--rule-strong`) and this file had just never used it. So: empty keeps `--rule-strong` (the
+ * .table base rule already gives it that — no rule needed), and partial and full both set
+ * `border-color: var(--ink)` explicitly below.
+ *
+ * That puts `border-color` on THREE rules that can, in principle, all match different
+ * data-occupancy values on the same table at once — no, exactly one occupancy value ever
+ * applies, so empty/partial/full remain mutually exclusive on that axis. The real contest is
+ * between occupancy and data-violation: a table can be `full` AND `in violation`
+ * simultaneously (A1), and both the full rule and the violation rule now declare
+ * `border-color`, both at specificity 0,2,0 (a class plus one attribute selector) — so this is
+ * a genuine tie, and a tie is resolved by source order, not specificity. Violation MUST win — a
+ * violating table has to read red-dashed whatever its occupancy, because a rule that only shows
+ * up on some occupancy states is not a rule a planner can trust — so **the violation rule is
+ * written after all three occupancy rules below. Do not move it earlier.**
+ * `floorplanStyles.test.ts` asserts this order directly, the same way it asserts `.round`/`.top`
+ * after `.table` below.
+ *
+ * The one same-specificity pair left from the ORIGINAL design is .table (0,1,0) against
+ * .round/.top (also 0,1,0), where source order decides — so .round and .top MUST stay written
+ * after .table. Do not reorder this file.
  *
  * Two fixes below, both found by driving the app rather than by the suite (jsdom does no
  * layout — docs/engineering-standards.md, "What the suite cannot see"):
@@ -73,21 +92,54 @@
   overflow: hidden;
 }
 
+/* No grid-column here (there was one, spanning 1 / -1): the top table is no longer a grid item
+   at all — FloorplanGrid.tsx renders it in its own one-item list, outside the round-table grid,
+   precisely so that grid's auto-fit tracks can collapse. See that file's header comment. */
 .top {
   border-radius: var(--r-card);
   border-color: var(--slate);
-  grid-column: 1 / -1;
+  /* Cap + centre, human decision 2026-09-09: this rendered 1392x80 — the full window — before,
+     reading as a divider rather than a table. Neither source draws it that wide: KB-6 asks only
+     that it sit "positioned above the round tables", and the style guide's floorplan SVG draws
+     it as a 160-of-420-unit rect, centred — 38%. "Occupies its own full-width row" was this
+     ticket's own plan (section 1, C2), not the ticket, so the full-width render was our own
+     addition, not design's. 38% matches the style guide's proportion; the floor keeps it reading
+     as a *wide* rectangle rather than a near-square one once the viewport narrows enough that
+     38% alone would shrink it toward round-table size — see this ticket's follow-up commit for
+     the measured figures this was checked against, at both a normal and a narrow viewport. */
+  width: max(280px, 38%);
+  margin-inline: auto;
 }
 
 /* States. Each 0,2,0 (a class plus an attribute selector), so each beats .table AND
-   .round/.top regardless of where in the file it sits. */
+   .round/.top regardless of where in the file it sits — EXCEPT for border-color between an
+   occupancy rule and the violation rule below, which is a genuine tie broken by source order.
+   See this file's header comment. */
 .table[data-occupancy='empty'] {
   color: var(--ink-muted);
+  /* No border-color here, deliberately: the .table base rule already gives an empty table
+     `--rule-strong`, and restating it here would just be one more place for the two values to
+     drift apart. "Empty keeps --rule-strong" is a statement about what does NOT change. */
+}
+
+.table[data-occupancy='partial'] {
+  /* Human decision 2026-09-09, alongside the full rule's identical line below: a table that has
+     *any* guest at it reads with the same stronger, --ink border as a full one — the sunken
+     fill is full's alone, but the border strength marks "occupied" generally, not "completely
+     full" specifically. Text colour stays the base rule's plain --ink; only an empty table's
+     text is muted. */
+  border-color: var(--ink);
 }
 
 .table[data-occupancy='full'] {
   background: var(--sunken);
   color: var(--ink-muted);
+  /* KB-5/R2: the sunken fill alone measured at 1.084:1 against paper — invisible in greyscale
+     and on a projector, so "hollow ring vs sunken-filled disc" was never actually surviving
+     colour being stripped out; only the occupancy text was carrying that load. Design's own
+     drawing already strokes an occupied table in --ink (docs/style-guide.html, its floorplan
+     SVG) — lifted here rather than invented. */
+  border-color: var(--ink);
 }
 
 .table[data-violation='true'] {

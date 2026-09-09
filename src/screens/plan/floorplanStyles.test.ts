@@ -39,11 +39,13 @@ const DIR = dirname(fileURLToPath(import.meta.url))
 const CSS_PATH = join(DIR, 'PlanTable.module.css')
 
 const OCCUPANCY_EMPTY = /\.table\[\s*data-occupancy\s*=\s*['"]?empty['"]?\s*\]/
+const OCCUPANCY_PARTIAL = /\.table\[\s*data-occupancy\s*=\s*['"]?partial['"]?\s*\]/
 const OCCUPANCY_FULL = /\.table\[\s*data-occupancy\s*=\s*['"]?full['"]?\s*\]/
 const VIOLATION_TRUE = /\.table\[\s*data-violation(?:\s*=\s*['"]?true['"]?)?\s*\]/
 const PINNED_AFTER = /\.table\[\s*data-pinned(?:\s*=\s*['"]?true['"]?)?\s*\]::after/
 const BASE_TABLE = /\.table\s*\{/
 const ROUND_SHAPE = /\.round\s*\{/
+const TOP_SHAPE = /\.top\s*\{/
 const ROUND_PINNED_AFTER = /\.round\[\s*data-pinned(?:\s*=\s*['"]?true['"]?)?\s*\]::after/
 
 function readCss(): string {
@@ -165,6 +167,91 @@ describe('PlanTable.module.css — R3: the one same-specificity pair is resolved
 
     const baseSelector = requireRule(stripComments(css), BASE_TABLE, 'the base .table rule').selector
     expect(baseSelector).not.toContain('[data-')
+  })
+})
+
+/*
+ * Human decision, 2026-09-09. The reviewer measured the full state's `background: var(--sunken)`
+ * at 1.084:1 against paper — invisible in greyscale and on a projector — so empty and full were
+ * only actually staying distinguishable by their text, not by the shape KB-5 requires. Design's
+ * own floorplan SVG already draws the fix (docs/style-guide.html: an occupied table's circle
+ * strokes `--ink`, an empty one `--rule-strong`), generalised here to "occupied" (partial and
+ * full) rather than "full" specifically, because the greyscale failure applies just as much to a
+ * partially-seated table as a completely full one — neither had ever had anything but text
+ * telling them apart from empty.
+ */
+describe('PlanTable.module.css — occupied tables (partial and full) carry a stronger border than empty (KB-5 greyscale fix)', () => {
+  it('declares data-occupancy="partial"', () => {
+    expect(findRule(readCss(), OCCUPANCY_PARTIAL)).not.toBeNull()
+  })
+
+  it('the partial rule sets border-color: var(--ink)', () => {
+    const rule = requireRule(readCss(), OCCUPANCY_PARTIAL, 'data-occupancy="partial"')
+    expect(rule.body).toMatch(/border-color\s*:\s*var\(--ink\)/i)
+  })
+
+  it('the full rule also sets border-color: var(--ink), not just the sunken background', () => {
+    const rule = requireRule(readCss(), OCCUPANCY_FULL, 'data-occupancy="full"')
+    expect(rule.body).toMatch(/border-color\s*:\s*var\(--ink\)/i)
+  })
+
+  it('the empty rule does NOT set border-color — it keeps the base .table rule\'s --rule-strong unchanged', () => {
+    const rule = requireRule(readCss(), OCCUPANCY_EMPTY, 'data-occupancy="empty"')
+    expect(rule.body).not.toMatch(/border-color\s*:/i)
+
+    const base = requireRule(stripComments(readCss()), BASE_TABLE, 'the base .table rule')
+    expect(base.body).toMatch(/border(?:-color)?\s*:[^;]*var\(--rule-strong\)/i)
+  })
+})
+
+/*
+ * R3, extended: giving partial and full their own `border-color` means that property is now
+ * declared by four rules that can, for a full table in violation, all be candidates at once —
+ * but data-occupancy's three values are mutually exclusive, so the only REAL tie is occupancy
+ * against violation, both at specificity 0,2,0 (a class plus one attribute selector). A
+ * stylesheet-text test cannot prove which one wins the cascade (R3 again — that is what the
+ * browser pass is for), only that the source order that WOULD make violation win is the order
+ * actually on disk.
+ */
+describe('PlanTable.module.css — border-color: violation is declared after every occupancy rule, so it wins the tie', () => {
+  it('the violation rule appears after data-occupancy="empty", "partial" and "full"', () => {
+    const css = stripComments(readCss())
+
+    const emptyIndex = css.search(OCCUPANCY_EMPTY)
+    const partialIndex = css.search(OCCUPANCY_PARTIAL)
+    const fullIndex = css.search(OCCUPANCY_FULL)
+    const violationIndex = css.search(VIOLATION_TRUE)
+
+    expect(emptyIndex, 'expected a data-occupancy="empty" rule').toBeGreaterThanOrEqual(0)
+    expect(partialIndex, 'expected a data-occupancy="partial" rule').toBeGreaterThanOrEqual(0)
+    expect(fullIndex, 'expected a data-occupancy="full" rule').toBeGreaterThanOrEqual(0)
+    expect(violationIndex, 'expected a data-violation rule').toBeGreaterThanOrEqual(0)
+
+    expect(violationIndex).toBeGreaterThan(emptyIndex)
+    expect(violationIndex).toBeGreaterThan(partialIndex)
+    expect(violationIndex).toBeGreaterThan(fullIndex)
+  })
+})
+
+/*
+ * Human decision, 2026-09-09: the top table rendered 1392x80 (full window width) before —
+ * neither KB-6 ("positioned above the round tables") nor the style guide's floorplan SVG (a
+ * 160-of-420-unit rect, 38%, centred) draws it that wide. This does not pin the exact cap, which
+ * is a layout value only a browser can confirm (docs/engineering-standards.md, "What the suite
+ * cannot see") — it only guards that a cap and a centring rule continue to exist at all, so a
+ * future edit cannot silently drop back to an unconstrained full-width block.
+ */
+describe('PlanTable.module.css — the top table\'s width is capped and centred, not left full-width', () => {
+  it('.top declares a width wanting less than the full row, and centres itself', () => {
+    const rule = requireRule(readCss(), TOP_SHAPE, '.top')
+    expect(rule.body).toMatch(/width\s*:/i)
+    expect(rule.body).not.toMatch(/width\s*:\s*100%/i)
+    expect(rule.body).toMatch(/margin(?:-inline)?\s*:\s*(?:0\s+)?auto/i)
+  })
+
+  it('.top no longer spans the grid — it is not a grid item at all (FloorplanGrid.tsx)', () => {
+    const rule = requireRule(readCss(), TOP_SHAPE, '.top')
+    expect(rule.body).not.toMatch(/grid-column\s*:/i)
   })
 })
 
