@@ -4,40 +4,19 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * TT-11, "Render the floorplan from config" — KB-5's shape rule: "Colour never carries meaning
- * alone... every state pairs a colour with a shape." jsdom applies no CSS at all
- * (docs/engineering-standards.md, "What the suite cannot see"), so PlanTable.test.tsx can only
- * ever see the four `data-*` attributes and the visible text — never whether the colour behind
- * a state is actually backed by a shape.
- *
- * This file reads PlanTable.module.css as text — the technique already established by
- * src/screens/setup/capacityReadoutStyles.test.ts, src/screens/setup/scenarioPickerStyles.test.ts
- * and src/screens/guests/guestTableStyles.test.ts — and checks the published rules directly
- * against the stylesheet's own declarations. Reading a stylesheet as text is not reading the
- * implementation; it is asserting a KB-5/R3 rule against a file's contents. This file opens no
- * `.tsx`.
- *
- * R3 is the other half of this file's reason to exist: a stylesheet-text test proves a rule is
- * *declared*, never that it *wins* the cascade — exactly how the TT-5/TT-6 review found
- * `.highlight`'s background losing to a higher-specificity rule elsewhere in the same file. The
- * plan's own cascade analysis (section 4) leaves exactly one same-specificity pair unresolved by
- * property separation — `.table` against `.round`/`.top` — so this file asserts source order for
- * that pair specifically, plus that every state selector is attribute-qualified and the base
- * selector is not (so a state rule can never be confused with the base one it must always beat).
- *
- * `data-pinned` and `data-violation` are only ever absent or the literal string `'true'` (never
- * any other value — that is exactly PlanTable.test.tsx's own load-bearing assertion), so a bare
- * `[data-pinned]`/`[data-violation]` existence selector is functionally identical to
- * `[data-pinned='true']` in this codebase. The patterns below accept either spelling: the
- * criterion is that pinned and violating tables carry a shape, not which of two equivalent
- * selector forms was used to select them. `data-occupancy` has no such equivalence — it always
- * carries a value, and a bare `[data-occupancy]` would match all three states at once — so its
- * patterns require the value.
+ * jsdom applies no CSS at all, so PlanTable.test.tsx can only see the `data-*` attributes and
+ * the visible text — never whether a colour is actually backed by a shape (KB-5). This file
+ * reads PlanTable.module.css as text instead: it proves a rule is *declared*, never that it
+ * *wins* the cascade, which is why source order is asserted explicitly below for the one
+ * same-specificity pair the stylesheet leaves unresolved (`.table` against `.round`/`.top`).
  */
 
 const DIR = dirname(fileURLToPath(import.meta.url))
 const CSS_PATH = join(DIR, 'PlanTable.module.css')
 
+// data-pinned/data-violation are only ever absent or the string 'true', so these patterns
+// accept a bare [data-pinned] or an explicit [data-pinned='true'] interchangeably.
+// data-occupancy always carries a value, so its patterns require one.
 const OCCUPANCY_EMPTY = /\.table\[\s*data-occupancy\s*=\s*['"]?empty['"]?\s*\]/
 const OCCUPANCY_FULL = /\.table\[\s*data-occupancy\s*=\s*['"]?full['"]?\s*\]/
 const VIOLATION_TRUE = /\.table\[\s*data-violation(?:\s*=\s*['"]?true['"]?)?\s*\]/
@@ -56,12 +35,9 @@ function stripComments(css: string): string {
 }
 
 /**
- * Finds the first selector in the (comment-stripped) CSS matching `selectorPattern`, and
- * returns its selector text and its rule body (the text between the following `{` and the next
- * `}`). Deliberately narrow rather than a generic "parse every rule" pass: this file's CSS
- * contains a nested `@container` block (A6), and a flat brace-matching parser applied to the
- * whole file mishandles nested braces. Every rule this file cares about is flat, so finding each
- * one by its own known selector pattern sidesteps the nesting problem entirely.
+ * Finds the first rule matching `selectorPattern`. Deliberately narrow rather than a generic
+ * brace-matching parser: this file's CSS has a nested `@container` block, which a flat parser
+ * would mishandle — finding each rule by its own known selector sidesteps that entirely.
  */
 function findRule(css: string, selectorPattern: RegExp): { selector: string; body: string } | null {
   const clean = stripComments(css)
@@ -169,14 +145,8 @@ describe('PlanTable.module.css — R3: the one same-specificity pair is resolved
   })
 })
 
-/*
- * Human decision, 2026-09-09: the top table used to render at the full width of the window —
- * neither KB-6 ("positioned above the round tables") nor the style guide's floorplan SVG (a
- * 160-of-420-unit rect, 38%, centred) draws it that wide. This does not pin the exact cap, which
- * is a layout value only a browser can confirm (docs/engineering-standards.md, "What the suite
- * cannot see") — it only guards that a cap and a centring rule continue to exist at all, so a
- * future edit cannot silently drop back to an unconstrained full-width block.
- */
+/* Guards that .top keeps a width cap and a centring rule — not the exact value, which is a
+   layout question only a browser can confirm — so it cannot silently regress to full-width. */
 describe('PlanTable.module.css — the top table\'s width is capped and centred, not left full-width', () => {
   it('.top declares a width wanting less than the full row, and centres itself', () => {
     const rule = requireRule(readCss(), TOP_SHAPE, '.top')
@@ -198,22 +168,13 @@ describe('PlanTable.module.css — the guest-name reveal is declared as a contai
     expect(css).toMatch(/@container/i)
     // Hidden by default...
     expect(css).toMatch(/\.guests\s*\{[^}]*display\s*:\s*none/i)
-    // ...and revealed only inside the container query — never the reverse, which is what "where
-    // space allows" as a progressive reveal requires. The suite cannot confirm the 132px
-    // threshold actually behaves this way (jsdom does no layout — that is the browser pass's
-    // job), only that the rule declaring it exists.
+    // ...and revealed only inside the container query, never the reverse.
     expect(css).toMatch(/@container[^{]*\{\s*\.guests\s*\{[^}]*display\s*:\s*block/i)
   })
 })
 
-/*
- * Regression, TT-11 review. The reviewer drove the app and measured two blockers no test above
- * could see, because both are about whether a rule *wins* geometrically, not whether it exists
- * — exactly the layout question docs/engineering-standards.md says only a browser can answer.
- * These assertions are the declared-in-the-stylesheet half of each fix; the browser pass in the
- * PR notes is the other half, and a green run here is not a substitute for it (R3 again: this
- * file proves a rule is declared, never that it wins the cascade).
- */
+// These assertions are the declared-in-the-stylesheet half; only a browser confirms the
+// geometry actually wins.
 
 describe('PlanTable.module.css — .round contains its own content instead of stretching into an ellipse', () => {
   it('declares min-height: 0, so aspect-ratio governs height from width alone regardless of content', () => {

@@ -7,26 +7,15 @@ import type { Guest } from '../../domain/types'
 import { NavigationContext } from '../../shell/navigation'
 
 /**
- * TT-11, "Render the floorplan from config" — C1, C2, C4, C6, C7, C10, C11, A11. Written from
- * TT-11's acceptance criteria, KB-6 ("Screens") and `docs/state.md`, against the `PlanScreen`
- * contract in `.claude/plans/TT-11.md` section 4 and the store-backed screen pattern in
- * src/screens/guests/GuestsScreen.test.tsx and src/screens/setup/SetupScreen.test.tsx. Does not
- * open PlanScreen.tsx, PlanEmpty.tsx, Floorplan.tsx (or however the grid component is actually
- * named) or any of their stylesheets.
+ * TT-11, "Render the floorplan from config". Written from the acceptance criteria and KB-6,
+ * without opening PlanScreen.tsx, PlanEmpty.tsx, FloorplanGrid.tsx or their stylesheets.
  *
- * Tables are located by `[data-occupancy]` rather than by role: every PlanTable carries that
- * attribute unconditionally (PlanTable.test.tsx's own header comment explains why), which keeps
- * this file's counts correct regardless of whether a seated table's nested guest-name list is
- * itself a `<ul>`/`<li>` structure that would otherwise inflate a plain `getAllByRole('listitem')`
- * count.
+ * Tables are located by `[data-occupancy]` rather than by role, so a seated table's nested
+ * guest-name list can't inflate a plain `getAllByRole('listitem')` count.
  *
- * The empty-state button label ("Go to scenarios") and copy ("Start from a scenario, or set the
- * room up") are asserted exactly, unlike GuestsScreen.test.tsx's loose `/scenario|setup/i` match
- * on its own analogous control. That looseness there exists because neither TT-6 nor KB-6
- * publishes that control's copy. Here, A8 says the copy is invented too, but `.claude/plans/
- * TT-11.md` section 4 nonetheless states both strings as a definite, quoted decision — the
- * contract ui-developer is building to — so a divergence is a real integration finding, not a
- * false alarm on prose nobody committed to.
+ * The empty-state button label and copy are asserted exactly, not loosely matched the way
+ * GuestsScreen.test.tsx's analogous control is — that looseness there is because neither TT-6
+ * nor KB-6 publishes its copy, but this screen's copy is a definite, quoted decision.
  *
  * Every Guest fixture sets `age` to an AgeBand, never a number — see floorplan.test.ts's header
  * comment for why KB-3's `number` typing is the stale copy.
@@ -67,10 +56,8 @@ function renderPlanScreen(goTo: (tab: string) => void = () => {}) {
   )
 }
 
-// The store's full key set today (docs/state.md, and src/store/store.ts read directly): four
-// data fields plus eight actions. C6's whole point is that this list must not grow a pin, seat,
-// plan or violation entry — asserting the exact set, not just a substring scan, is the strongest
-// version of that check the plan's own "removeGuest and future pins (R5)" evidence relies on.
+// The store's full key set today: four data fields plus eight actions. Asserting the exact
+// set, not a substring scan, is what catches a future pin/seat/plan/violation key creeping in.
 const EXPECTED_STORE_KEYS = [
   'event',
   'room',
@@ -166,9 +153,8 @@ describe('PlanScreen — first visit reads as an invitation, not an empty grid (
 
     expect(tables()).toHaveLength(0)
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
-    // "unseated" is a word unique to the header line's vocabulary (C5) — its absence here is
-    // evidence the header is not rendered at all in this state, per the component contract
-    // ("renders <PlanEmpty/> and nothing else").
+    // "unseated" is unique to the header's vocabulary — its absence is evidence the header
+    // isn't rendered at all in this state.
     expect(screen.queryByText(/unseated/i)).not.toBeInTheDocument()
   })
 
@@ -194,9 +180,8 @@ describe('PlanScreen — first visit reads as an invitation, not an empty grid (
 
 describe('PlanScreen — the gate agrees with the generator on an un-normalised room (regression, TT-11 review)', () => {
   it('a hand-edited room with a negative roundTables still shows the floorplan once it normalises to real seats', () => {
-    // docs/state.md: storage is not a trusted input. Raw totalSeats on this room is
-    // -1 * 8 + 8 = 0 (which used to render the invitation), but the room normalises to
-    // { 0, 8, 8 } — a real top table — exactly as floorplanFromRoom already generates it.
+    // Raw totalSeats on this room is -1 * 8 + 8 = 0, but it normalises to { 0, 8, 8 } — a real
+    // top table, exactly as floorplanFromRoom already generates it.
     useTopTableStore.getState().setRoom({ roundTables: -1, seatsEach: 8, topTableSeats: 8 })
     useTopTableStore.getState().setGuests([])
     renderPlanScreen()
@@ -217,20 +202,15 @@ describe('PlanScreen — the gate agrees with the generator on an un-normalised 
     useTopTableStore.getState().setGuests([])
     renderPlanScreen()
 
-    // The seat count is split across a tabular <span> and a plain-text " seats" sibling, so
-    // it is asserted against the flattened body text rather than screen.getByText — the same
-    // reason PlanScreen's own C10 tests above check document.body.textContent rather than a
-    // role/text query for copy that spans more than one node.
+    // Split across a tabular <span> and a plain-text sibling, so it's asserted against the
+    // flattened body text rather than screen.getByText.
     expect(document.body.textContent).toContain('8 seats')
   })
 })
 
 describe('PlanScreen — the round-table region is reachable by keyboard (WCAG 2.1.1, review)', () => {
-  // FloorplanGrid.module.css gives the round-table list `overflow-x: auto`, and jsdom does no
-  // layout — this suite cannot make the grid actually overflow, only assert the seam that makes
-  // it operable once it does: a real accessible name and role, and tabIndex 0. See
-  // FloorplanGrid.tsx's own header comment, point 3, for the reviewer's measured 1100px/9-table
-  // case and why the fix is unconditional rather than driven by table count.
+  // jsdom does no layout, so this suite can't make the grid actually overflow — only assert
+  // the seam that makes it operable once it does: a real name, role and tabIndex 0.
 
   it('the round-table region is focusable and carries a real accessible name', () => {
     useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 6 })
@@ -322,9 +302,8 @@ describe('PlanScreen — C6: renders and reacts to every interaction without wri
     const user = userEvent.setup()
     renderPlanScreen()
 
-    // Activate everything activatable: every button, and every table (A9 says tables are not
-    // buttons — TT-11 wires no click handler to them — but the criterion is about behaviour, so
-    // clicking them anyway is the honest way to prove nothing happens).
+    // Activate everything activatable: every button and every table (no click handler is
+    // wired to a table, but clicking anyway is the honest way to prove nothing happens).
     for (const button of screen.queryAllByRole('button')) {
       await user.click(button)
     }

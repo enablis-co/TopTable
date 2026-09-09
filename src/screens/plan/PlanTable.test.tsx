@@ -5,23 +5,13 @@ import type { TableOccupants, TableSlot } from './floorplan'
 import type { Guest } from '../../domain/types'
 
 /**
- * TT-11, "Render the floorplan from config" — C2, C3, C4, C9, A10. Written from TT-11's
- * acceptance criteria, KB-5 ("Brand and visual language") and the `PlanTable` contract published
- * in `.claude/plans/TT-11.md` section 4. Does not open PlanTable.tsx or PlanTable.module.css
- * (floorplanStyles.test.ts owns the stylesheet, read as text).
+ * TT-11, "Render the floorplan from config". Written from the acceptance criteria and KB-5,
+ * without opening PlanTable.tsx or PlanTable.module.css.
  *
- * Two judgement calls:
- *
- * 1. Every render wraps `<PlanTable>` in a plain `<ul>`. `<li>` only carries the "listitem"
- *    ARIA role when it is owned by a list-like container; a bare `<li>` rendered on its own can
- *    fail role queries for reasons that have nothing to do with this ticket. This is also the
- *    real context PlanTable is used in — `Floorplan` renders a `<ul>` of these — so the wrapper
- *    makes the test more representative, not less.
- * 2. The table root is located via `[data-occupancy]` rather than by role, because "the guest
- *    names as a nested list, always rendered" (section 4) means a table with guests seated may
- *    itself contain further `<li>` elements. `data-occupancy` is unconditional — every table
- *    carries it, unlike `data-pinned`/`data-violation` — so it is a safe, single-element anchor
- *    regardless of how many names are nested inside.
+ * Every render wraps `<PlanTable>` in a plain `<ul>`, since a bare `<li>` on its own can fail
+ * role queries for reasons that have nothing to do with this ticket — and it's the real context
+ * PlanTable renders in. The table root is located via `[data-occupancy]` rather than by role,
+ * since a seated table's nested guest names are themselves `<li>` elements.
  *
  * Every Guest fixture sets `age` to an AgeBand, never a number — see floorplan.test.ts's header
  * comment for why KB-3's `number` typing is the stale copy.
@@ -214,23 +204,8 @@ describe('PlanTable — accessible content (A10)', () => {
   })
 
   it('the visible table number remains part of the accessible name — no aria-label displaces it', () => {
-    // First attempt, recorded rather than silently dropped: this test originally asserted
-    // `screen.getByRole('listitem', { name: /\b7\b/ })`, on the theory that a passing
-    // getByRole(..., { name }) call — computed by the same accname algorithm Chrome uses — is
-    // the real evidence docs/engineering-standards.md recommends over a screenshot. Run against
-    // the real component, it failed: dom-accessibility-api reports an empty accessible name for
-    // both the rendered `<li>` (role listitem) and the `<p>` wrapping "Table 7" (role paragraph)
-    // regardless of their text content, because neither role is on the accname spec's "name
-    // from contents" list the way "button" or "heading" are — engineering-standards.md's own
-    // accname caveat is illustrated with buttons throughout, and does not generalise to a plain
-    // listitem. The rendered markup itself was exactly right (a bare visible "7" beside a
-    // tt-visually-hidden "Table " prefix, no aria-label anywhere) — this was a flaw in the test's
-    // chosen verification method, not a defect in the component, so the method is fixed here
-    // rather than the assertion being loosened to match the code.
-    //
-    // What A10 is actually guarding against is an `aria-label` swallowing the visible text (the
-    // WCAG 2.5.3 risk named in the plan) — checked directly, plus the visible-text checks already
-    // made elsewhere in this file.
+    // Guards against an aria-label swallowing the visible text (WCAG 2.5.3) — not a role/name
+    // query, which dom-accessibility-api can't compute for a listitem or paragraph role.
     const table = renderTable(roundSlot({ number: 7, label: 'Table 7', capacity: 8 }), makeOccupants())
     expect(table.textContent).toContain('7')
     expect(table.querySelector('[aria-label]')).toBeNull()

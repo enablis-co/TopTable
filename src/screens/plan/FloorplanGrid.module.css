@@ -1,86 +1,30 @@
-/*
- * Human decision, 2026-09-09: table size must respond to table count, not just container width.
- * The original `auto-fill` (plan A5) can never do that — its track count is a function of
- * container width alone, so five tables and twenty-seven landed on the same fixed track width,
- * and PlanTable.module.css's 132px container query for the guest-name reveal was a dead branch:
- * it could never both pass and fail depending on room size, only ever pass.
- *
- * The literal instruction here was `repeat(auto-fit, minmax(112px, 200px))`. Measured instead of
- * trusted, that does not fix the dead branch — it only changes which constant it is dead at.
- * `auto-fit` only ever changes behaviour by collapsing tracks that end up with no grid item in
- * them; once a track has one, its width is resolved by the ordinary "grow every track toward its
- * max, using whatever free space is left after every track has taken its min" algorithm. When
- * the max is a *fixed length* (not `1fr`), that algorithm always has enough free space to reach
- * it: `auto-fit`'s own track count is itself computed from the container width divided by
- * (max + gap), so by construction there is never less room than every real track needs to reach
- * that same max. This holds for any container width, gap, floor and ceiling — it is not a matter
- * of retuning the two pixel values. Measured, not assumed: across all three of KB-3's scenarios —
- * "Small and cosy" (4 round tables), "Adding up" (9) and "Celebrity scale" (26) — plain `auto-fit`
- * rendered every table at the same fixed ceiling regardless of table count, and the container
- * query never once failed. Only the row count changed.
- *
- * So `.grid` below does NOT use `auto-fit`/`auto-fill` at all. `--floorplan-columns` is a plain
- * integer set by FloorplanGrid.tsx from `roundTableColumns` (./floorplan.ts) — a pure function of
- * the round-table count, not a DOM measurement, so it stays exactly as testable as everything
- * else in this codebase. Below `MAX_ROUND_TABLE_COLUMNS` (11, derived in that file) tables get
- * one row and grow toward the 200px ceiling, same as design's small-wedding drawing; at or beyond
- * it, the grid caps at 11 columns and *that* is what makes each track's width actually shrink as
- * more tables compete for it, down to the 112px floor, with further tables adding rows instead.
- *
- * The top table is not a child of `.grid` at all — see `.floorplan` and `.topRow` below, and
- * FloorplanGrid.tsx's own header comment for why a `grid-column: 1 / -1` sibling would have
- * defeated even this.
- */
+/* `.grid` doesn't use `auto-fit`/`auto-fill` — those respond only to container width and would
+   keep every track growing back to a fixed ceiling regardless of count. `--floorplan-columns`
+   (FloorplanGrid.tsx, from ./floorplan.ts) makes the column count respond to table count
+   instead. */
 .floorplan {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-/* A one-item list. Exists so the top table's `<li>` (A9) is owned by a real list container — a
-   bare `<li>` outside any `<ul>`/`<ol>` does not carry the "listitem" ARIA role. The table's own
-   width cap and centring are PlanTable.module.css's `.top` rule, not this file's concern. */
+/* A one-item list: a bare <li> outside any list container does not carry the "listitem" role. */
 .topRow {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-/* Second review, 2026-09-09: the scrolling region for the round-table grid. `overflow-x: auto`,
-   `tabIndex` and `role="region"` all live on this wrapper `<div>` (FloorplanGrid.tsx) rather than
-   on the `<ul>` it contains. That file's own header comment has the accessibility reasoning —
-   `role="region"` on the `<ul>` itself replaced its implicit `list` role, and unlike
-   `role="listbox"` (PillInput, ConflictPicker), whose `option` children stay countable, a
-   `region`'s children are given nothing, so the round tables stopped being exposed as list items
-   and a screen reader user lost the item count. This comment is the layout half of that same fix.
-
-   The `<ul>` inside is now a plain block child of this wrapper rather than a flex item of
-   `.floorplan` directly, so its width resolves the ordinary block way — it fills whatever width
-   this wrapper is given, exactly as it filled its own flex slot before. Its grid tracks can still
-   demand more room than that (the whole reason `.grid` needs `--floorplan-columns` capped rather
-   than left to grow unbounded), and that excess still escapes the `<ul>`'s own box exactly as
-   before — `overflow: visible` is the initial value, and nothing below sets it otherwise on the
-   `<ul>` — where this element's `overflow-x: auto` now catches it instead. Confirmed in the
-   browser pass, at the review's own 9-round-table case: the document itself carries no
-   horizontal scrollbar, `safe center` (below, on `.grid`) still keeps the first table on-screen,
-   and vertical scrolling still belongs to the document rather than this element — see the
-   ticket's browser-pass notes rather than trusting this comment alone
-   (docs/engineering-standards.md, "What the suite cannot see").
-
-   `overflow-y` is deliberately left unset rather than pinned to `visible`: the CSS Overflow spec
-   computes a `visible` axis as `auto` the instant its pair is anything else, but this wrapper has
-   no set height for that rule to act on, so vertical scrolling stays with the document either
-   way. */
+/* `.grid` (the `<ul>` inside) stays at the default `overflow: visible`, so its excess width
+   escapes into this wrapper, which is what `overflow-x: auto` here catches. `overflow-y` stays
+   unset — floorplanStyles.test.ts checks it isn't pinned to hidden/scroll — so vertical
+   scrolling stays with the document. */
 .gridScroll {
   overflow-x: auto;
 }
 
-/* This wrapper, not the `<ul>` it contains, is what FloorplanGrid.tsx makes focusable, so it is
-   what base.css's global `:focus-visible` rule needs restating for — the same convention
-   Button.module.css and CardButton.module.css already follow for the focusable elements they
-   own, so a reader of this file does not have to go looking in base.css to know this is
-   deliberately, not accidentally, focusable. Large container, so this was checked against warm
-   paper directly rather than assumed: see the ticket's browser-pass notes. */
+/* Restates base.css's global :focus-visible — the same convention Button.module.css and
+   CardButton.module.css follow for the focusable elements they own. */
 .gridScroll:focus-visible {
   outline: 2px solid var(--slate);
   outline-offset: 2px;
@@ -88,26 +32,13 @@
 
 .grid {
   display: grid;
-  /* --floorplan-columns: set inline by FloorplanGrid.tsx, one integer, from roundTableColumns().
-     The `, 1` fallback only matters if something ever renders this class without setting the
-     custom property — real usage always sets it. 112px/200px: the floor and ceiling this whole
-     file's header comment is about; 112px is the smallest a table stays legible at (the browser
-     measurement this was checked against is recorded in this ticket's follow-up commit), 200px
-     is what stops a small wedding's tables growing enormous, matching design's own proportion. */
+  /* --floorplan-columns is set inline by FloorplanGrid.tsx; the `, 1` fallback only matters if
+     this class is ever used without it. 112px/200px are the floor and ceiling. */
   grid-template-columns: repeat(var(--floorplan-columns, 1), minmax(112px, 200px));
   gap: var(--space-4);
-  /* The explicit column count rarely fills the row exactly (112-200px tracks against a
-     wide container) — center the leftover rather than letting it collect on one side, which
-     would read as a lopsided gap on a small wedding's single short row.
-     `safe`, found while checking a narrow viewport for the top table: below roughly
-     `columns * 112px + (columns - 1) * gap`, even the *floor* no longer fits and this row
-     overflows its own box. Plain `center` centres the overflow itself, which pushes the first
-     table off-screen to the start side with no scrollbar reaching it. `safe` is the standard
-     fallback for exactly this: centre while it fits, fall back to start alignment the moment it
-     would strand content, so the first table (and as many others as fit) stay on-screen and
-     reachable, with any remainder scrollable off the end instead of vanishing off the start.
-     This row's own overflow is caught by `.gridScroll` above, which wraps this element — see its
-     comment for why moving `overflow-x: auto` up one level does not change what gets scrolled. */
+  /* `safe center`, not plain `center`: centres the row while it fits, but falls back to start
+     alignment once it overflows its own box, so the first table stays reachable rather than
+     being centred off-screen along with the rest of the overflow. */
   justify-content: safe center;
   list-style: none;
   margin: 0;

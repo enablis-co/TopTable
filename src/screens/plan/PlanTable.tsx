@@ -8,29 +8,17 @@ type PlanTableProps = {
 }
 
 /**
- * TT-11, C2, C3, C4. One table, top or round. `data-occupancy`, `data-pinned` and
- * `data-violation` are three independent marks, not one exclusive state (A1) — KB-6's legend
- * draws a pinned dot on a table that is also part of the numbered grid, and KB-5 gives pin
- * and violation their own separate shapes, so a table can be full, pinned and in violation
- * with all three surviving at once. The stylesheet is what makes that composition safe; see
- * its own header comment.
+ * TT-11, KB-5, KB-6. One table, top or round. `data-occupancy`, `data-pinned` and
+ * `data-violation` are three independent marks — a table can be full, pinned and in violation
+ * all at once. `data-pinned`/`data-violation` are `undefined`, never `false`, when the state
+ * does not hold: React stringifies `false` to the literal text `"false"`, which a bare
+ * `[data-pinned]` selector would still match.
  *
- * `data-pinned` and `data-violation` are `undefined`, never `false`, when the state does not
- * hold. React stringifies a `false` attribute value to the literal text `"false"`, and a bare
- * `[data-pinned]` selector matches that string — so a falsy prop would both render a spurious
- * attribute and make it selectable as if true. Passing `undefined` omits the attribute
- * entirely.
+ * A `<li>`, not a button — `src/ui/brand.test.ts` forbids a raw one outside the
+ * shared-component module or the shell.
  *
- * A `<li>`, not a button element (A9): TT-11 has no click behaviour — TT-15 introduces it —
- * and `src/ui/brand.test.ts` forbids a raw one outside the shared-component module or the
- * shell.
- *
- * The visible number is bare (a lone digit, to fit a small table at scale), so a
- * `tt-visually-hidden` "Table " prefix carries the context a sighted reader gets from the
- * grid position alone (A10). The top table's own label already reads as a full name ("Top
- * table") and gets no such prefix — repeating "Table" in front of it would be less clear, not
- * more. `tt-visually-hidden` rather than `aria-label` throughout, deliberately: an
- * `aria-label` would displace the visible text as the accessible name (WCAG 2.5.3).
+ * The bare visible number gets a `tt-visually-hidden` "Table " prefix, not an `aria-label`,
+ * which would displace the visible text as the accessible name (WCAG 2.5.3).
  */
 export function PlanTable({ slot, occupants }: PlanTableProps) {
   const occupancy = occupancyOf(occupants.guests.length, slot.capacity)

@@ -7,13 +7,11 @@ import type { Guest, RoomConfig } from '../../domain/types'
 import type { ScenarioState } from '../../store/store'
 
 /**
- * TT-11, "Render the floorplan from config" — C5 and A7. Written from TT-11's acceptance
- * criteria ("Header line shows the scenario, guest count, seat count, pinned count and unseated
- * count") and the `PlanHeader` contract in `.claude/plans/TT-11.md` section 4. Does not open
- * PlanHeader.tsx or PlanHeader.module.css.
+ * TT-11, "Render the floorplan from config". Written from the acceptance criteria, without
+ * opening PlanHeader.tsx or PlanHeader.module.css.
  *
- * `scenarioLabel` is local to PlanHeader and not exported (section 4), so it is exercised only
- * through the component's rendered text, never called directly.
+ * `scenarioLabel` is local to PlanHeader and not exported, so it is exercised only through the
+ * component's rendered text, never called directly.
  *
  * Every Guest fixture sets `age` to an AgeBand, never a number — see floorplan.test.ts's header
  * comment for why KB-3's `number` typing is the stale copy.
@@ -109,9 +107,8 @@ describe('PlanHeader — the five figures, in order (C5)', () => {
 
 describe('PlanHeader — the seat figure is normalised, agreeing with the grid (regression, TT-11 review)', () => {
   it('a room with a negative roundTables reads the normalised seat count, not 0', () => {
-    // Raw totalSeats on this room is -1 * 8 + 8 = 0. Normalised, roundTables becomes 0 and
-    // the room keeps its 8-seat top table — the figure this line must show, since
-    // FloorplanGrid renders that same top table underneath it.
+    // Raw totalSeats is -1 * 8 + 8 = 0; normalised, roundTables becomes 0 and the room keeps
+    // its 8-seat top table — the figure this line must show.
     const room: RoomConfig = { roundTables: -1, seatsEach: 8, topTableSeats: 8 }
     const { container } = render(
       <PlanHeader scenario={null} room={room} guests={[]} seating={NOTHING_SEATED} />,

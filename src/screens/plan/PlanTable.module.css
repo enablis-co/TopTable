@@ -1,81 +1,10 @@
 /*
- * KB-5: "colour never carries meaning alone... every state pairs a colour with a shape." A1
- * treats data-occupancy, data-pinned and data-violation as three independent marks, so this
- * file is written so no two state rules contest the same property — the exact failure R3
- * names: `.highlight`'s `background` never painting in GuestTable.module.css because
- * `.table tbody tr` already set `background: transparent` at higher specificity. Checked here,
- * not just trusted:
- *
- *   - `color` is declared by the empty and full data-occupancy rules only, and data-occupancy
- *     holds exactly one value at a time, so they are mutually exclusive.
- *   - `background` is declared by the full rule alone.
- *   - `border-style` and `border-color` are declared, among the state rules, by the violation
- *     rule alone — which is what lets a violating **top** table override `.top`'s slate
- *     border: violation is 0,2,0 against `.top`'s 0,1,0, so it wins on specificity wherever
- *     either rule sits in the file. An ordinary specificity win, not a tie, and it needs no
- *     source-order help.
- *   - The pin mark touches only `::after`, so it composes with every other state untouched.
- *   - The one same-specificity pair left is `.table` (0,1,0) against `.round`/`.top` (also
- *     0,1,0), resolved by source order — `.round` and `.top` MUST stay written after `.table`.
- *     Do not reorder this file. `floorplanStyles.test.ts` asserts this directly.
- *
- * Reverted, 2026-09-09: `border-color: var(--ink)` on the partial and full occupancy rules.
- * Human decision, and worth recording as a chain-of-trust failure rather than a coding mistake,
- * so the next person to touch this file does not repeat it. A review reported that
- * `docs/style-guide.html` "strokes an occupied table in --ink where an empty one gets
- * --rule-strong", and that was relayed here as design's answer without opening the file. It
- * reached a stylesheet comment, a test assertion, a commit message and a plan as though design
- * had ruled, before a second review actually read the SVG. What it draws, four circles, each
- * with design's own label beneath it (colours named here by token, not by the literal value the
- * SVG itself spells out, so this comment does not become a second place a hex code can drift —
- * `src/ui/brand.test.ts` keeps every literal one confined to `src/ui/tokens.css`):
- *
- *     empty          stroke --rule-strong   fill none
- *     has a pin      stroke --ink           fill none
- *     in violation   stroke --hard, dashed  fill none
- *     full           stroke --rule-strong   fill --sunken
- *
- * `--ink` is the **pin's** stroke, not the occupied table's. Design strokes a full table the
- * same pale grey as an empty one. So the reverted change did not lift a mark from design — it
- * reversed design's own language and appropriated the colour design reserves for pinning. It
- * also did not achieve what it was for: with partial and full both stroked --ink, the two still
- * shared a border and separated only by fill and text, exactly as before.
- *
- * The honest state, restored here: empty and full differ by tone (the sunken fill) and text
- * only, and the four states are **not** all distinguishable with colour stripped out — that
- * fails KB-5's own "strip every colour out and the screen still reads" purpose clause. This is
- * a genuine conflict between that clause and design's own near-invisible full state, not a
- * defect in this file, and it is recorded rather than fixed: R2 in `.claude/plans/TT-11.md`
- * predicted exactly this outcome and said it needs KB-2/KB-5's owner to rule on a shape for
- * empty and/or full before it can be resolved. Do not resolve it from a file reading,
- * unilaterally, again — that is what produced this note — and do not reach for `--ink`
- * elsewhere as a substitute (a stroke on `data-pinned`, say, even though that is arguably what
- * the drawing shows): that colour is design's mark for a pin specifically, and giving it to
- * anything else is the same appropriation this revert undoes.
- *
- * Two further fixes below, both found by driving the app rather than by the suite (jsdom does
- * no layout — docs/engineering-standards.md, "What the suite cannot see"):
- *
- *   - .round's min-height and overflow. A grid item's automatic minimum size defaults to its
- *     content's min-content size, and that default beat aspect-ratio the moment a table's
- *     guest-name list grew taller than the track was wide — a non-square box with
- *     border-radius: 50% is an ellipse, not a circle. min-height: 0 lets aspect-ratio govern
- *     height from width alone regardless of content; overflow: hidden then contains that
- *     content to the circle — clipping follows border-radius, not just the bounding box, so
- *     text cannot cross the curve. Declared nowhere else in this file, so there is no cascade
- *     collision to reason about for either property.
- *   - .round[data-pinned='true']::after, added after the shared pinned rule. That shared rule's
- *     fixed var(--space-2) corner inset put a round table's dot outside the circle once the
- *     table was bigger than a few tens of pixels, floating clear of the stroke. Design draws
- *     the dot inside the stroke (docs/style-guide.html's floorplan SVG: a circle r=28 centred
- *     at (175,98) carries its dot at (192,80) — 17 right and 18 up from the circle's own
- *     centre, 0.88 of its radius). This rule reproduces that same fraction of this table's own
- *     radius as a percentage, so it holds at any track size the grid produces, rather than a
- *     fixed pixel tuned to one. Same specificity as the shared rule (a class plus an attribute
- *     selector, 0,2,0 either way) — written after it in source order so it wins for
- *     top/right/transform only; content, width, height, border-radius and background still
- *     come from the shared rule, untouched. The top table matches only that shared rule, never
- *     this one, so its dot keeps the original fixed inset exactly as it was.
+ * KB-5: colour never carries meaning alone, so each state below owns a distinct property —
+ * `color` (empty/full), `background` (full only), `border-style`/`border-color` (violation
+ * only, which is how it overrides `.top`'s slate border), and the pin mark (`::after` only) —
+ * so no two state rules ever contest the same property. The one same-specificity pair left,
+ * `.table` against `.round`/`.top`, is resolved by source order: `.round` and `.top` MUST stay
+ * written after `.table`. `floorplanStyles.test.ts` asserts this order directly.
  */
 
 /* Base. Specificity 0,1,0. */
@@ -98,44 +27,33 @@
 .round {
   border-radius: 50%;
   aspect-ratio: 1;
-  /* Lets aspect-ratio win over the grid item's content-based automatic minimum height. See
-     this file's header comment. */
+  /* Lets aspect-ratio win over the grid item's content-based automatic minimum height. */
   min-height: 0;
-  /* Contains whatever min-height: 0 no longer holds back, clipped to the circle. */
+  /* Clips content taller than the circle, so it cannot cross the curve. */
   overflow: hidden;
 }
 
-/* No grid-column here (there was one, spanning 1 / -1): the top table is no longer a grid item
-   at all — FloorplanGrid.tsx renders it in its own one-item list, outside the round-table grid,
-   precisely so that grid's auto-fit tracks can collapse. See that file's header comment. */
+/* Not a grid item — FloorplanGrid.tsx renders this table in its own list, outside the grid. */
 .top {
   border-radius: var(--r-card);
   border-color: var(--slate);
-  /* Cap + centre, human decision 2026-09-09: this used to render at the full width of the
-     window, reading as a divider rather than a table. Neither source draws it that wide: KB-6
-     asks only that it sit "positioned above the round tables", and the style guide's floorplan
-     SVG draws it as a 160-of-420-unit rect, centred — 38%. "Occupies its own full-width row"
-     was this ticket's own plan (section 1, C2), not the ticket, so the full-width render was
-     our own addition, not design's. 38% matches the style guide's proportion; the floor keeps
-     it reading as a *wide* rectangle rather than a near-square one once the viewport narrows
-     enough that 38% alone would shrink it toward round-table size — checked in the browser pass
-     at both a normal and a narrow viewport. */
+  /* Capped and centred, not full-width: KB-6 and the style guide both draw it narrower than
+     the round-table row. floorplanStyles.test.ts guards the cap and the centring. */
   width: max(280px, 38%);
   margin-inline: auto;
 }
 
-/* States. Each 0,2,0 (a class plus an attribute selector), so each beats .table AND .round/.top
-   regardless of where in the file it sits. See this file's header comment. */
+/* States. Each 0,2,0 (a class plus an attribute selector), beating .table AND .round/.top
+   regardless of where in the file it sits.
+   Known gap: empty and full are not distinguishable with colour stripped out, which fails
+   KB-5's own bar. Recorded, not fixed here — needs KB-5's owner to rule on a shape for one. */
 .table[data-occupancy='empty'] {
   color: var(--ink-muted);
-  /* No border-color here, deliberately: the .table base rule already gives an empty table
-     `--rule-strong`, and restating it here would just be one more place for the two values to
-     drift apart. "Empty keeps --rule-strong" is a statement about what does NOT change. */
+  /* No border-color here: the base .table rule already gives an empty table --rule-strong;
+     restating it would just be another place for the two to drift apart. */
 }
 
-/* No rule for data-occupancy="partial": a partially-seated table reads exactly as the base
-   .table rule leaves it (--rule-strong border, plain --ink text) — see this file's header
-   comment for why a stronger border here was tried and reverted. */
+/* No rule for data-occupancy="partial": it reads as the base .table rule leaves it. */
 
 .table[data-occupancy='full'] {
   background: var(--sunken);
@@ -158,12 +76,9 @@
   background: var(--slate);
 }
 
-/* .round only — see this file's header comment. Percentages, not fixed pixels, so the dot
-   stays proportionally inside the circle at every track size the grid produces. top/right
-   place an anchor point at 17/28 and 18/28 of this table's own half-size, the same fraction
-   design's floorplan SVG places its dot from its circle's centre; translate(50%, -50%)
-   recentres the (fixed-size) dot on that point, the same technique as centring an
-   absolutely-positioned element of unknown size. */
+/* Percentages, not fixed pixels, so the dot stays proportionally inside the circle at any
+   track size. 17/28 and 18/28 match design's own floorplan SVG proportions; translate(50%,
+   -50%) recentres the dot on that anchor point. */
 .round[data-pinned='true']::after {
   top: calc(50% - (18 / 28) * 50%);
   right: calc(50% - (17 / 28) * 50%);
@@ -189,9 +104,8 @@
   font-size: var(--text-caption);
 }
 
-/* A6: names reveal themselves once the table itself has room, by container query — jsdom
-   does no layout, so a measurement-based approach (a ResizeObserver) would be untestable for
-   the same visual result. */
+/* Revealed by container query, not a ResizeObserver — jsdom does no layout, so a
+   measurement-based approach would be untestable. */
 @container (min-width: 132px) {
   .guests {
     display: block;
