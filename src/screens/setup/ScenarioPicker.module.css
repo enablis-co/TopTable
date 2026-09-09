@@ -1,0 +1,107 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 720px) {
+  .list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.item {
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-heading);
+  font-weight: var(--weight-medium);
+}
+
+.detail {
+  display: block;
+  font-size: var(--text-data);
+  color: var(--ink-muted);
+}
+
+.detail + .detail {
+  margin-top: var(--space-1);
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.confirmTitle {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.confirmBody {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.status {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-muted);
+}
+
+.failure {
+  margin: 0;
+  padding-left: var(--space-3);
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+/* Bar, never a wash fill: KB-5's shape half of the pairing (the stylesheet test in
+   scenarioPickerStyles.test.ts reads this selector directly, the same technique
+   capacityReadoutStyles.test.ts uses for the short-state rule). */
+.failure[data-severity='hard'] {
+  border-left: 3px solid var(--hard);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}

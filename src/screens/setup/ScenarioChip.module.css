@@ -1,0 +1,11 @@
+/* Borrows src/ui/Tag's tokens, not its class: Tag is for guests and "does not signal
+   anything" (its own doc comment) — this chip signals which scenario is loaded. */
+.chip {
+  display: inline-block;
+  font-size: var(--text-caption);
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  background: var(--sunken);
+  color: var(--ink-muted);
+  border: 1px solid var(--rule);
+}
