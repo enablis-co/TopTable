@@ -31,6 +31,18 @@ export type OtherRole = (typeof OTHER_ROLES)[number]
 
 export type Role = ProtocolRole | OtherRole
 
+/**
+ * Product decision, 2026-09-09 (superseding KB-3 — see the comment on `Guest.age`). Ascending:
+ * baby is under 4, child is 4-9, teen is 10-17, adult is 18 and over.
+ */
+export const AGE_BANDS = ['baby', 'child', 'teen', 'adult'] as const
+
+export type AgeBand = (typeof AGE_BANDS)[number]
+
+export function isAgeBand(value: unknown): value is AgeBand {
+  return typeof value === 'string' && (AGE_BANDS as readonly string[]).includes(value)
+}
+
 /** KB-3. Drives the social balance rule in KB-2. */
 export type SocialType = 'livewire' | 'sociable' | 'quiet'
 
@@ -69,7 +81,16 @@ export type Guest = {
   name: string
   side: Side
   role: Role
-  age: number
+  /**
+   * KB-3 types this `number` and says "Always present. Drives the generation mix rule."
+   * Both clauses are wrong as of the product decision of 2026-09-09: this field holds one of
+   * the four `AgeBand`s above, not a number, and a band cannot answer KB-2's generation-mix
+   * rule ("at least one guest over 30 and one under 30") — `adult` alone spans both sides of
+   * that line. TT-21 owns the rule and has to re-specify it against bands before it can be
+   * built. KB-3 has not been updated to match; this comment is the record of the divergence
+   * until it is.
+   */
+  age: AgeBand
   /** Who arrived together. Null when the guest came alone. */
   household: string | null
   /** Guest id. Reciprocal. */
