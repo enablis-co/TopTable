@@ -27,16 +27,18 @@ function needsText(guest: Guest): string {
 /**
  * TT-6, C19-C22, C28, C29, C32. Markup and column structure lifted from
  * `docs/style-guide.html` line 248, "Guest row" (KB-5 says its markup can be lifted) — five
- * `<th>`s, exactly, verified against the style guide's own snippet; the `<thead>`/`<tbody>`
+ * *visible* `<th>`s, verified against the style guide's own snippet; the `<thead>`/`<tbody>`
  * it omits are added here.
  *
- * The row menu sits in its own trailing `<td>` with no `<th>` of its own at all — not even a
- * hidden one. C19 counts exactly five *header* cells (Name, Side, Role, Tags, Needs), and the
- * Needs cell has to hold nothing but the needs value: the "with needs" count in the summary is
- * read off that cell's own text (C27), so anything else sharing the cell — a menu button's own
- * accessible name included — would make every row read as "has a need". The menu button's own
- * name ("Actions for Danny Whitaker") already carries the row's context without a column
- * header labelling it.
+ * The row menu sits in its own trailing `<td>`, paired with a sixth `<th>` in the header row
+ * (reviewer finding, TT-5/TT-6 review) that carries `tt-visually-hidden`: present in the
+ * accessibility tree, so assistive tech no longer reports that cell as having no column
+ * header, but never part of the five *visible* columns the style guide draws or C19 counts.
+ * It sits in the header row, not the Needs cell, so it cannot join the Needs text or affect
+ * C27's "with needs" count, which is read off that cell's own text — anything sharing the
+ * cell, a menu button's own accessible name included, would make every row read as "has a
+ * need". The menu button's own name ("Actions for Danny Whitaker") already carries the row's
+ * context; the header just gives the cell itself something to be announced as a column of.
  *
  * `side` and `role` render the full domain value, first letter capitalised (A5): "Mother of
  * the bride", not KB-6's ASCII-truncated "Mother of bird". Needs shows allergies and
@@ -54,6 +56,7 @@ export function GuestTable({ guests, highlightId, onEdit, onRemove }: GuestTable
             <th>Role</th>
             <th>Tags</th>
             <th>Needs</th>
+            <th className="tt-visually-hidden">Actions</th>
           </tr>
         </thead>
         <tbody>

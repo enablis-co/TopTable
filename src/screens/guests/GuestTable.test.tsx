@@ -60,7 +60,7 @@ function findAction(name: RegExp) {
 }
 
 describe('GuestTable — columns (C19, C32)', () => {
-  it('renders a real table with five column headers, in order: Name, Side, Role, Tags, Needs', () => {
+  it('renders a real table with five visible column headers, in order: Name, Side, Role, Tags, Needs', () => {
     renderTable([makeGuest('g-1')])
 
     const table = screen.getByRole('table')
@@ -68,7 +68,25 @@ describe('GuestTable — columns (C19, C32)', () => {
       .getAllByRole('columnheader')
       .map((h) => h.textContent?.trim())
 
-    expect(headers).toEqual(['Name', 'Side', 'Role', 'Tags', 'Needs'])
+    // Regression (TT-5/TT-6 review): the row menu's trailing cell now carries its own
+    // visually-hidden column header (see the next test) so assistive tech never reports it as
+    // headerless — present in the accessibility tree, and filtered out here rather than folded
+    // into the five *visible* columns C19 counts.
+    expect(headers.filter((text) => text !== 'Actions')).toEqual(['Name', 'Side', 'Role', 'Tags', 'Needs'])
+  })
+
+  // Regression (TT-5/TT-6 review): six <td>s per row against five <th>s meant the row menu's
+  // cell had no column header at all, which assistive tech reports as such. The header lives in
+  // the header row, not the Needs cell, so it cannot join Needs' own text or affect C27's count
+  // (see GuestTable — cell values and the summary's "with needs" test in GuestsScreen.test.tsx).
+  it("gives the row menu's own trailing cell a column header, invisibly, so it is never reported headerless", () => {
+    renderTable([makeGuest('g-1')])
+
+    const table = screen.getByRole('table')
+    const headers = within(table).getAllByRole('columnheader')
+
+    expect(headers).toHaveLength(6)
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument()
   })
 
   it('has no age column', () => {

@@ -7,7 +7,10 @@ import type { Guest } from '../../domain/types'
  * `src/domain/` module.
  */
 export function filterGuests(guests: Guest[], query: string): Guest[] {
-  const needle = query.toLowerCase()
+  // Reviewer finding: ConflictPicker's own search already trims (`query.trim().toLowerCase()`)
+  // — this one did not, so a trailing space (easy to leave in a search box without noticing)
+  // matched nothing at all, since no guest name or tag ends in a space.
+  const needle = query.trim().toLowerCase()
   if (needle === '') return guests
 
   return guests.filter(

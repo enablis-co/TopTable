@@ -92,7 +92,15 @@ export function GuestsScreen() {
         {hasGuests && (
           <div className={styles.search}>
             <TextField
-              label="Search guests"
+              // Reviewer finding: this used to share the accessible name "Search guests" with
+              // ConflictPicker's own search field. KB-6 draws them differently — this one as
+              // "[ Search name or tag ]", the picker as "[ Search guests ]" — so "Search guests"
+              // is the picker's published name and this one was invented. Deliberately avoids
+              // repeating "name" (collides with the panel's own Name field once both this
+              // screen and an open panel render together, e.g. guestSave.test.tsx) and avoids
+              // repeating the placeholder text verbatim (docs/style-guide.html: "Placeholders
+              // are a real example of valid input, never a repeat of the label").
+              label="Search the guest list"
               labelHidden
               placeholder="Search name or tag"
               value={query}

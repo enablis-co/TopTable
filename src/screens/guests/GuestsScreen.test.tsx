@@ -147,6 +147,19 @@ describe('search (C23)', () => {
     // still be the thing rendered, not GuestsEmpty's "no guests at all" message.
     expect(screen.queryByText('Start from a scenario, or add your first guest')).not.toBeInTheDocument()
   })
+
+  // Regression (TT-5/TT-6 review): a trailing space — easy to leave in a search box without
+  // noticing — matched nothing, because no guest's name or tag ever ends in a space.
+  it('trims a trailing space from the query rather than matching nothing', async () => {
+    seedGuests()
+    const user = userEvent.setup()
+    renderGuestsScreen()
+
+    await user.type(screen.getByRole('textbox', { name: /search/i }), 'Ana ')
+
+    expect(screen.getByText('Ana Ferreira')).toBeInTheDocument()
+    expect(screen.queryByText('Ben Ojo')).not.toBeInTheDocument()
+  })
 })
 
 describe('summary line (C24, C25, C26, C27)', () => {
