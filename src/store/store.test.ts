@@ -21,7 +21,7 @@ const guest = (id: string, name: string): Guest => ({
   name,
   side: 'bride',
   role: 'guest',
-  age: 34,
+  age: 'adult',
   household: null,
   partnerOf: null,
   conflictsWith: [],
