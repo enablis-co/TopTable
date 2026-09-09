@@ -225,6 +225,38 @@ describe('PlanScreen — the gate agrees with the generator on an un-normalised 
   })
 })
 
+describe('PlanScreen — the round-table region is reachable by keyboard (WCAG 2.1.1, review)', () => {
+  // FloorplanGrid.module.css gives the round-table list `overflow-x: auto`, and jsdom does no
+  // layout — this suite cannot make the grid actually overflow, only assert the seam that makes
+  // it operable once it does: a real accessible name and role, and tabIndex 0. See
+  // FloorplanGrid.tsx's own header comment, point 3, for the reviewer's measured 1100px/9-table
+  // case and why the fix is unconditional rather than driven by table count.
+
+  it('the round-table region is focusable and carries a real accessible name', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 6 })
+    useTopTableStore.getState().setGuests([])
+    renderPlanScreen()
+
+    expect(screen.getByRole('region', { name: 'Round tables' }).tabIndex).toBe(0)
+  })
+
+  it('is focusable even at a single round table, which can never overflow — not conditioned on a count that would still be wrong', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 6 })
+    useTopTableStore.getState().setGuests([])
+    renderPlanScreen()
+
+    expect(screen.getByRole('region', { name: 'Round tables' }).tabIndex).toBe(0)
+  })
+
+  it('renders no such region when there are no round tables to scroll', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 0, seatsEach: 8, topTableSeats: 8 })
+    useTopTableStore.getState().setGuests([])
+    renderPlanScreen()
+
+    expect(screen.queryByRole('region', { name: 'Round tables' })).not.toBeInTheDocument()
+  })
+})
+
 describe('PlanScreen — the scaffold is gone (C11)', () => {
   it('never renders the old scaffold text, and renders real content in its place', () => {
     useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })

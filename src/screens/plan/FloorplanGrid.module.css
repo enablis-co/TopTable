@@ -109,3 +109,15 @@
   margin: 0;
   padding: 0;
 }
+
+/* Review, 2026-09-09: `.grid` is now focusable (FloorplanGrid.tsx, header comment point 3) so a
+   keyboard user can reach and scroll it. base.css's global `:focus-visible` rule already covers
+   any newly-focusable element, so this restates it rather than depending on it — the same
+   convention Button.module.css and CardButton.module.css already follow for the focusable
+   elements they own, so a reader of this file does not have to go looking in base.css to know
+   `.grid` is deliberately, not accidentally, focusable. Large container, so this was checked
+   against warm paper directly rather than assumed: see the ticket's browser-pass notes. */
+.grid:focus-visible {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}

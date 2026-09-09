@@ -41,6 +41,32 @@ type GridStyle = CSSProperties & { '--floorplan-columns': number }
  * and `PlanScreen.test.tsx` both locate tables via `[data-occupancy]`, which does not care how many
  * `<ul>`s own them — and C2's "before every round table in DOM order" holds precisely because the
  * top table's `<ul>` is written first.
+ *
+ * 3. Review, 2026-09-09: `.grid` sets `overflow-x: auto` (FloorplanGrid.module.css) but was never
+ *    reachable by keyboard — `tabindex` was null and A9's `<li>` tables have no focusable
+ *    descendant of their own — so a keyboard-only user could not scroll this list at all, and
+ *    could not reach a table past the visible edge. Measured: at 1100px with 9 round tables (the
+ *    case FloorplanGrid.module.css's own review comment already names), the grid carries 84px of
+ *    horizontal overflow and the ninth table sits inside it. That is WCAG 2.1.1, and it is this
+ *    file's own `overflow-x: auto` that created it, not something A9 left unfinished. The fix is
+ *    `tabIndex`, `role="region"` and a real `aria-label` on the scrolling element itself: once
+ *    it can hold focus, the browser's native "scroll the focused element" behaviour on arrow keys
+ *    applies with no keydown handler, and it is announced as a named region rather than an
+ *    anonymous one. Nothing here turns a table into a button — A9 is untouched.
+ *
+ *    Unconditional (`roundSlots.length > 0`, the same guard already below), not measured: whether
+ *    this list actually overflows depends on viewport width, which is the exact kind of thing A6
+ *    already ruled out measuring in JS. Table count is not a safe proxy for it either — this same
+ *    9-table case is nowhere near `MAX_ROUND_TABLE_COLUMNS` (11) and still overflows at a plain
+ *    laptop width, so "only make it focusable once the grid is near its column cap" would still
+ *    leave a keyboard user stranded at smaller counts and viewports. A focus stop that
+ *    occasionally scrolls nothing is the accepted, common-practice cost against that.
+ *
+ *    `role="region"` replaces this `<ul>`'s implicit `list` role — the same trade this codebase
+ *    already makes on `PillInput`'s and `ConflictPicker`'s suggestion lists (`role="listbox"`
+ *    over a bare `<ul>`) — so its `<li>` children are no longer guaranteed a `listitem` role.
+ *    Nothing here depends on that role: point 2 above is exactly why `PlanTable.test.tsx` and
+ *    `PlanScreen.test.tsx` both locate tables via `[data-occupancy]` instead.
  */
 export function FloorplanGrid({ room, seating }: FloorplanGridProps) {
   const slots = floorplanFromRoom(room)
@@ -59,7 +85,16 @@ export function FloorplanGrid({ room, seating }: FloorplanGridProps) {
         </ul>
       )}
       {roundSlots.length > 0 && (
-        <ul className={styles.grid} style={gridStyle}>
+        // tabIndex/role/aria-label: see this file's header comment, point 3. This is the
+        // element `overflow-x: auto` makes scrollable, so it is the element a keyboard user
+        // has to be able to reach and operate.
+        <ul
+          className={styles.grid}
+          style={gridStyle}
+          tabIndex={0}
+          role="region"
+          aria-label="Round tables"
+        >
           {roundSlots.map((slot) => (
             <PlanTable key={slot.id} slot={slot} occupants={occupantsAt(seating, slot.id)} />
           ))}
