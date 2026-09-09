@@ -29,14 +29,17 @@ setup screen, TT-3. Nothing that can be recomputed from the three fields above b
 
 ## The write surface
 
-`setEventName`, `setRoom`, `setGuests`, `importScenario` and `reset`. `setEventName`, `setRoom` and
-`setGuests` are what TT-2 needs to stand the project up and prove persistence.
+`setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`, `addGuest`, `updateGuest` and
+`removeGuest`. `setEventName`, `setRoom` and `setGuests` are what TT-2 needs to stand the project
+up and prove persistence.
 
-**Guest add, edit and remove are not here yet, and that is deliberate.** `partnerOf` and
-`conflictsWith` are reciprocal — present on both guests, resolvable from either direction — so
-adding a guest with a partner writes two records, and removing a guest has to unpick every
-reference to them from both sides. That is real domain behaviour with its own acceptance criteria,
-and it belongs to TT-5 rather than being improvised here.
+**Guest add, edit and remove are here, and reciprocity is not improvised in this file.**
+`partnerOf` and `conflictsWith` are reciprocal — present on both guests, resolvable from either
+direction — so adding a guest with a partner writes two records, and removing a guest has to
+unpick every reference to them from both sides. That is real domain behaviour with its own
+acceptance criteria (TT-5), and it lives in one place: `src/domain/guests.ts`. `addGuest`,
+`updateGuest` and `removeGuest` on the store are one-line delegates onto the domain functions of
+the same name — this file holds no reciprocity logic of its own.
 
 `setGuests` replaces the whole list, because a scenario import is a replacement and not a merge.
 
@@ -56,7 +59,7 @@ Zustand's `persist` middleware, one key, `top-table`.
 
 ```ts
 export const STORAGE_KEY = 'top-table'
-export const STORAGE_VERSION = 2
+export const STORAGE_VERSION = 3
 ```
 
 **Storage is not a trusted input.** It survives across releases, it is editable by hand in dev
