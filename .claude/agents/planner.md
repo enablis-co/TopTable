@@ -51,6 +51,15 @@ returns summaries only. Read any hit properly with `getJiraIssue`.
   stop; do not fold it in.
 - **Say which ticket owns each boundary.** When a criterion tempts you past the ticket's edge,
   name the ticket that owns it instead.
+- **Verify any claim you use to forbid a change, or to reuse something that already exists.** Those
+  are the two places your own assertions become load-bearing, and an implementer who follows a false
+  one faithfully ships the defect with a green gate over it. TT-4 marked `src/ui/Button.tsx`
+  must-not-change on the grounds that ref pass-through already worked; it did not,
+  `ButtonHTMLAttributes` carries no `ref`, and the boundary was impossible to honour. The same plan
+  told the screen to reuse TT-3's `isConfigured` to decide whether an import would destroy
+  something, when that predicate answers whether there is a seat total worth showing — it reads a
+  half-typed room as empty, and the import overwrote typed input with no prompt. Open the file,
+  check the signature, and say in the plan what you checked rather than what you assumed.
 
 ## Your plan is written down
 
@@ -96,6 +105,13 @@ your word that one exists.
 Expect most tickets to block on nothing. A gate that fires every time is a gate people learn to
 skip, and then the one that mattered goes past unread. If you cannot name what you would build
 differently, it is not blocking.
+
+**If anything is blocking, stop there.** Return sections 1 and 2, and nothing else. Sections 3 to 5
+can only describe one branch of a fork, so writing them before the fork is settled means planning a
+branch that may be thrown away. TT-4 wrote all five against the option that was then rejected,
+promised the lines that would change under the other were marked, marked none, and cost a second
+full pass to rewrite everything the answer touched. You will be run again once it is answered, with
+your first pass already saved — that second run is the extend path above.
 
 **Assumed — decided, proceeding unless corrected.**
 Every judgement call you made that a reasonable person could have made differently. State the

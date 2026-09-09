@@ -41,6 +41,13 @@ ambiguity by looking at the implementation.
 Behaviour drawn from the criteria, in the vocabulary of the product: guests, tables, seats, pins,
 hard and soft violations. Not the shape of the code.
 
+**The plan's test plan is a floor, not the scope.** Its rows are one agent's first pass at what a
+criterion implies, and the criterion is yours to cover however many cases that takes. TT-4's plan
+gave "importing over existing data asks first" a single row that seeded a complete room; implemented
+as written, it left the ordinary path — one field typed and the other two still empty — unguarded
+through 227 passing tests, and a human found it by hand afterwards. Where a row names one input, ask
+what the criterion says about the inputs either side of it.
+
 Cover the boundaries the domain actually has:
 
 - Capacity that bites exactly, because "Small and cosy" has 40 seats for 40 guests and no spare
@@ -50,6 +57,7 @@ Cover the boundaries the domain actually has:
 - An allergy flagged, and a dietary preference not treated as a violation
 - The top table's fixed order, and a top table smaller than eight filling from the middle out
 - The three states that must look intentional: empty setup, empty guest list, one rule registered
+- A form partly filled in, where a number has been typed but a total derived from it is still zero
 
 The three scenarios are there for this. "Small and cosy" forces every placement, "Adding up" is
 the realistic middle, "Celebrity scale" at 200 guests is where things fall over.
