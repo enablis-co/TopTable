@@ -446,3 +446,61 @@ describe('FloorplanGrid.module.css — .grid is driven by the JS-computed column
     expect(css).not.toMatch(/auto-fill/i)
   })
 })
+
+/*
+ * TT-11 review, 2026-09-09. Measured directly in a browser (jsdom does no layout —
+ * docs/engineering-standards.md, "What the suite cannot see"): at a 1100px viewport with
+ * "Adding up" loaded (9 round tables — the narrowest KB-3 scenario that already overflows at
+ * the 112px floor: 9 * 112px + 8 * 16px gaps = 1136px of content against a 1052px row), `.grid`
+ * left at the default `overflow-x: visible` let that excess escape its own box:
+ * `document.documentElement.scrollWidth` (1160px) exceeded its `clientWidth` (1100px) — the
+ * 84px overflow, minus AppShell's 24px padding, escaped into the page — and the whole document
+ * scrolled sideways, dragging the header and tab bar with it. After `overflow-x: auto`, the same
+ * scenario measures 1100 against 1100; Celebrity scale (26 round tables, capped at
+ * `MAX_ROUND_TABLE_COLUMNS` = 11 — the widest this grid ever asks to be: 11 * 112px + 10 * 16px
+ * = 1392px of content) measures equal document figures at 1024px, 1100px and a 375px phone
+ * width too. `justify-content: safe center` (this file's own header comment) was never the
+ * defect: its fallback-to-start resolves against whether content overflows the box at all, not
+ * against how that overflow is then handled, so the first table's rect stayed at x=24 in every
+ * one of those cases, before this fix and after it — and a case that does not overflow at all
+ * (four round tables at 1400px) still centres normally, 252px of leftover space on each side,
+ * rather than this line quietly turning "safe" into a permanent "start". Vertical scrolling was
+ * checked too: forced to a 400px-tall viewport, the document scrolled normally
+ * (`window.scrollBy` moved it, scrollHeight 614 against clientHeight 400) while `.grid` itself
+ * carried no internal vertical overflow at all (its own scrollHeight and clientHeight both
+ * 368px) — nothing here traps it. This test cannot confirm any of that itself — R3's own lesson,
+ * and the reason floorplanStyles.test.ts exists at all for PlanTable.module.css: a
+ * stylesheet-text check proves a rule is *declared*, never that it *wins*. Only the browser pass
+ * does that, and that is where all of the above was actually measured. This just guards that the
+ * declaration is not quietly reverted.
+ */
+describe('FloorplanGrid.module.css — .grid absorbs its own horizontal overflow, not the document (TT-11 review)', () => {
+  function readFloorplanGridCss(): string {
+    const dir = dirname(fileURLToPath(import.meta.url))
+    return readFileSync(join(dir, 'FloorplanGrid.module.css'), 'utf8')
+  }
+
+  function stripComments(css: string): string {
+    return css.replace(/\/\*[\s\S]*?\*\//g, '')
+  }
+
+  it('.grid declares overflow-x: auto, not the default visible', () => {
+    const css = stripComments(readFloorplanGridCss())
+    const gridRule = /\.grid\s*\{([^}]*)\}/.exec(css)
+
+    expect(gridRule, 'expected a .grid rule in FloorplanGrid.module.css').not.toBeNull()
+    const body = gridRule?.[1] ?? ''
+
+    expect(body).toMatch(/overflow-x\s*:\s*auto\b/i)
+    expect(body).not.toMatch(/overflow-x\s*:\s*visible\b/i)
+  })
+
+  it('.grid does not also pin overflow-y to hidden or scroll — vertical overflow stays with the document', () => {
+    const css = stripComments(readFloorplanGridCss())
+    const gridRule = /\.grid\s*\{([^}]*)\}/.exec(css)
+    const body = gridRule?.[1] ?? ''
+
+    expect(body).not.toMatch(/overflow-y\s*:\s*(hidden|scroll)\b/i)
+    expect(body).not.toMatch(/overflow\s*:\s*(hidden|scroll|auto)\b/i)
+  })
+})

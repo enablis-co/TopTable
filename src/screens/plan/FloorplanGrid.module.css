@@ -71,6 +71,40 @@
      stay on-screen and reachable, with any remainder scrollable off the end instead of vanishing
      off the start. */
   justify-content: safe center;
+  /* TT-11 review, 2026-09-09: the sentence above ("scrollable off the end") described the
+     *intent*, but `.grid` itself still defaulted to `overflow-x: visible`, so the excess it
+     documents escaped the grid's own box instead of staying inside it — the header and tab bar
+     (siblings of this screen, not descendants of it) dragged sideways with every other screen on
+     the site inheriting a horizontal scrollbar while Plan was open. `safe center` above was never
+     the defect: its fallback-to-start resolves against whether content overflows this box at all,
+     not against how that overflow is handled once it does, so the first table's reachability is
+     unaffected by this line either way — verified unchanged both ways below.
+     Measured directly, in a real browser, before and after this line existed:
+       - 1100px viewport, "Adding up" (9 columns, the case the comment above already names):
+         `.grid` scrollWidth 1136 vs its own clientWidth 1052 (the 84px this file has always
+         expected). Before: `document.documentElement.scrollWidth` 1160 vs clientWidth 1100 — the
+         84px minus AppShell's 24px padding, escaped into the page. After: 1100 vs 1100.
+       - 375px viewport (phone-width), same scenario: grid 1136 vs 327; document 375 vs 375
+         both before and after — already this narrow, `justify-content` alone was doing the
+         reachability work this fix does not change.
+       - Celebrity scale (26 round tables, capped at MAX_ROUND_TABLE_COLUMNS = 11 — the widest
+         this grid ever asks to be): grid scrollWidth 1392 (11 × 112px + 10 × 16px gaps, the
+         floor this file's other comment derives) against a clientWidth of 976 at 1024px, 1052 at
+         1100px and 327 at 375px — document scrollWidth equalled clientWidth at every one of those.
+       - The first table's own rect stayed at x=24 in every overflowing case above, before and
+         after — `safe center`'s fallback is exactly as effective with the overflow contained as
+         it was while that same overflow was escaping.
+       - A case that does NOT overflow (four round tables at a 1400px viewport) still centres
+         normally — 252px of leftover space on each side of the row, not shoved to one edge — so
+         this line does not turn "safe" into a permanent "start".
+       - Vertical scrolling: forced to a 400px-tall viewport, the document scrolled (scrollHeight
+         614 vs clientHeight 400, and `window.scrollBy` moved it) while `.grid` itself carried no
+         internal vertical overflow at all (its own scrollHeight and clientHeight were both
+         368px) — there is nothing for a vertical scrollbar to appear on here, so nothing traps it.
+     `overflow-y` is deliberately left unset rather than pinned to `visible`: the CSS Overflow
+     spec computes a `visible` axis as `auto` the instant its pair is anything else, but as the
+     figures above show, `.grid` has no set height for that to bite on. */
+  overflow-x: auto;
   list-style: none;
   margin: 0;
   padding: 0;
