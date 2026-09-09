@@ -3,7 +3,7 @@ import { totalSeats } from '../../domain/capacity'
 import type { Guest, RoomConfig } from '../../domain/types'
 import type { ScenarioState } from '../../store/store'
 import { tabularClass } from '../../ui'
-import { planTotals, type SeatingView } from './floorplan'
+import { normaliseRoom, planTotals, type SeatingView } from './floorplan'
 import styles from './PlanHeader.module.css'
 
 type PlanHeaderProps = {
@@ -36,7 +36,10 @@ function scenarioLabel(scenario: ScenarioState): string | null {
 export function PlanHeader({ scenario, room, guests, seating }: PlanHeaderProps) {
   const label = scenarioLabel(scenario)
   const { guestCount, pinnedCount, unseatedCount } = planTotals(guests, seating)
-  const seats = totalSeats(room)
+  // normaliseRoom first, matching PlanScreen's gate and FloorplanGrid's own generator — this
+  // is the same room prop and the same possibly-un-normalised storage, so this figure must
+  // not tell a different story from the grid rendered underneath it.
+  const seats = totalSeats(normaliseRoom(room))
 
   return (
     <p className={styles.line}>

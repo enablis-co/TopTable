@@ -17,6 +17,33 @@
  * The one same-specificity pair left is .table (0,1,0) against .round/.top (also 0,1,0),
  * where source order decides — so .round and .top MUST stay written after .table. Do not
  * reorder this file.
+ *
+ * Two fixes below, both found by driving the app rather than by the suite (jsdom does no
+ * layout — docs/engineering-standards.md, "What the suite cannot see"):
+ *
+ *   - .round's min-height and overflow. A grid item's automatic minimum size defaults to its
+ *     content's min-content size, and that default beat aspect-ratio the moment a table's
+ *     guest-name list grew taller than the track was wide (measured: 185x234 for 8 names
+ *     against a 185px track, while an empty sibling in the same row stayed 185x185) — a
+ *     non-square box with border-radius: 50% is an ellipse, not a circle. min-height: 0 lets
+ *     aspect-ratio govern height from width alone regardless of content; overflow: hidden
+ *     then contains that content to the circle — clipping follows border-radius, not just
+ *     the bounding box, so text cannot cross the curve. Declared nowhere else in this file,
+ *     so there is no cascade collision to reason about for either property.
+ *   - .round[data-pinned='true']::after, added after the shared pinned rule. That shared
+ *     rule's fixed var(--space-2) corner inset put a round table's dot outside the circle
+ *     once the table was bigger than a few tens of pixels (measured at a 185px table: centre
+ *     115.4px from the table's own centre against a 92.6px inscribed radius — 1.246x the
+ *     radius, floating clear of the stroke). Design draws the dot inside the stroke
+ *     (docs/style-guide.html's floorplan SVG: a circle r=28 centred at (175,98) carries its
+ *     dot at (192,80) — 17 right and 18 up from the circle's own centre, 0.88 of its radius).
+ *     This rule reproduces that same fraction of this table's own radius as a percentage, so
+ *     it holds at any track size the grid produces, rather than a fixed pixel tuned to one.
+ *     Same specificity as the shared rule (a class plus an attribute selector, 0,2,0 either
+ *     way) — written after it in source order so it wins for top/right/transform only;
+ *     content, width, height, border-radius and background still come from the shared rule,
+ *     untouched. The top table matches only that shared rule, never this one, so its dot
+ *     keeps the original fixed inset exactly as it was.
  */
 
 /* Base. Specificity 0,1,0. */
@@ -39,6 +66,11 @@
 .round {
   border-radius: 50%;
   aspect-ratio: 1;
+  /* Lets aspect-ratio win over the grid item's content-based automatic minimum height. See
+     this file's header comment. */
+  min-height: 0;
+  /* Contains whatever min-height: 0 no longer holds back, clipped to the circle. */
+  overflow: hidden;
 }
 
 .top {
@@ -72,6 +104,18 @@
   height: 6px;
   border-radius: 50%;
   background: var(--slate);
+}
+
+/* .round only — see this file's header comment. Percentages, not fixed pixels, so the dot
+   stays proportionally inside the circle at every track size the grid produces. top/right
+   place an anchor point at 17/28 and 18/28 of this table's own half-size, the same fraction
+   design's floorplan SVG places its dot from its circle's centre; translate(50%, -50%)
+   recentres the (fixed-size) dot on that point, the same technique as centring an
+   absolutely-positioned element of unknown size. */
+.round[data-pinned='true']::after {
+  top: calc(50% - (18 / 28) * 50%);
+  right: calc(50% - (17 / 28) * 50%);
+  transform: translate(50%, -50%);
 }
 
 .heading {

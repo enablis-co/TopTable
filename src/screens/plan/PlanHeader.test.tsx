@@ -107,6 +107,21 @@ describe('PlanHeader — the five figures, in order (C5)', () => {
   })
 })
 
+describe('PlanHeader — the seat figure is normalised, agreeing with the grid (regression, TT-11 review)', () => {
+  it('a room with a negative roundTables reads the normalised seat count, not 0', () => {
+    // Raw totalSeats on this room is -1 * 8 + 8 = 0. Normalised, roundTables becomes 0 and
+    // the room keeps its 8-seat top table — the figure this line must show, since
+    // FloorplanGrid renders that same top table underneath it.
+    const room: RoomConfig = { roundTables: -1, seatsEach: 8, topTableSeats: 8 }
+    const { container } = render(
+      <PlanHeader scenario={null} room={room} guests={[]} seating={NOTHING_SEATED} />,
+    )
+
+    expect(container.textContent).toContain('8 seats')
+    expect(container.textContent).not.toContain('0 seats')
+  })
+})
+
 describe('PlanHeader — the scenario segment (C5, A7)', () => {
   const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 4 }
   const guests = makeGuests(2)

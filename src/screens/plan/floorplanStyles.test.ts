@@ -43,6 +43,8 @@ const OCCUPANCY_FULL = /\.table\[\s*data-occupancy\s*=\s*['"]?full['"]?\s*\]/
 const VIOLATION_TRUE = /\.table\[\s*data-violation(?:\s*=\s*['"]?true['"]?)?\s*\]/
 const PINNED_AFTER = /\.table\[\s*data-pinned(?:\s*=\s*['"]?true['"]?)?\s*\]::after/
 const BASE_TABLE = /\.table\s*\{/
+const ROUND_SHAPE = /\.round\s*\{/
+const ROUND_PINNED_AFTER = /\.round\[\s*data-pinned(?:\s*=\s*['"]?true['"]?)?\s*\]::after/
 
 function readCss(): string {
   return readFileSync(CSS_PATH, 'utf8')
@@ -178,5 +180,59 @@ describe('PlanTable.module.css — the guest-name reveal is declared as a contai
     // threshold actually behaves this way (jsdom does no layout — that is the browser pass's
     // job), only that the rule declaring it exists.
     expect(css).toMatch(/@container[^{]*\{\s*\.guests\s*\{[^}]*display\s*:\s*block/i)
+  })
+})
+
+/*
+ * Regression, TT-11 review. The reviewer drove the app and measured two blockers no test above
+ * could see, because both are about whether a rule *wins* geometrically, not whether it exists
+ * — exactly the layout question docs/engineering-standards.md says only a browser can answer.
+ * These assertions are the declared-in-the-stylesheet half of each fix; the browser pass in the
+ * PR notes is the other half, and a green run here is not a substitute for it (R3 again: this
+ * file proves a rule is declared, never that it wins the cascade).
+ */
+
+describe('PlanTable.module.css — .round contains its own content instead of stretching into an ellipse', () => {
+  it('declares min-height: 0, so aspect-ratio governs height from width alone regardless of content', () => {
+    const rule = requireRule(readCss(), ROUND_SHAPE, '.round')
+    expect(rule.body).toMatch(/min-height\s*:\s*0\b/i)
+  })
+
+  it('declares overflow: hidden, so content taller than the circle is contained rather than crossing its curve', () => {
+    const rule = requireRule(readCss(), ROUND_SHAPE, '.round')
+    expect(rule.body).toMatch(/overflow\s*:\s*hidden/i)
+  })
+})
+
+describe('PlanTable.module.css — the pin dot stays proportionally inside a round table at any track size', () => {
+  it('the shared pinned rule still positions with the original fixed token inset — the top table (a rectangle) is untouched by this fix', () => {
+    const rule = requireRule(readCss(), PINNED_AFTER, 'the shared data-pinned::after rule')
+    expect(rule.body).toMatch(/top\s*:\s*var\(--space-2\)/i)
+    expect(rule.body).toMatch(/right\s*:\s*var\(--space-2\)/i)
+  })
+
+  it('.round overrides the position in relative units, not a fixed pixel offset', () => {
+    const rule = requireRule(readCss(), ROUND_PINNED_AFTER, 'a .round-specific data-pinned::after override')
+    expect(rule.body).toMatch(/top\s*:/i)
+    expect(rule.body).toMatch(/right\s*:/i)
+    // The geometry, not a specific number: no bare px length on either offset.
+    expect(rule.body).not.toMatch(/top\s*:\s*[\d.]+px/i)
+    expect(rule.body).not.toMatch(/right\s*:\s*[\d.]+px/i)
+    expect(rule.body).toMatch(/%/)
+  })
+
+  it('.round recentres the (fixed-size) dot on that point with a transform, rather than positioning its corner', () => {
+    const rule = requireRule(readCss(), ROUND_PINNED_AFTER, 'a .round-specific data-pinned::after override')
+    expect(rule.body).toMatch(/transform\s*:\s*translate\(/i)
+  })
+
+  it('the .round override is declared after the shared rule, so source order lets the equal-specificity override win', () => {
+    const css = stripComments(readCss())
+    const sharedIndex = css.search(PINNED_AFTER)
+    const roundIndex = css.search(ROUND_PINNED_AFTER)
+
+    expect(sharedIndex, 'expected the shared .table[data-pinned]::after rule').toBeGreaterThanOrEqual(0)
+    expect(roundIndex, 'expected a .round[data-pinned]::after override').toBeGreaterThanOrEqual(0)
+    expect(roundIndex).toBeGreaterThan(sharedIndex)
   })
 })

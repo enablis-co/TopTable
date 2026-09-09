@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { floorplanFromRoom, occupancyOf, planTotals, occupantsAt, NOTHING_SEATED } from './floorplan'
+import {
+  floorplanFromRoom,
+  normaliseRoom,
+  occupancyOf,
+  planTotals,
+  occupantsAt,
+  NOTHING_SEATED,
+} from './floorplan'
 import type { SeatingView, TableOccupants } from './floorplan'
 import type { Guest, RoomConfig } from '../../domain/types'
+import { totalSeats } from '../../domain/capacity'
 
 /**
  * TT-11, "Render the floorplan from config" — C1, C2, C3, C4, C5, C7, A12 and determinism.
@@ -187,6 +195,52 @@ describe('floorplanFromRoom — degenerate config is normalised, not capped (A12
       expect(Number.isInteger(slot.capacity)).toBe(true)
       expect(slot.capacity).toBeGreaterThanOrEqual(0)
     }
+  })
+})
+
+describe('normaliseRoom — one normalisation, shared by the gate and the generator (regression, TT-11 review)', () => {
+  it("matches floorplanFromRoom's own table for the reviewer's exact degenerate room", () => {
+    // { roundTables: -1, seatsEach: 8, topTableSeats: 8 } from hand-edited storage: raw
+    // totalSeats reads -1 * 8 + 8 = 0, which is what PlanScreen's gate tested before this
+    // fix — hiding a top table that floorplanFromRoom already rendered because it normalises
+    // internally. normaliseRoom is that same normalisation, exported so the gate can share
+    // it rather than risk drifting from it.
+    const room: RoomConfig = { roundTables: -1, seatsEach: 8, topTableSeats: 8 }
+    const normalised = normaliseRoom(room)
+    const slots = floorplanFromRoom(room)
+    const [only] = slots
+
+    if (!only) {
+      throw new Error('expected exactly one slot: the top table alone')
+    }
+
+    expect(normalised).toEqual({ roundTables: 0, seatsEach: 8, topTableSeats: 8 })
+    expect(slots).toHaveLength(1)
+    expect(only.kind).toBe('top')
+    // The figure PlanScreen's gate now computes agrees with there being a real, rendered table.
+    expect(totalSeats(normalised)).toBeGreaterThan(0)
+  })
+
+  it('is idempotent: normalising an already-normalised room changes nothing', () => {
+    const room: RoomConfig = { roundTables: 4, seatsEach: 8, topTableSeats: 8 }
+    expect(normaliseRoom(room)).toEqual(room)
+  })
+
+  it.each([
+    ['NaN', NaN],
+    ['a negative number', -5],
+    ['a fraction', 2.7],
+    ['Infinity', Infinity],
+  ] as const)('normalises %s the same way in every field, independently', (_label, raw) => {
+    const room: RoomConfig = { roundTables: raw, seatsEach: raw, topTableSeats: raw }
+    const normalised = normaliseRoom(room)
+
+    expect(Number.isInteger(normalised.roundTables)).toBe(true)
+    expect(Number.isInteger(normalised.seatsEach)).toBe(true)
+    expect(Number.isInteger(normalised.topTableSeats)).toBe(true)
+    expect(normalised.roundTables).toBeGreaterThanOrEqual(0)
+    expect(normalised.seatsEach).toBeGreaterThanOrEqual(0)
+    expect(normalised.topTableSeats).toBeGreaterThanOrEqual(0)
   })
 })
 

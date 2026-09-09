@@ -192,6 +192,39 @@ describe('PlanScreen — first visit reads as an invitation, not an empty grid (
   })
 })
 
+describe('PlanScreen — the gate agrees with the generator on an un-normalised room (regression, TT-11 review)', () => {
+  it('a hand-edited room with a negative roundTables still shows the floorplan once it normalises to real seats', () => {
+    // docs/state.md: storage is not a trusted input. Raw totalSeats on this room is
+    // -1 * 8 + 8 = 0 (which used to render the invitation), but the room normalises to
+    // { 0, 8, 8 } — a real top table — exactly as floorplanFromRoom already generates it.
+    useTopTableStore.getState().setRoom({ roundTables: -1, seatsEach: 8, topTableSeats: 8 })
+    useTopTableStore.getState().setGuests([])
+    renderPlanScreen()
+
+    const all = tables()
+    const [only] = all
+    if (!only) {
+      throw new Error('expected exactly one table: the top table alone')
+    }
+
+    expect(all).toHaveLength(1)
+    expect(only.textContent).toContain('Top table')
+    expect(screen.queryByText(/start from a scenario/i)).not.toBeInTheDocument()
+  })
+
+  it('the header seat figure agrees with the grid on that same un-normalised room', () => {
+    useTopTableStore.getState().setRoom({ roundTables: -1, seatsEach: 8, topTableSeats: 8 })
+    useTopTableStore.getState().setGuests([])
+    renderPlanScreen()
+
+    // The seat count is split across a tabular <span> and a plain-text " seats" sibling, so
+    // it is asserted against the flattened body text rather than screen.getByText — the same
+    // reason PlanScreen's own C10 tests above check document.body.textContent rather than a
+    // role/text query for copy that spans more than one node.
+    expect(document.body.textContent).toContain('8 seats')
+  })
+})
+
 describe('PlanScreen — the scaffold is gone (C11)', () => {
   it('never renders the old scaffold text, and renders real content in its place', () => {
     useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })

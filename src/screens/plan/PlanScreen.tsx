@@ -1,7 +1,7 @@
 import { useTopTableStore } from '../../store/store'
 import { useNavigation } from '../../shell/navigation'
 import { totalSeats } from '../../domain/capacity'
-import { NOTHING_SEATED } from './floorplan'
+import { NOTHING_SEATED, normaliseRoom } from './floorplan'
 import { PlanHeader } from './PlanHeader'
 import { FloorplanGrid } from './FloorplanGrid'
 import { PlanEmpty } from './PlanEmpty'
@@ -25,7 +25,13 @@ export function PlanScreen() {
   const scenario = useTopTableStore((s) => s.scenario)
   const { goTo } = useNavigation()
 
-  const hasSeats = totalSeats(room) > 0
+  // normaliseRoom before totalSeats, not totalSeats(room) directly: FloorplanGrid generates
+  // its grid from the normalised room (via floorplanFromRoom), so the gate has to agree with
+  // it on the same, single normalisation — otherwise a hand-edited, un-trusted room (a
+  // negative roundTables from storage, say) can total 0 seats raw while genuinely having a
+  // top table once normalised, hiding real seats behind this invitation. See normaliseRoom's
+  // own comment in ./floorplan for the exact reviewer-found case.
+  const hasSeats = totalSeats(normaliseRoom(room)) > 0
 
   return (
     <div className={styles.screen}>

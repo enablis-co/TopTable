@@ -31,14 +31,34 @@ function normaliseCount(value: number): number {
 }
 
 /**
+ * The same A12 coercion, applied to all three fields and exported so every reader of a
+ * possibly-degenerate `RoomConfig` shares one rule instead of each computing its own.
+ *
+ * TT-11's review found `PlanScreen` deciding whether to show the floorplan at all by calling
+ * `totalSeats` on the *raw* room, while this module generates the grid from the *normalised*
+ * one — so a hand-edited `{ roundTables: -1, seatsEach: 8, topTableSeats: 8 }` totalled 0 on
+ * the raw numbers (`-1 * 8 + 8 = 0`) and hid a top table that, once normalised, genuinely has
+ * 8 seats. `docs/state.md` is explicit that storage is not a trusted input, so that shape is
+ * reachable without editing any code. `PlanScreen` and `PlanHeader` both compute a seat count
+ * from `room` for exactly this reason — they call `totalSeats(normaliseRoom(room))` rather
+ * than `totalSeats(room)`, so the gate, the header figure and the grid can no longer disagree
+ * about the same input.
+ */
+export function normaliseRoom(room: RoomConfig): RoomConfig {
+  return {
+    roundTables: normaliseCount(room.roundTables),
+    seatsEach: normaliseCount(room.seatsEach),
+    topTableSeats: normaliseCount(room.topTableSeats),
+  }
+}
+
+/**
  * KB-6 "Plan": the top table first (when it has seats), then round tables 1..N in order
  * (C1, C2). Grid-generated from `RoomConfig`, not fixed — a room with `{ 4, 8, 8 }` produces
  * 5 slots and `{ 26, 8, 8 }` produces 27 (C1, C7), the top table counted in both.
  */
 export function floorplanFromRoom(room: RoomConfig): TableSlot[] {
-  const roundTables = normaliseCount(room.roundTables)
-  const seatsEach = normaliseCount(room.seatsEach)
-  const topTableSeats = normaliseCount(room.topTableSeats)
+  const { roundTables, seatsEach, topTableSeats } = normaliseRoom(room)
 
   const slots: TableSlot[] = []
 
@@ -76,8 +96,16 @@ export function occupancyOf(occupantCount: number, capacity: number): Occupancy 
  * `NOTHING_SEATED` today and from a real `SeatingView` once TT-12 to TT-14 land.
  */
 export type TableOccupants = {
-  /** The guests at this table, in the order given. TT-13 owns seat order. */
-  guests: Guest[]
+  /**
+   * The guests at this table, in the order given. TT-13 owns seat order.
+   *
+   * `readonly`: every empty table (any id absent from `byTableId`) shares the single
+   * `EMPTY_TABLE` object below via `occupantsAt`. TT-11 never mutates it, but TT-12 and TT-13
+   * will hold thousands of these, and one `occupants.guests.push(...)` on any of them would
+   * silently poison every empty table in the app at once. `readonly` closes that off at the
+   * type level, at no runtime cost.
+   */
+  guests: readonly Guest[]
   /** How many of those are pinned. TT-12 owns pinning. */
   pinnedCount: number
   /** Whether any violation names this table. TT-14 owns violations. */
