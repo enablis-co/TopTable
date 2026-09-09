@@ -1,0 +1,13 @@
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-6) 0;
+}
+
+.message {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink);
+}

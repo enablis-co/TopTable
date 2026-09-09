@@ -1,0 +1,57 @@
+/*
+ * No overflow:hidden on .surface, deliberately: it would clip GuestRowMenu's popover for any
+ * row near the bottom of the table. The header cells carry no background of their own, so
+ * they already match .surface's own background and the corners lose nothing by not clipping.
+ */
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-data);
+}
+
+.table th {
+  text-align: left;
+  font-weight: var(--weight-medium);
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+  color: var(--ink);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr {
+  background: transparent;
+  transition: background-color 500ms ease;
+}
+
+.highlight {
+  background: var(--sunken);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
