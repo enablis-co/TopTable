@@ -1,0 +1,103 @@
+/*
+ * KB-5: "colour never carries meaning alone... every state pairs a colour with a shape."
+ * data-occupancy, data-pinned and data-violation are three independent marks (A1), so this
+ * file is written so no two state rules ever contest the same property — the exact failure
+ * R3 names: `.highlight`'s `background` never painting in GuestTable.module.css because
+ * `.table tbody tr` already set `background: transparent` at higher specificity. Checked
+ * here, not just trusted:
+ *
+ *   - `color` is declared by the two data-occupancy rules only, and data-occupancy holds
+ *     exactly one value at a time, so they are mutually exclusive.
+ *   - `background` is declared by the full rule alone.
+ *   - `border-style` and `border-color` are declared by the violation rule alone — which is
+ *     what lets a violating top table override .top's slate border, since a data-attribute
+ *     selector (0,2,0) beats a bare class (0,1,0) regardless of source order.
+ *   - The pin mark touches only ::after, so it composes with every other state untouched.
+ *
+ * The one same-specificity pair left is .table (0,1,0) against .round/.top (also 0,1,0),
+ * where source order decides — so .round and .top MUST stay written after .table. Do not
+ * reorder this file.
+ */
+
+/* Base. Specificity 0,1,0. */
+.table {
+  position: relative;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+  color: var(--ink);
+  text-align: center;
+}
+
+/* Shape. Also 0,1,0 — written after .table so the pair above resolves correctly. */
+.round {
+  border-radius: 50%;
+  aspect-ratio: 1;
+}
+
+.top {
+  border-radius: var(--r-card);
+  border-color: var(--slate);
+  grid-column: 1 / -1;
+}
+
+/* States. Each 0,2,0 (a class plus an attribute selector), so each beats .table AND
+   .round/.top regardless of where in the file it sits. */
+.table[data-occupancy='empty'] {
+  color: var(--ink-muted);
+}
+
+.table[data-occupancy='full'] {
+  background: var(--sunken);
+  color: var(--ink-muted);
+}
+
+.table[data-violation='true'] {
+  border-style: dashed;
+  border-color: var(--hard);
+}
+
+.table[data-pinned='true']::after {
+  content: '';
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--slate);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: var(--weight-medium);
+}
+
+.occupancy {
+  margin: 0;
+  font-size: var(--text-caption);
+}
+
+.guests {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-caption);
+}
+
+/* A6: names reveal themselves once the table itself has room, by container query — jsdom
+   does no layout, so a measurement-based approach (a ResizeObserver) would be untestable for
+   the same visual result. */
+@container (min-width: 132px) {
+  .guests {
+    display: block;
+  }
+}
