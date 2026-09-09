@@ -112,7 +112,7 @@ export type Guest = {
    * Both clauses are wrong as of the product decision of 2026-09-09: this field holds one of
    * the four `AgeBand`s above, not a number, and a band cannot answer KB-2's generation-mix
    * rule ("at least one guest over 30 and one under 30") — `adult` alone spans both sides of
-   * that line. TT-21 owns the rule and has to re-specify it against bands before it can be
+   * that line. TT-20 owns the rule and has to re-specify it against bands before it can be
    * built. KB-3 has not been updated to match; this comment is the record of the divergence
    * until it is.
    */
