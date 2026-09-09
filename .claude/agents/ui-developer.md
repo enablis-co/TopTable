@@ -78,8 +78,21 @@ cannot be answered anywhere else. TT-3's suggestion line sat in the wrong grid c
 tests passed. A real box measured in a real browser was the only thing that could see it.
 
 Everything else you might open the pane for is a test that already exists. Confirming an element is
-present, that there is one live region, that a state renders at all — doing that in the browser is
-re-running something the suite does in two seconds, and it is most of where the time goes.
+present, that there is one live region, that a state renders at all, that a control has an
+accessible name — doing that in the browser is re-running something the suite does in two seconds,
+and it is most of where the time goes.
+
+**Accessible names in particular: do not trust the preview pane's accessibility tree.** It does not
+compute name from content, so `<button><span>Adding up</span></button>` comes back as an unnamed
+button with a separate generic child, and every figure you wrapped for tabular digits vanishes from
+the name it reports. TT-4 read that as Chrome giving the scenario cards no accessible name at all,
+added an `aria-label` to each one against its own plan, and had to paraphrase "top table 6" as
+"plus 6 seats at the top" to dodge an unrelated label query — so the name then disagreed with the
+visible text, which is a WCAG 2.5.3 failure introduced to fix nothing. Chrome and jsdom both derive
+a button's name from its content, per the accname spec, which is why `getByRole('button', { name })`
+was passing the whole time. That passing query is your evidence the name is real. If you doubt it,
+probe the tool with a direct-text button beside a nested-text one before you believe it about your
+own markup.
 
 So: write down the measurements you need before you open it, take them, screenshot the states a
 human should see, and stop. TT-3's fix pass spent seventy-five minutes in the browser, and about a
