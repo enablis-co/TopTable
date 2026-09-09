@@ -1,0 +1,319 @@
+import { describe, expect, it } from 'vitest'
+import { floorplanFromRoom, occupancyOf, planTotals, occupantsAt, NOTHING_SEATED } from './floorplan'
+import type { SeatingView, TableOccupants } from './floorplan'
+import type { Guest, RoomConfig } from '../../domain/types'
+
+/**
+ * TT-11, "Render the floorplan from config" — C1, C2, C3, C4, C5, C7, A12 and determinism.
+ * Written from TT-11's own acceptance criteria (fetched from Tickety directly), KB-3's exact
+ * room numbers and `docs/style-guide.html`'s floorplan note, against the `floorplan.ts` contract
+ * published in `.claude/plans/TT-11.md` section 4. This file does not open floorplan.ts: it is
+ * written against the plan's declared signatures only.
+ *
+ * KB-3's three scenario rooms are quoted directly (cross-checked against both KB-3 and
+ * src/domain/scenarios.ts's SCENARIOS manifest, read independently of this file):
+ * small-and-cosy {4,8,8}, adding-up {9,8,6}, celebrity-scale {26,8,8}. "Five tables" and
+ * "twenty-seven" (C7) both count the top table — the arithmetic only works that way.
+ *
+ * Every Guest fixture sets `age` to an AgeBand ('adult' etc.), never a number: KB-3 still types
+ * the field `number`, but the product decision of 2026-09-09 recorded on Guest.age in
+ * src/domain/types.ts makes KB-3 the stale copy here.
+ */
+
+function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
+  return {
+    id,
+    name: `Guest ${id}`,
+    side: 'bride',
+    role: 'guest',
+    age: 'adult',
+    household: null,
+    partnerOf: null,
+    conflictsWith: [],
+    tags: [],
+    allergies: [],
+    dietaryPreferences: [],
+    accessibility: [],
+    socialType: 'sociable',
+    ...overrides,
+  }
+}
+
+function occupantsFixture(overrides: Partial<TableOccupants> = {}): TableOccupants {
+  return { guests: [], pinnedCount: 0, inViolation: false, ...overrides }
+}
+
+describe('floorplanFromRoom — table count is derived from config (C1, C7)', () => {
+  it('renders 5 slots for Small and cosy: 4 round tables + the top table', () => {
+    const room: RoomConfig = { roundTables: 4, seatsEach: 8, topTableSeats: 8 }
+    expect(floorplanFromRoom(room)).toHaveLength(5)
+  })
+
+  it('renders 27 slots for Celebrity scale: 26 round tables + the top table', () => {
+    const room: RoomConfig = { roundTables: 26, seatsEach: 8, topTableSeats: 8 }
+    expect(floorplanFromRoom(room)).toHaveLength(27)
+  })
+
+  it('renders 10 slots for Adding up: 9 round tables + the top table', () => {
+    const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
+    expect(floorplanFromRoom(room)).toHaveLength(10)
+  })
+})
+
+describe('floorplanFromRoom — the top table first, round tables numbered in order (C2, C3)', () => {
+  it('puts the top table first, then every round table numbered 1..N with a stable id and label', () => {
+    const room: RoomConfig = { roundTables: 3, seatsEach: 8, topTableSeats: 6 }
+    const slots = floorplanFromRoom(room)
+
+    expect(slots).toHaveLength(4)
+    const [top, r1, r2, r3] = slots
+    if (!top || !r1 || !r2 || !r3) {
+      throw new Error('expected 4 slots: the top table plus three round tables')
+    }
+
+    expect(top).toEqual({ id: 'top', kind: 'top', number: null, label: 'Top table', capacity: 6 })
+    expect(r1).toEqual({ id: 'round-1', kind: 'round', number: 1, label: 'Table 1', capacity: 8 })
+    expect(r2).toEqual({ id: 'round-2', kind: 'round', number: 2, label: 'Table 2', capacity: 8 })
+    expect(r3).toEqual({ id: 'round-3', kind: 'round', number: 3, label: 'Table 3', capacity: 8 })
+
+    // Every later slot is 'round' in order — the letter of C2, checked generically rather than
+    // only against the three hand-picked indices above.
+    expect(slots.slice(1).every((slot) => slot.kind === 'round')).toBe(true)
+    expect(slots.slice(1).map((slot) => slot.number)).toEqual([1, 2, 3])
+  })
+
+  it('round slots carry capacity === seatsEach; the top slot carries topTableSeats, not seatsEach', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 5, topTableSeats: 6 }
+    const slots = floorplanFromRoom(room)
+
+    const top = slots.find((slot) => slot.kind === 'top')
+    const roundSlots = slots.filter((slot) => slot.kind === 'round')
+
+    expect(top?.capacity).toBe(6)
+    expect(roundSlots.map((slot) => slot.capacity)).toEqual([5, 5])
+  })
+})
+
+describe('floorplanFromRoom — a table type can be entirely absent (C1)', () => {
+  it('topTableSeats: 0 renders no top slot, and the round tables still render', () => {
+    const room: RoomConfig = { roundTables: 4, seatsEach: 8, topTableSeats: 0 }
+    const slots = floorplanFromRoom(room)
+
+    expect(slots).toHaveLength(4)
+    expect(slots.every((slot) => slot.kind === 'round')).toBe(true)
+    expect(slots.map((slot) => slot.id)).toEqual(['round-1', 'round-2', 'round-3', 'round-4'])
+  })
+
+  it('roundTables: 0 with topTableSeats: 8 renders the top table alone', () => {
+    const room: RoomConfig = { roundTables: 0, seatsEach: 8, topTableSeats: 8 }
+    const slots = floorplanFromRoom(room)
+
+    expect(slots).toEqual([{ id: 'top', kind: 'top', number: null, label: 'Top table', capacity: 8 }])
+  })
+
+  it('a room with no round tables and no top table seats renders nothing at all', () => {
+    const room: RoomConfig = { roundTables: 0, seatsEach: 8, topTableSeats: 0 }
+    expect(floorplanFromRoom(room)).toEqual([])
+  })
+})
+
+describe('floorplanFromRoom — degenerate config is normalised, not capped (A12)', () => {
+  it.each([
+    ['NaN', NaN, 0],
+    ['a negative number', -5, 0],
+    ['a fraction', 2.7, 2],
+    ['Infinity', Infinity, 0],
+  ] as const)('roundTables: %s produces %i round tables and never throws', (_label, raw, expectedCount) => {
+    const room: RoomConfig = { roundTables: raw, seatsEach: 8, topTableSeats: 8 }
+    const slots = floorplanFromRoom(room)
+
+    const roundSlots = slots.filter((slot) => slot.kind === 'round')
+    expect(roundSlots).toHaveLength(expectedCount)
+    for (const slot of slots) {
+      expect(Number.isInteger(slot.capacity)).toBe(true)
+      expect(slot.capacity).toBeGreaterThanOrEqual(0)
+      if (slot.number !== null) {
+        expect(Number.isInteger(slot.number)).toBe(true)
+        expect(slot.number).toBeGreaterThanOrEqual(1)
+      }
+    }
+  })
+
+  it.each([
+    ['NaN', NaN, 0],
+    ['a negative number', -3, 0],
+    ['a fraction', 4.9, 4],
+    ['Infinity', Infinity, 0],
+  ] as const)(
+    'seatsEach: %s normalises every round table capacity to %i and never throws',
+    (_label, raw, expectedCapacity) => {
+      const room: RoomConfig = { roundTables: 2, seatsEach: raw, topTableSeats: 8 }
+      const slots = floorplanFromRoom(room)
+
+      const roundSlots = slots.filter((slot) => slot.kind === 'round')
+      expect(roundSlots).toHaveLength(2)
+      for (const slot of roundSlots) {
+        expect(slot.capacity).toBe(expectedCapacity)
+      }
+    },
+  )
+
+  it.each([
+    ['NaN', NaN],
+    ['a negative number', -2],
+    ['Infinity', Infinity],
+  ] as const)('topTableSeats: %s normalises to 0, so no top slot renders at all', (_label, raw) => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 8, topTableSeats: raw }
+    const slots = floorplanFromRoom(room)
+
+    expect(slots.some((slot) => slot.kind === 'top')).toBe(false)
+    expect(slots).toHaveLength(2)
+  })
+
+  it('topTableSeats: 6.9 normalises to 6 and the top slot still renders, at that capacity', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 8, topTableSeats: 6.9 }
+    const slots = floorplanFromRoom(room)
+    const top = slots.find((slot) => slot.kind === 'top')
+
+    expect(top).toEqual({ id: 'top', kind: 'top', number: null, label: 'Top table', capacity: 6 })
+  })
+
+  it('never throws, and never produces a negative, fractional or NaN figure, when every field is degenerate at once', () => {
+    const room: RoomConfig = { roundTables: NaN, seatsEach: -8, topTableSeats: 3.9 }
+    const slots = floorplanFromRoom(room)
+
+    for (const slot of slots) {
+      expect(Number.isFinite(slot.capacity)).toBe(true)
+      expect(Number.isInteger(slot.capacity)).toBe(true)
+      expect(slot.capacity).toBeGreaterThanOrEqual(0)
+    }
+  })
+})
+
+describe('occupancyOf — the three states, and the degenerate zero-capacity table (C4)', () => {
+  it.each([
+    [0, 8, 'empty'],
+    [8, 8, 'full'],
+    [9, 8, 'full'],
+    [3, 8, 'partial'],
+    // The case the argument order exists for: a table with nobody at it reads 'empty' even
+    // when its capacity is also 0, which only holds if occupantCount === 0 is tested before
+    // >= capacity (0 >= 0 is also true, and would say 'full' if tested first).
+    [0, 0, 'empty'],
+    // The contrasting corner, to prove the ordering both ways: occupants against a
+    // zero-capacity table is 'full', not 'partial' and not an error, once the zero-count
+    // short-circuit no longer applies (5 is not 0, and 5 >= 0).
+    [5, 0, 'full'],
+  ] as const)('occupancyOf(%i, %i) is %s', (count, capacity, expected) => {
+    expect(occupancyOf(count, capacity)).toBe(expected)
+  })
+})
+
+describe('planTotals (C5)', () => {
+  it('with nothing seated, every guest is unseated and nobody is pinned', () => {
+    const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
+    expect(planTotals(guests, NOTHING_SEATED)).toEqual({
+      guestCount: 3,
+      pinnedCount: 0,
+      unseatedCount: 3,
+    })
+  })
+
+  it('two guests placed, one pinned, drops unseated by two and counts the one pin', () => {
+    const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
+    const seatedPair = [guests[0], guests[1]]
+    if (!seatedPair[0] || !seatedPair[1]) {
+      throw new Error('expected two seeded guests')
+    }
+    const seating: SeatingView = {
+      byTableId: {
+        'round-1': occupantsFixture({ guests: [seatedPair[0], seatedPair[1]], pinnedCount: 1 }),
+      },
+    }
+
+    expect(planTotals(guests, seating)).toEqual({
+      guestCount: 3,
+      pinnedCount: 1,
+      unseatedCount: 1,
+    })
+  })
+
+  it('a guest listed at two tables does not drive unseatedCount below zero', () => {
+    const guest = makeGuest('g-1')
+    const guests = [guest]
+    // The same guest, double-listed at two different tables — precisely what a sum-of-counts
+    // implementation (2 occupants counted against 1 real guest) would get wrong, and what a
+    // Set of seated ids gets right.
+    const seating: SeatingView = {
+      byTableId: {
+        'round-1': occupantsFixture({ guests: [guest] }),
+        'round-2': occupantsFixture({ guests: [guest] }),
+      },
+    }
+
+    const totals = planTotals(guests, seating)
+    expect(totals.unseatedCount).toBe(0)
+    expect(totals.unseatedCount).toBeGreaterThanOrEqual(0)
+  })
+
+  it('pinnedCount sums the per-table figures directly, with no deduplication', () => {
+    const guest = makeGuest('g-1')
+    const seating: SeatingView = {
+      byTableId: {
+        'round-1': occupantsFixture({ guests: [guest], pinnedCount: 1 }),
+        'round-2': occupantsFixture({ pinnedCount: 2 }),
+      },
+    }
+
+    expect(planTotals([guest], seating).pinnedCount).toBe(3)
+  })
+
+  it('guestCount always equals the guest list length, independent of what the seating claims', () => {
+    const guests = [makeGuest('g-1'), makeGuest('g-2')]
+    const seating: SeatingView = {
+      byTableId: {
+        'round-1': occupantsFixture({ guests: [...guests, makeGuest('not-in-the-guest-list')] }),
+      },
+    }
+
+    expect(planTotals(guests, seating).guestCount).toBe(2)
+  })
+})
+
+describe('occupantsAt — the empty-table default, never undefined (C4, C5)', () => {
+  const emptyTable: TableOccupants = { guests: [], pinnedCount: 0, inViolation: false }
+
+  it('returns the empty-table value for any id at all when nothing is seated', () => {
+    expect(occupantsAt(NOTHING_SEATED, 'top')).toEqual(emptyTable)
+    expect(occupantsAt(NOTHING_SEATED, 'round-1')).toEqual(emptyTable)
+    expect(occupantsAt(NOTHING_SEATED, 'an-id-nobody-generated')).toEqual(emptyTable)
+  })
+
+  it('returns the empty-table value for an id missing from a partially-seated view', () => {
+    const seating: SeatingView = {
+      byTableId: { 'round-1': occupantsFixture({ guests: [makeGuest('g-1')] }) },
+    }
+    expect(occupantsAt(seating, 'round-2')).toEqual(emptyTable)
+  })
+
+  it('returns the real entry, unchanged, for an id that is present', () => {
+    const entry = occupantsFixture({ guests: [makeGuest('g-1')], pinnedCount: 1, inViolation: true })
+    const seating: SeatingView = { byTableId: { 'round-1': entry } }
+    expect(occupantsAt(seating, 'round-1')).toEqual(entry)
+  })
+})
+
+describe('NOTHING_SEATED — what TT-11 hands to every table today', () => {
+  it('has no seated tables at all', () => {
+    expect(NOTHING_SEATED.byTableId).toEqual({})
+  })
+})
+
+describe('determinism', () => {
+  it('floorplanFromRoom returns deeply equal output for the same room, called twice', () => {
+    const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
+    expect(floorplanFromRoom(room)).toEqual(floorplanFromRoom(room))
+    // And for two separately-constructed but equal room objects, not just the same reference.
+    expect(floorplanFromRoom({ ...room })).toEqual(floorplanFromRoom({ ...room }))
+  })
+})
