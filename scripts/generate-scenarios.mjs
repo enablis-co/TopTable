@@ -31,6 +31,20 @@ const DIETS = ['vegetarian', 'vegan', 'pescatarian', 'halal', 'gluten free']
 const ACCESS = ['step-free access', 'away from the speakers', 'near an exit']
 const SOCIAL = ['livewire', 'sociable', 'quiet']
 
+// The shipped Guest.age type is a band, not a number (src/domain/types.ts) — but every draw,
+// comparison and derivation inside build() below stays on the numeric age. g.age >= 70 on
+// line ~68 short-circuits a chance() call, so changing when an age crosses a threshold would
+// shift every r() call after it and silently rewrite the rest of the file. These boundaries
+// duplicate src/domain/types.ts's AGE_BANDS/AgeBand — this is .mjs and cannot import a .ts
+// file — and src/domain/scenarioAges.test.ts is the guard against the two drifting apart.
+const AGE_BANDS = ['baby', 'child', 'teen', 'adult']
+function ageBand(years) {
+  if (years < 4) return 'baby'
+  if (years < 10) return 'child'
+  if (years < 18) return 'teen'
+  return 'adult'
+}
+
 const TOP_TABLE = [
   ['chief bridesmaid', 'F'], ['father of the groom', 'M'], ['mother of the bride', 'F'],
   ['groom', 'M'], ['bride', 'F'], ['father of the bride', 'M'],
@@ -178,13 +192,23 @@ const scenarios = [
   build('Celebrity scale', 200, 26, 8, 8, 9, 20261014)
 ]
 
+// Convert at serialisation only, after every numeric draw in build() is already made. `meta`
+// is untouched — it is computed from constants and guests.length, neither of which the band
+// conversion changes.
+const banded = scenarios.map((s) => ({
+  ...s,
+  guests: s.guests.map((g) => ({ ...g, age: ageBand(g.age) })),
+}))
+
 mkdirSync(OUT, { recursive: true })
 const slugs = ['small-and-cosy', 'adding-up', 'celebrity-scale']
-scenarios.forEach((s, i) => {
+banded.forEach((s, i) => {
   writeFileSync(join(OUT, `${slugs[i]}.json`), JSON.stringify(s, null, 2))
 })
 
-for (const s of scenarios) {
+// Validates the banded payload actually being shipped, not the internal numeric one, so a
+// bug in ageBand() itself would be caught here too.
+for (const s of banded) {
   const ids = new Set(s.guests.map(g => g.id))
   const errs = []
   for (const g of s.guests) {
@@ -197,7 +221,7 @@ for (const s of scenarios) {
       else if (!s.guests.find(x => x.id === c).conflictsWith.includes(g.id)) errs.push(`${g.id} conflict not reciprocal`)
       if (c === g.id) errs.push(`${g.id} self conflict`)
     }
-    if (!g.name || !g.side || !g.age) errs.push(`${g.id} missing core field`)
+    if (!g.name || !g.side || !AGE_BANDS.includes(g.age)) errs.push(`${g.id} missing core field`)
   }
   const roles = TOP_TABLE.map(t => t[0])
   for (const role of roles) {
@@ -206,7 +230,7 @@ for (const s of scenarios) {
   }
   const m = s.meta
   console.log(`${m.scenario}: ${m.guests} guests, ${m.tables.roundTables}x${m.tables.seatsEach}+${m.tables.topTableSeats}=${m.seats} seats, ${m.spare} spare`)
-  console.log(`  households ${new Set(s.guests.map(g => g.household)).size} · couples ${s.guests.filter(g => g.partnerOf).length / 2} · conflicts ${s.guests.reduce((a, g) => a + g.conflictsWith.length, 0) / 2} · under 18 ${s.guests.filter(g => g.age < 18).length}`)
+  console.log(`  households ${new Set(s.guests.map(g => g.household)).size} · couples ${s.guests.filter(g => g.partnerOf).length / 2} · conflicts ${s.guests.reduce((a, g) => a + g.conflictsWith.length, 0) / 2} · under 18 ${s.guests.filter(g => ['baby', 'child', 'teen'].includes(g.age)).length}`)
   console.log(`  allergies ${s.guests.filter(g => g.allergies.length).length} · diets ${s.guests.filter(g => g.dietaryPreferences.length).length} · access ${s.guests.filter(g => g.accessibility.length).length} · tags ${new Set(s.guests.flatMap(g => g.tags)).size}`)
   console.log(errs.length ? `  FAIL ${errs.slice(0, 6).join('; ')}` : '  validation passed')
 }
