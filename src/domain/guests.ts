@@ -11,6 +11,19 @@ import type { Guest } from './types'
  */
 
 /**
+ * Removes duplicate ids, keeping first-occurrence order. `conflictsWith` is conceptually a
+ * set — the same id named twice describes one conflict, not two (C9) — but is typed and
+ * stored as `string[]` (KB-3), so nothing in the type stops a caller repeating an id within
+ * one array. `addGuest` and `updateGuest` both normalise an incoming guest's `conflictsWith`
+ * through here before it is stored or used to drive the reciprocal write, so the guest whose
+ * array was handed in is held to the same uniqueness the reciprocal write already gives the
+ * guests on the other side of it.
+ */
+function dedupeIds(ids: string[]): string[] {
+  return [...new Set(ids)]
+}
+
+/**
  * Shared by `addGuest` and `updateGuest`. Validates `guest`'s relationships against `guests`
  * — the list as it stood before this write — and throws rather than silently dropping a bad
  * reference, because a no-op here would leave the picker looking as though it worked while
@@ -48,6 +61,11 @@ function validateRelationships(guests: Guest[], guest: Guest): void {
  * and pushes `guest.id` onto each named conflict's `conflictsWith`. Appends rather than
  * sorting — row order is insertion order, so a new guest lands at the end of the list.
  *
+ * A `conflictsWith` id repeated within `guest`'s own array is deduplicated (`dedupeIds`)
+ * before it is stored or used to drive the reciprocal write — the same pair named twice in
+ * one array is one conflict, not two (C9), and the array `guest` is stored under gets the
+ * same treatment the reciprocal side already got.
+ *
  * Throws (see `validateRelationships`) rather than silently accepting a `partnerOf` or
  * `conflictsWith` id that does not resolve, is the guest's own id, or names a guest already
  * partnered to someone else.
@@ -55,7 +73,8 @@ function validateRelationships(guests: Guest[], guest: Guest): void {
 export function addGuest(guests: Guest[], guest: Guest): Guest[] {
   validateRelationships(guests, guest)
 
-  let next = [...guests, { ...guest }]
+  const conflictsWith = dedupeIds(guest.conflictsWith)
+  let next = [...guests, { ...guest, conflictsWith }]
 
   if (guest.partnerOf !== null) {
     const partnerId = guest.partnerOf
@@ -64,8 +83,8 @@ export function addGuest(guests: Guest[], guest: Guest): Guest[] {
     )
   }
 
-  if (guest.conflictsWith.length > 0) {
-    const conflictIds = new Set(guest.conflictsWith)
+  if (conflictsWith.length > 0) {
+    const conflictIds = new Set(conflictsWith)
     next = next.map((candidate) =>
       conflictIds.has(candidate.id)
         ? { ...candidate, conflictsWith: [...candidate.conflictsWith, guest.id] }
@@ -82,6 +101,10 @@ export function addGuest(guests: Guest[], guest: Guest): Guest[] {
  * `conflictsWith` against the stored value, adding `guest.id` to each newly named guest and
  * removing it from each dropped one — so the same conflict named twice in a row writes once.
  *
+ * `guest.conflictsWith` is deduplicated (`dedupeIds`) before it is stored or diffed against,
+ * the same as in `addGuest` — a duplicate within the incoming array collapses to one entry
+ * rather than being carried into storage verbatim (C9).
+ *
  * Throws if no guest has `guest.id`, and throws the same relationship errors as `addGuest`.
  */
 export function updateGuest(guests: Guest[], guest: Guest): Guest[] {
@@ -92,7 +115,10 @@ export function updateGuest(guests: Guest[], guest: Guest): Guest[] {
 
   validateRelationships(guests, guest)
 
-  let next = guests.map((candidate) => (candidate.id === guest.id ? { ...guest } : candidate))
+  const conflictsWith = dedupeIds(guest.conflictsWith)
+  let next = guests.map((candidate) =>
+    candidate.id === guest.id ? { ...guest, conflictsWith } : candidate,
+  )
 
   if (previous.partnerOf !== guest.partnerOf) {
     const oldPartnerId = previous.partnerOf
@@ -105,8 +131,8 @@ export function updateGuest(guests: Guest[], guest: Guest): Guest[] {
   }
 
   const before = new Set(previous.conflictsWith)
-  const after = new Set(guest.conflictsWith)
-  const added = new Set(guest.conflictsWith.filter((id) => !before.has(id)))
+  const after = new Set(conflictsWith)
+  const added = new Set(conflictsWith.filter((id) => !before.has(id)))
   const removed = new Set(previous.conflictsWith.filter((id) => !after.has(id)))
 
   if (added.size > 0 || removed.size > 0) {
