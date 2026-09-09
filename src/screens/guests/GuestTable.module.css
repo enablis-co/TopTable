@@ -50,6 +50,8 @@
   gap: var(--space-1);
 }
 
+/* The row menu's own trailing cell — no header labels it (see the component comment). Narrow
+   and right-aligned so it reads as a margin note beside the data, not a sixth data column. */
 .actions {
   width: 1%;
   white-space: nowrap;

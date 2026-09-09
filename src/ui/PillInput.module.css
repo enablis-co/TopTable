@@ -1,0 +1,84 @@
+.control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 5px 6px;
+  cursor: text;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-left: -4px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.remove:hover {
+  background: var(--rule);
+  color: var(--ink);
+}
+
+.input {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-data);
+  color: var(--ink);
+  padding: 2px 4px;
+}
+
+/* Positive focus ring rather than suppressing the default: never remove an outline
+   (src/ui/brand.test.ts). Matches field.module.css's own .field:focus treatment. */
+.input:focus {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}
+
+.suggestions {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-control);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.suggestion {
+  display: block;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-data);
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestion:hover,
+.suggestionActive {
+  background: var(--sunken);
+}

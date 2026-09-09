@@ -14,3 +14,9 @@
   width: 320px;
   max-width: 100%;
 }
+
+/* Pushes the button to the far right whether or not the search field is present (empty
+   state has no search field to space against). */
+.addButton {
+  margin-left: auto;
+}

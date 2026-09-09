@@ -1,0 +1,41 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Smaller and more subdued than the panel's own h2 title (SlideOver.module.css sizes that
+   down to Heading already), so the group headings read as a second tier under it. */
+.heading {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--weight-medium);
+  color: var(--ink-muted);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Shape half of "colour never carries meaning alone" (KB-5), matching the minimal
+   border-left-only treatment CapacityReadout.module.css already uses for its short state —
+   no background wash, just the token plus the border. */
+.error {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--hard-deep);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--hard);
+}

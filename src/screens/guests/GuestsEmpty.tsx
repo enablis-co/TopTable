@@ -11,13 +11,17 @@ type GuestsEmptyProps = {
  * it replaces does not appear here. "Add your first guest" points at the Add guest button
  * TT-5 puts in the header above this, present in both states; this component only supplies
  * the route back to Setup's scenarios.
+ *
+ * The control reads "Go to scenarios", not "Go to setup" — TT-6 names the destination "the
+ * scenarios on Setup", and the app header's own always-present "Setup" tab button means any
+ * label containing "setup" collides with it once this renders inside the real app shell.
  */
 export function GuestsEmpty({ onGoToSetup }: GuestsEmptyProps) {
   return (
     <div className={styles.empty}>
       <p className={styles.message}>Start from a scenario, or add your first guest</p>
       <Button variant="secondary" onClick={onGoToSetup}>
-        Go to setup
+        Go to scenarios
       </Button>
     </div>
   )
