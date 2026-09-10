@@ -25,6 +25,10 @@ const BASE_TABLE = /\.table\s*\{/
 const ROUND_SHAPE = /\.round\s*\{/
 const TOP_SHAPE = /\.top\s*\{/
 const ROUND_PINNED_AFTER = /\.round\[\s*data-pinned(?:\s*=\s*['"]?true['"]?)?\s*\]::after/
+// TT-12: the placing face, a descendant selector so it beats Button.module.css's .button on
+// specificity rather than on source order.
+const FACE_BASE = /\.table\s+\.face\s*\{/
+const FACE_FOCUS_VISIBLE = /\.table\s+\.face:focus-visible\s*\{/
 
 function readCss(): string {
   return readFileSync(CSS_PATH, 'utf8')
@@ -32,6 +36,31 @@ function readCss(): string {
 
 function stripComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/**
+ * Extracts the contents of the (single) top-level @container block by brace-counting rather
+ * than a flat regex — the block nests a rule inside it, which is exactly what findRule below
+ * is deliberately too narrow to parse.
+ */
+function containerBlockBody(css: string): string {
+  const clean = stripComments(css)
+  const start = clean.search(/@container\b/i)
+  if (start === -1) return ''
+  const openBrace = clean.indexOf('{', start)
+  if (openBrace === -1) return ''
+
+  let depth = 0
+  for (let i = openBrace; i < clean.length; i += 1) {
+    if (clean[i] === '{') depth += 1
+    else if (clean[i] === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return clean.slice(openBrace + 1, i)
+      }
+    }
+  }
+  return clean.slice(openBrace + 1)
 }
 
 /**
@@ -218,5 +247,58 @@ describe('PlanTable.module.css — the pin dot stays proportionally inside a rou
     expect(sharedIndex, 'expected the shared .table[data-pinned]::after rule').toBeGreaterThanOrEqual(0)
     expect(roundIndex, 'expected a .round[data-pinned]::after override').toBeGreaterThanOrEqual(0)
     expect(roundIndex).toBeGreaterThan(sharedIndex)
+  })
+})
+
+describe('PlanTable.module.css — the placing face neutralises the shared button frame (TT-12)', () => {
+  it('declares a border-color and background of transparent, so the table\'s own border stays the table\'s mark, not the shared button\'s', () => {
+    const rule = requireRule(readCss(), FACE_BASE, '.table .face')
+    expect(rule.body).toMatch(/border-color\s*:\s*transparent/i)
+    expect(rule.body).toMatch(/background\s*:\s*transparent/i)
+  })
+
+  it('is a descendant selector naming .table, not a bare .face that could equally match elsewhere', () => {
+    const rule = requireRule(readCss(), FACE_BASE, '.table .face')
+    expect(rule.selector).toMatch(/\.table/)
+  })
+})
+
+describe('PlanTable.module.css — the face\'s focus ring is inset, since .round clips an outline drawn outside the element (TT-12)', () => {
+  it('a .face:focus-visible rule exists and declares a negative outline-offset', () => {
+    const rule = requireRule(readCss(), FACE_FOCUS_VISIBLE, '.table .face:focus-visible')
+    expect(rule.body).toMatch(/outline-offset\s*:\s*-\d/)
+  })
+
+  it('no rule anywhere removes the outline entirely', () => {
+    const css = stripComments(readCss())
+    expect(css).not.toMatch(/outline\s*:\s*none/i)
+    expect(css).not.toMatch(/outline\s*:\s*0\b/i)
+  })
+})
+
+describe('PlanTable.module.css — the placing face is not styled as a warning (TT-12)', () => {
+  it('neither the .face rule nor its focus-visible rule reaches for the hard or soft token', () => {
+    const face = requireRule(readCss(), FACE_BASE, '.table .face')
+    const focus = requireRule(readCss(), FACE_FOCUS_VISIBLE, '.table .face:focus-visible')
+    const combined = `${face.body}\n${focus.body}`
+    expect(combined).not.toMatch(/var\(--hard\)/i)
+    expect(combined).not.toMatch(/var\(--soft\)/i)
+  })
+})
+
+describe('PlanTable.module.css — .guests stays first inside the @container block; any later addition goes after it', () => {
+  it('no other selector inside the @container block precedes .guests', () => {
+    const body = containerBlockBody(readCss())
+    expect(body).not.toBe('')
+
+    const guestsIndex = body.search(/\.guests\s*\{/)
+    expect(guestsIndex).toBeGreaterThanOrEqual(0)
+
+    const selectorPattern = /([.\w-]+)\s*\{/g
+    let match: RegExpExecArray | null
+    while ((match = selectorPattern.exec(body)) !== null) {
+      if (match[1] === '.guests') continue
+      expect(match.index).toBeGreaterThan(guestsIndex)
+    }
   })
 })

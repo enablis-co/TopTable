@@ -11,20 +11,32 @@ import {
   NOTHING_SEATED,
   roundTableColumns,
   MAX_ROUND_TABLE_COLUMNS,
+  seatingFromPins,
+  unseatedGuests,
 } from './floorplan'
 import type { SeatingView, TableOccupants } from './floorplan'
-import type { Guest, RoomConfig } from '../../domain/types'
+import type { Guest, Pin, RoomConfig } from '../../domain/types'
 import { totalSeats } from '../../domain/capacity'
 
 /**
- * TT-11, "Render the floorplan from config". Written from the acceptance criteria and KB-3's
- * exact room numbers, without opening floorplan.ts.
+ * TT-11, "Render the floorplan from config", extended by TT-12, "Place a guest by clicking".
+ * Written from the acceptance criteria and KB-3's exact room numbers, without opening
+ * floorplan.ts.
  *
  * KB-3's three scenario rooms: small-and-cosy {4,8,8}, adding-up {9,8,6}, celebrity-scale
  * {26,8,8}. "Five tables" and "twenty-seven" both count the top table.
  *
  * Every Guest fixture sets `age` to an AgeBand, never a number — see the comment on Guest.age
  * in src/domain/types.ts for why KB-3's `number` typing is the stale copy here.
+ *
+ * TT-12's plan names `seatingFromPins` exactly, but describes its unseated-guests helper only
+ * as "a small helper returning the unseated guests" — no export name or signature is given.
+ * `unseatedGuests` is this file's own choice of name, made without opening floorplan.ts, and it
+ * resolved on the first run. Its parameter shape was not guessable from the plan text alone:
+ * a first attempt calling it as `(guests, seating)` threw "pins is not iterable" out of an
+ * internal `liveTableByGuestId(slots, pins)` helper, which is enough on its own — arity and
+ * argument types, not behaviour — to show the real signature is `(slots, guests, pins)`,
+ * mirroring `seatingFromPins`. The calls below use that shape.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -450,5 +462,168 @@ describe('FloorplanGrid.module.css — .gridScroll absorbs the grid\'s horizonta
 
     expect(body).not.toMatch(/overflow-y\s*:\s*(hidden|scroll)\b/i)
     expect(body).not.toMatch(/overflow\s*:\s*(hidden|scroll|auto)\b/i)
+  })
+})
+
+describe('seatingFromPins — placing guests at slots from a pin list (TT-12)', () => {
+  it('two pins on round-1 and one on top seat the right guests at the right slots; every other slot stays empty', () => {
+    const room: RoomConfig = { roundTables: 3, seatsEach: 8, topTableSeats: 6 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
+    const pins: Pin[] = [
+      { guestId: 'g-1', tableId: 'round-1' },
+      { guestId: 'g-2', tableId: 'round-1' },
+      { guestId: 'g-3', tableId: 'top' },
+    ]
+
+    const seating = seatingFromPins(slots, guests, pins)
+
+    expect(occupantsAt(seating, 'round-1').guests.map((g) => g.id)).toEqual(['g-1', 'g-2'])
+    expect(occupantsAt(seating, 'top').guests.map((g) => g.id)).toEqual(['g-3'])
+    expect(occupantsAt(seating, 'round-2')).toEqual({ guests: [], pinnedCount: 0, inViolation: false })
+    expect(occupantsAt(seating, 'round-3')).toEqual({ guests: [], pinnedCount: 0, inViolation: false })
+  })
+
+  it('every seated table has pinnedCount equal to its own guest count, and inViolation false — TT-12 seats only through pins', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 8, topTableSeats: 6 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
+    const pins: Pin[] = [
+      { guestId: 'g-1', tableId: 'round-1' },
+      { guestId: 'g-2', tableId: 'round-1' },
+      { guestId: 'g-3', tableId: 'round-2' },
+    ]
+
+    const seating = seatingFromPins(slots, guests, pins)
+
+    for (const tableId of Object.keys(seating.byTableId)) {
+      const occupants = occupantsAt(seating, tableId)
+      expect(occupants.pinnedCount).toBe(occupants.guests.length)
+      expect(occupants.inViolation).toBe(false)
+    }
+  })
+
+  it('feeding the result to planTotals: three pins across two tables count three pinned and drop unseated by three', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 8, topTableSeats: 6 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3'), makeGuest('g-4'), makeGuest('g-5')]
+    const pins: Pin[] = [
+      { guestId: 'g-1', tableId: 'round-1' },
+      { guestId: 'g-2', tableId: 'round-1' },
+      { guestId: 'g-3', tableId: 'round-2' },
+    ]
+
+    const seating = seatingFromPins(slots, guests, pins)
+
+    expect(planTotals(guests, seating)).toEqual({ guestCount: 5, pinnedCount: 3, unseatedCount: 2 })
+  })
+
+  it('guest order within a table follows the guest list, not the order pins were made — two pin arrays in opposite order produce deeply equal seating', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1'), makeGuest('g-2')]
+    const pinsForward: Pin[] = [
+      { guestId: 'g-1', tableId: 'round-1' },
+      { guestId: 'g-2', tableId: 'round-1' },
+    ]
+    const pinsReversed: Pin[] = [
+      { guestId: 'g-2', tableId: 'round-1' },
+      { guestId: 'g-1', tableId: 'round-1' },
+    ]
+
+    const seatingForward = seatingFromPins(slots, guests, pinsForward)
+    const seatingReversed = seatingFromPins(slots, guests, pinsReversed)
+
+    expect(seatingReversed).toEqual(seatingForward)
+    expect(occupantsAt(seatingReversed, 'round-1').guests.map((g) => g.id)).toEqual(['g-1', 'g-2'])
+  })
+
+  it('a pin naming a table not in the room is ignored: that guest is unseated, no slot gains them, and nothing throws', () => {
+    const room: RoomConfig = { roundTables: 3, seatsEach: 8, topTableSeats: 6 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1')]
+    const pins: Pin[] = [{ guestId: 'g-1', tableId: 'round-99' }]
+
+    expect(() => seatingFromPins(slots, guests, pins)).not.toThrow()
+    const seating = seatingFromPins(slots, guests, pins)
+
+    for (const slot of slots) {
+      expect(occupantsAt(seating, slot.id).guests).toEqual([])
+    }
+    expect(unseatedGuests(slots, guests, pins)).toEqual(guests)
+  })
+
+  it('a pin naming a guest not in the list is ignored the same way', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1')]
+    const pins: Pin[] = [{ guestId: 'g-ghost', tableId: 'round-1' }]
+
+    const seating = seatingFromPins(slots, guests, pins)
+
+    expect(occupantsAt(seating, 'round-1').guests).toEqual([])
+    expect(unseatedGuests(slots, guests, pins)).toEqual(guests)
+  })
+
+  it('removing the only pin at a table returns it to pinnedCount: 0, which is what clears the dot', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1')]
+
+    const withPin = seatingFromPins(slots, guests, [{ guestId: 'g-1', tableId: 'round-1' }])
+    expect(occupantsAt(withPin, 'round-1').pinnedCount).toBe(1)
+
+    const withoutPin = seatingFromPins(slots, guests, [])
+    expect(occupantsAt(withoutPin, 'round-1').pinnedCount).toBe(0)
+  })
+
+  it('is deterministic: the same slots, guests and pins produce deeply equal seating when called twice', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 8, topTableSeats: 6 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1'), makeGuest('g-2')]
+    const pins: Pin[] = [{ guestId: 'g-1', tableId: 'round-1' }]
+
+    expect(seatingFromPins(slots, guests, pins)).toEqual(seatingFromPins(slots, guests, pins))
+    expect(seatingFromPins([...slots], [...guests], [...pins])).toEqual(seatingFromPins(slots, guests, pins))
+  })
+})
+
+describe('unseatedGuests — the guests with no resolvable pin (TT-12)', () => {
+  it('with no pins at all, every guest is unseated, in guest-list order', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
+
+    expect(unseatedGuests(slots, guests, [])).toEqual(guests)
+  })
+
+  it('returns exactly the guests with no resolvable pin, in guest-list order', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
+    const pins: Pin[] = [{ guestId: 'g-2', tableId: 'round-1' }]
+
+    expect(unseatedGuests(slots, guests, pins).map((g) => g.id)).toEqual(['g-1', 'g-3'])
+  })
+
+  it('with every guest seated, returns an empty list', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1'), makeGuest('g-2')]
+    const pins: Pin[] = [
+      { guestId: 'g-1', tableId: 'round-1' },
+      { guestId: 'g-2', tableId: 'round-1' },
+    ]
+
+    expect(unseatedGuests(slots, guests, pins)).toEqual([])
+  })
+
+  it('a pin naming a table not in the room does not count as seating the guest — they still show as unseated', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
+    const slots = floorplanFromRoom(room)
+    const guests = [makeGuest('g-1')]
+    const pins: Pin[] = [{ guestId: 'g-1', tableId: 'round-99' }]
+
+    expect(unseatedGuests(slots, guests, pins)).toEqual(guests)
   })
 })
