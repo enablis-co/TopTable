@@ -109,7 +109,7 @@ export type Guest = {
   role: Role
   /**
    * One of the four `AgeBand`s above, matching KB-3, which also fixes `adult` as a new guest's
-   * starting band. KB-2's rule reads it as under or over eighteen, which every band answers.
+   * starting band. What a seating rule reads from it is KB-2's, not this file's.
    */
   age: AgeBand
   /** Who arrived together. Null when the guest came alone. */

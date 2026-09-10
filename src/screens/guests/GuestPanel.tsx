@@ -71,6 +71,9 @@ function joinWithOr(values: readonly string[]): string {
  * offered, but still recordable) — deliberately one extra step, never a dead end. `tags` stays
  * free text ("by definition", KB-3), and nobody asked for `accessibility` to change, so neither
  * field below carries this prop.
+ *
+ * `KNOWN_ALLERGIES` offers four of the fourteen regulated allergens. Widening that list is
+ * KB-3's owner's call, not ours, so do not read it as the complete set.
  */
 const ALLERGY_HINT = `${capitalizeFirst(joinWithOr(KNOWN_ALLERGIES))} — or something else.`
 const DIETARY_HINT = `${capitalizeFirst(joinWithOr(KNOWN_DIETARY_PREFERENCES))} — or something else.`
