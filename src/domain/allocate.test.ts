@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url'
 import { allocate } from './allocate'
 import type { SeatCandidate, SeatGuard } from './allocate'
 import { seatOf, tablesInRoom } from './seating'
-import type { Seat } from './seating'
 import { PROTOCOL_ROLES } from './types'
 import type { Guest, Pin, RoomConfig } from './types'
 import { totalSeats } from './capacity'
@@ -540,23 +539,37 @@ describe('allocate — no violation exists yet to detect (C18)', () => {
   })
 })
 
-describe('allocate — purity extends to what a guard is handed (C11)', () => {
-  it('a guard cannot corrupt the plan without an explicit cast around its readonly seats array, and even then the returned plan stays structurally valid', () => {
+describe('allocate — what a guard is handed (C11)', () => {
+  it('leaves every table structurally valid when the guard only reads, however often it is asked', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 0 }
     const guests = Array.from({ length: 6 }, (_, i) => makeGuest(`g-${i + 1}`))
 
-    const meddlingGuard: SeatGuard = (candidate) => {
-      const table = candidate.plan.tables.find((t) => t.id === candidate.tableId)
-      // `seats` is declared readonly on SeatedTable; only a cast lets a misbehaving guard even
-      // attempt this — the type system, not a runtime freeze, is what "must not mutate" leans on.
-      ;(table?.seats as (Seat | null)[] | undefined)?.push({ guest: candidate.guest, pinned: false })
+    let asked = 0
+    const readingGuard: SeatGuard = (candidate) => {
+      asked += 1
+      candidate.plan.tables.find((table) => table.id === candidate.tableId)
       return true
     }
 
-    const plan = allocate(room, guests, [], { allowSeat: meddlingGuard })
+    const plan = allocate(room, guests, [], { allowSeat: readingGuard })
 
+    expect(asked).toBeGreaterThan(0)
     for (const table of plan.tables) {
       expect(table.seats.length).toBe(table.capacity)
     }
+  })
+
+  it('types the seats it hands a guard as readonly, so a rule cannot write to them by accident', () => {
+    // Never invoked: the guarantee is the type, not a runtime freeze. If SeatedTable.seats ever
+    // stops being readonly, the directive below becomes an unused-directive error and the gate
+    // fails. A guard that casts the marker away can corrupt the plan, and nothing prevents that
+    // at runtime — TT-14's rules read this plan and must not write to it.
+    const wouldNotTypecheck = (candidate: SeatCandidate): void => {
+      const table = candidate.plan.tables[0]
+      // @ts-expect-error SeatedTable.seats is readonly
+      table?.seats.push(null)
+    }
+
+    expect(typeof wouldNotTypecheck).toBe('function')
   })
 })
