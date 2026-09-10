@@ -8,4 +8,5 @@
   grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
   gap: var(--space-5);
   align-items: start;
+  margin-top: var(--space-4);
 }
