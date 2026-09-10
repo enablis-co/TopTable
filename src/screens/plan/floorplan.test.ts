@@ -25,9 +25,6 @@ import { totalSeats } from '../../domain/capacity'
  *
  * KB-3's three scenario rooms: small-and-cosy {4,8,8}, adding-up {9,8,6}, celebrity-scale
  * {26,8,8}. "Five tables" and "twenty-seven" both count the top table.
- *
- * Every Guest fixture sets `age` to an AgeBand, never a number — see the comment on Guest.age
- * in src/domain/types.ts for why KB-3's `number` typing is the stale copy here.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
