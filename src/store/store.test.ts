@@ -100,7 +100,7 @@ describe('persistence', () => {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '') as {
       state: Record<string, unknown>
     }
-    expect(Object.keys(stored.state).sort()).toEqual(['event', 'guests', 'room', 'scenario'])
+    expect(Object.keys(stored.state).sort()).toEqual(['event', 'guests', 'pins', 'room', 'scenario'])
   })
 
   it('survives a refresh', async () => {

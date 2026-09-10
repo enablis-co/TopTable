@@ -1,4 +1,4 @@
-import type { Guest, RoomConfig } from '../../domain/types'
+import type { Guest, Pin, RoomConfig } from '../../domain/types'
 
 /** TT-11's pure view model for the Plan screen: pure, but screen-local, not a domain module. */
 
@@ -93,12 +93,75 @@ export type SeatingView = {
 
 const EMPTY_TABLE: TableOccupants = { guests: [], pinnedCount: 0, inViolation: false }
 
-/** Nothing is seated yet — TT-12, TT-13 and TT-14 will populate a real `SeatingView`. Not a stub to delete. */
+/**
+ * The empty SeatingView: every table clean and unpinned. `seatingFromPins` is what a real
+ * screen reads from now (TT-12); this remains as the fixture tests reach for when nothing is
+ * seated at all.
+ */
 export const NOTHING_SEATED: SeatingView = { byTableId: {} }
 
 /** The entry for a slot, or the empty-table value — never undefined, so callers don't each need their own `?? EMPTY_TABLE` fallback. */
 export function occupantsAt(seating: SeatingView, id: string): TableOccupants {
   return seating.byTableId[id] ?? EMPTY_TABLE
+}
+
+/** guestId -> tableId, from the pins that resolve. Used by seatingFromPins to build its buckets. */
+function liveTableByGuestId(slots: TableSlot[], pins: Pin[]): Map<string, string> {
+  const validIds = new Set(slots.map((slot) => slot.id))
+  const byGuestId = new Map<string, string>()
+  for (const pin of pins) {
+    if (validIds.has(pin.tableId)) {
+      byGuestId.set(pin.guestId, pin.tableId)
+    }
+  }
+  return byGuestId
+}
+
+/**
+ * Iterates `guests`, not `pins`, so a table's guest order always follows the guest list
+ * regardless of pin order — two routes to the same seating state render identically. A pin
+ * naming a guest or table that does not resolve is ignored rather than repaired: storage is
+ * not a trusted input, and shrinking the room can strand a pin on a table that no longer
+ * exists. `pinnedCount` equals the bucket length and `inViolation` is always false — until
+ * TT-13's auto-allocate exists every seated guest is a pinned one, and TT-14 owns violations.
+ */
+export function seatingFromPins(slots: TableSlot[], guests: Guest[], pins: Pin[]): SeatingView {
+  const tableByGuestId = liveTableByGuestId(slots, pins)
+
+  const buckets = new Map<string, Guest[]>()
+  for (const guest of guests) {
+    const tableId = tableByGuestId.get(guest.id)
+    if (tableId === undefined) continue
+
+    const bucket = buckets.get(tableId)
+    if (bucket) {
+      bucket.push(guest)
+    } else {
+      buckets.set(tableId, [guest])
+    }
+  }
+
+  const byTableId: Record<string, TableOccupants> = {}
+  for (const [tableId, tableGuests] of buckets) {
+    byTableId[tableId] = { guests: tableGuests, pinnedCount: tableGuests.length, inViolation: false }
+  }
+
+  return { byTableId }
+}
+
+/**
+ * The complement of a SeatingView's buckets: guests seated at no table, in guest-list order.
+ * Reads the seating it is handed rather than re-resolving pins its own way, so this and
+ * planTotals's own unseatedCount can never disagree about who counts as seated.
+ */
+export function unseatedGuests(guests: Guest[], seating: SeatingView): Guest[] {
+  const seatedIds = new Set<string>()
+  for (const occupants of Object.values(seating.byTableId)) {
+    for (const guest of occupants.guests) {
+      seatedIds.add(guest.id)
+    }
+  }
+  return guests.filter((guest) => !seatedIds.has(guest.id))
 }
 
 /**

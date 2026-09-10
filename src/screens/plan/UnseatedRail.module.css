@@ -1,0 +1,40 @@
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.instruction {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Descendant selectors (0,2,0) beat Button.module.css's .button and .quiet (0,1,0) whatever
+   order the bundle emits them in. railStyles.test.ts asserts the pressed row's shape. */
+.rail .row {
+  display: block;
+  width: 100%;
+  padding: var(--space-2);
+  border-color: transparent;
+  text-align: left;
+  color: var(--ink);
+}
+
+.rail .row[aria-pressed='true'] {
+  border-color: var(--slate);
+}

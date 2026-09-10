@@ -104,10 +104,68 @@
   font-size: var(--text-caption);
 }
 
+/* Descendant selectors (0,2,0) beat Button.module.css's .button and .quiet (0,1,0) whatever
+   order the bundle emits them in — floorplanStyles.test.ts asserts the frame is neutralised.
+   align-self: stretch keeps it the table's full width always; .table's align-items: center
+   would otherwise shrink it to its own content, leaving a narrow, off-centre click target. */
+.table .face {
+  flex: 1;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+  border-radius: inherit;
+}
+
+/* (0,4,0): .table, .face, :hover and :not(:disabled) each count, beating Button.module.css's
+   .quiet:hover:not(:disabled) at (0,3,0) regardless of source order — without it a hovered
+   face paints --sunken, which is the data-occupancy="full" fill (KB-5). */
+.table .face:hover:not(:disabled) {
+  background: transparent;
+}
+
+/* .round sets overflow: hidden, which clips an outline drawn outside the element — so this
+   ring is inset. floorplanStyles.test.ts asserts the negative offset; only the browser pass
+   can confirm it is visible. */
+.table .face:focus-visible {
+  outline: 2px solid var(--slate);
+  outline-offset: -3px;
+}
+
+/* Same reasoning as .table .face above: without this, every guest name would carry the
+   shared button's border and padding rather than reading as a plain name in the list. */
+.guests .release {
+  display: inline;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+
+/* Same trap as .table .face's hover rule above, for the same reason. */
+.guests .release:hover:not(:disabled) {
+  background: transparent;
+}
+
 /* Revealed by container query, not a ResizeObserver — jsdom does no layout, so a
-   measurement-based approach would be untestable. */
+   measurement-based approach would be untestable. A container query's min-width reads the
+   content box, not the border box, so this threshold is not the table's own rendered width.
+   .face keeps growing (flex: 1, above) only up to here — once the guest list is revealed it
+   must stop, or it pushes the list past the table's centre; floorplanStyles.test.ts asserts
+   this reset is declared. */
 @container (min-width: 132px) {
   .guests {
     display: block;
+  }
+
+  .table .face {
+    flex: initial;
   }
 }

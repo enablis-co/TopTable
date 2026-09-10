@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware'
-import type { EventDetails, Guest, RoomConfig } from '../domain/types'
+import type { EventDetails, Guest, Pin, RoomConfig } from '../domain/types'
 import { isScenarioId, scenarioById } from '../domain/scenarios'
 import type { ScenarioId } from '../domain/scenarios'
 import {
@@ -8,19 +8,21 @@ import {
   removeGuest as domainRemoveGuest,
   updateGuest as domainUpdateGuest,
 } from '../domain/guests'
+import { pinGuest as domainPinGuest, unpinGuest as domainUnpinGuest } from '../domain/pins'
 
 /**
- * The single store. It holds the event, the room config, the guest list and which scenario
- * (if any) is loaded, and nothing else. Everything is local: this is the whole of the
- * product's persistent state.
+ * The single store. It holds the event, the room config, the guest list, which scenario (if
+ * any) is loaded, and the pins, and nothing else. Everything is local: this is the whole of
+ * the product's persistent state.
  *
- * The plan, the violations and the allocation engine's output are not here. They are
- * derived from this data plus the rules, and they arrive with their own tickets.
+ * The plan, the seat assignments and the violations are not here. They are derived from this
+ * data plus the rules, and they arrive with their own tickets. A pin is a human decision, not
+ * a derivation (TT-12), so unlike those it is stored.
  *
- * The write surface is eight actions: setEventName, setRoom, setGuests, importScenario,
- * reset, addGuest, updateGuest and removeGuest. The last three are thin delegates onto
- * `src/domain/guests.ts` — reciprocal `partnerOf`/`conflictsWith` writes are real domain
- * behaviour (TT-5) and are not improvised here.
+ * The write surface is ten actions: setEventName, setRoom, setGuests, importScenario, reset,
+ * addGuest, updateGuest, removeGuest, pinGuest and unpinGuest. addGuest, updateGuest and
+ * removeGuest are thin delegates onto `src/domain/guests.ts`; pinGuest and unpinGuest the
+ * same onto `src/domain/pins.ts` — none of that behaviour is improvised here.
  */
 
 export const STORAGE_KEY = 'top-table'
@@ -30,7 +32,7 @@ export const STORAGE_KEY = 'top-table'
  * discarded rather than migrated, which is the honest option while there is no released
  * version to migrate from.
  */
-export const STORAGE_VERSION = 3
+export const STORAGE_VERSION = 4
 
 /** null: nothing imported. 'custom': imported, then the room was edited (TT-4). */
 export type ScenarioState = ScenarioId | 'custom' | null
@@ -40,6 +42,7 @@ export type TopTableData = {
   room: RoomConfig
   guests: Guest[]
   scenario: ScenarioState
+  pins: Pin[]
 }
 
 export type TopTableActions = {
@@ -58,6 +61,10 @@ export type TopTableActions = {
   updateGuest: (guest: Guest) => void
   /** Drops a guest and unpicks every reference to them (TT-5). See `src/domain/guests.ts`. */
   removeGuest: (id: string) => void
+  /** Places a guest at a table, replacing any pin they already held (TT-12). See `src/domain/pins.ts`. */
+  pinGuest: (guestId: string, tableId: string) => void
+  /** Releases a guest's pin, if they hold one (TT-12). See `src/domain/pins.ts`. */
+  unpinGuest: (guestId: string) => void
 }
 
 export type TopTableStore = TopTableData & TopTableActions
@@ -71,6 +78,7 @@ export const firstVisitState: TopTableData = {
   room: { roundTables: 0, seatsEach: 0, topTableSeats: 0 },
   guests: [],
   scenario: null,
+  pins: [],
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -85,7 +93,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function isTopTableData(value: unknown): value is TopTableData {
   if (!isRecord(value)) return false
 
-  const { event, room, guests, scenario } = value
+  const { event, room, guests, scenario, pins } = value
   if (!isRecord(event) || typeof event.name !== 'string') return false
   if (!isRecord(room)) return false
   if (
@@ -96,6 +104,7 @@ export function isTopTableData(value: unknown): value is TopTableData {
     return false
   }
   if (!Array.isArray(guests)) return false
+  if (!Array.isArray(pins)) return false
   return scenario === null || scenario === 'custom' || isScenarioId(scenario)
 }
 
@@ -146,12 +155,15 @@ export const useTopTableStore = create<TopTableStore>()(
           scenario: state.scenario === null ? null : 'custom',
         })),
 
-      setGuests: (guests) => set({ guests }),
+      // Every pin names a guest who may no longer be in the new list, so a wholesale
+      // replacement clears pins rather than trying to carry them over.
+      setGuests: (guests) => set({ guests, pins: [] }),
 
       // The room is looked up from the manifest rather than passed in, so a caller cannot
-      // pair one scenario's id with another's room. One `set` call replaces guests and room
-      // together, so C3's atomicity is structural rather than a convention.
-      importScenario: (id, guests) => set({ room: { ...scenarioById(id).room }, guests, scenario: id }),
+      // pair one scenario's id with another's room. One `set` call replaces guests, room and
+      // pins together, so the atomicity is structural rather than a convention.
+      importScenario: (id, guests) =>
+        set({ room: { ...scenarioById(id).room }, guests, scenario: id, pins: [] }),
 
       reset: () => set({ ...firstVisitState }),
 
@@ -161,7 +173,13 @@ export const useTopTableStore = create<TopTableStore>()(
 
       updateGuest: (guest) => set((state) => ({ guests: domainUpdateGuest(state.guests, guest) })),
 
-      removeGuest: (id) => set((state) => ({ guests: domainRemoveGuest(state.guests, id) })),
+      // domainRemoveGuest already returns { guests, pins } — a valid partial on its own.
+      removeGuest: (id) => set((state) => domainRemoveGuest(state.guests, state.pins, id)),
+
+      pinGuest: (guestId, tableId) =>
+        set((state) => ({ pins: domainPinGuest(state.pins, guestId, tableId) })),
+
+      unpinGuest: (guestId) => set((state) => ({ pins: domainUnpinGuest(state.pins, guestId) })),
     }),
     {
       name: STORAGE_KEY,
@@ -173,6 +191,7 @@ export const useTopTableStore = create<TopTableStore>()(
         room: state.room,
         guests: state.guests,
         scenario: state.scenario,
+        pins: state.pins,
       }),
       // An older or unrecognised version is discarded, not repaired.
       migrate: () => firstVisitState,

@@ -108,13 +108,8 @@ export type Guest = {
   side: Side
   role: Role
   /**
-   * KB-3 types this `number` and says "Always present. Drives the generation mix rule."
-   * Both clauses are wrong as of the product decision of 2026-09-09: this field holds one of
-   * the four `AgeBand`s above, not a number, and a band cannot answer KB-2's generation-mix
-   * rule ("at least one guest over 30 and one under 30") — `adult` alone spans both sides of
-   * that line. TT-20 owns the rule and has to re-specify it against bands before it can be
-   * built. KB-3 has not been updated to match; this comment is the record of the divergence
-   * until it is.
+   * One of the four `AgeBand`s above, matching KB-3, which also fixes `adult` as a new guest's
+   * starting band. What a seating rule reads from it is KB-2's, not this file's.
    */
   age: AgeBand
   /** Who arrived together. Null when the guest came alone. */
@@ -148,4 +143,15 @@ export type RoomConfig = {
 /** KB-6 shows one free text field, for example "Priya and Tom, 14 March". */
 export type EventDetails = {
   name: string
+}
+
+/**
+ * A pin is a human decision, not a derivation, so — unlike the rest of a plan — it is stored
+ * (KB-1, "Pinning is the idea the product turns on"). `tableId` is opaque here: the domain
+ * matches on `guestId` only and never interprets the address, which today is the Plan screen's
+ * `TableSlot.id`. TT-13 defines a table address canonically.
+ */
+export type Pin = {
+  guestId: string
+  tableId: string
 }

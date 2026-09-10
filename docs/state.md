@@ -2,9 +2,9 @@
 
 ## One store
 
-[`src/store/store.ts`](../src/store/store.ts) holds the event, the room config, the guest list and
-which scenario (if any) is loaded. That is the whole of the product's persistent state, because
-everything is local: there is no server copy and nothing to reconcile against.
+[`src/store/store.ts`](../src/store/store.ts) holds the event, the room config, the guest list,
+which scenario (if any) is loaded, and the pins. That is the whole of the product's persistent
+state, because everything is local: there is no server copy and nothing to reconcile against.
 
 ```ts
 type TopTableData = {
@@ -12,6 +12,7 @@ type TopTableData = {
   room: RoomConfig       // { roundTables, seatsEach, topTableSeats }
   guests: Guest[]        // KB-3, thirteen fields
   scenario: ScenarioState // ScenarioId | 'custom' | null — which scenario is loaded, if any (TT-4)
+  pins: Pin[]             // { guestId, tableId } — a human decision, so it is stored (TT-12)
 }
 ```
 
@@ -21,17 +22,18 @@ type TopTableData = {
 rules. Storing a violation list would let it disagree with the guests it describes, and then the
 screen and the plan would each be right about something different.
 
-**The pins are the exception in waiting.** A pin is a human decision, not a derivation, so it will
-have to be stored. It arrives with the ticket that introduces placing, not before.
+**Pins are the exception, and they are held.** A pin is a human decision, not a derivation
+(TT-12), so unlike the plan, the seat assignments and the violations above, it is real stored
+state rather than something the app recomputes.
 
 **Anything computed.** Total seats is `roundTables * seatsEach + topTableSeats` and lives with the
 setup screen, TT-3. Nothing that can be recomputed from the three fields above belongs here.
 
 ## The write surface
 
-`setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`, `addGuest`, `updateGuest` and
-`removeGuest`. `setEventName`, `setRoom` and `setGuests` are what TT-2 needs to stand the project
-up and prove persistence.
+`setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`, `addGuest`, `updateGuest`,
+`removeGuest`, `pinGuest` and `unpinGuest`. `setEventName`, `setRoom` and `setGuests` are what
+TT-2 needs to stand the project up and prove persistence.
 
 **Guest add, edit and remove are here, and reciprocity is not improvised in this file.**
 `partnerOf` and `conflictsWith` are reciprocal — present on both guests, resolvable from either
@@ -39,9 +41,19 @@ direction — so adding a guest with a partner writes two records, and removing 
 unpick every reference to them from both sides. That is real domain behaviour with its own
 acceptance criteria (TT-5), and it lives in one place: `src/domain/guests.ts`. `addGuest`,
 `updateGuest` and `removeGuest` on the store are one-line delegates onto the domain functions of
-the same name — this file holds no reciprocity logic of its own.
+the same name — this file holds no reciprocity logic of its own. `removeGuest` also reconciles
+pins in that same call (TT-12): a removed guest's pin, if they held one, is cleared inside
+`src/domain/guests.ts` itself, not as a step beside it.
+
+**`pinGuest` and `unpinGuest` are the same kind of delegate, onto `src/domain/pins.ts`** (TT-12).
+Placing a guest pins them at a table; releasing drops that pin. Neither validates the guest or
+table id — the caller reads the guest out of the list first, and a pin naming nothing real is
+simply left unresolved wherever the plan is built from the pins.
 
 `setGuests` replaces the whole list, because a scenario import is a replacement and not a merge.
+Both it and `importScenario` clear the pins in the same `set` call, because every pin names a
+guest who may no longer be in the new list. `setRoom` leaves the pins alone — editing the room is
+not editing who is pinned, even though it can strand a pin on a table that no longer exists.
 
 **`importScenario` (TT-4) replaces the guest list and the room together, in one `set` call**, so
 the replacement is atomic rather than a convention two separate writes have to honour. The event
@@ -59,7 +71,7 @@ Zustand's `persist` middleware, one key, `top-table`.
 
 ```ts
 export const STORAGE_KEY = 'top-table'
-export const STORAGE_VERSION = 3
+export const STORAGE_VERSION = 4
 ```
 
 **Storage is not a trusted input.** It survives across releases, it is editable by hand in dev
@@ -83,7 +95,7 @@ there is no real shape to migrate from, and a migration written against a hypoth
 is untested code guarding data that never existed. Once there is a released version, this becomes a
 real `migrate` and the honest answer changes.
 
-`partialize` writes the four data fields and never the actions.
+`partialize` writes the five data fields and never the actions.
 
 ## First visit
 
@@ -93,6 +105,7 @@ real `migrate` and the honest answer changes.
   room: { roundTables: 0, seatsEach: 0, topTableSeats: 0 },
   guests: [],
   scenario: null,
+  pins: [],
 }
 ```
 

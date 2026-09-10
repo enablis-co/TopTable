@@ -205,33 +205,11 @@ goes stale.
 `src/ui/` (tokens, base styles, the shared components) and `src/shell/` (the header and the tab
 frame) exist now; TT-7 built them. The setup screen is TT-3 and has landed; TT-4 has added the
 scenario cards to it. Guests is TT-5 and TT-6 and has landed. The Plan screen's floorplan is TT-11
-and has landed; placing, the seating model, the rules engine and the table detail are TT-12 to TT-15
-and have not.
+and has landed; placing is TT-12 and has landed too. The seating model, the rules engine and the
+table detail are TT-13 to TT-15 and have not.
 
 The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`,
-`addGuest`, `updateGuest` and `removeGuest`. The last three are thin delegates onto
-`src/domain/guests.ts`, which owns reciprocal `partnerOf` and `conflictsWith` and is the only place
-that logic lives. See [docs/state.md](docs/state.md).
-
-### Two places the code no longer matches KB-3
-
-Both are product decisions of 2026-09-09, taken with the consequences stated. Neither page has been
-updated, so **KB-3 is the stale copy and the code is current** — the reverse of the usual direction,
-and the reason they are written down here.
-
-**`Guest.age` is a band, not a number.** It holds one of four `AgeBand`s — baby, child, teen,
-adult — where KB-3 types it `number` and calls it "always present". The consequence that outlives
-this ticket: KB-2's generation-mix rule is written as "at least one guest over 30 and one under 30",
-and `adult` spans both sides of that line, so **the rule as published cannot be evaluated from the
-data as stored.** It is a soft rule, so it would not fail to build — it would report an unresolvable
-violation on every table, forever. Whoever picks it up needs KB-2's owner to re-specify it first.
-Do not invent a replacement boundary.
-
-**Allergies and dietary preferences are entered from a closed picker.** The stored type is still
-`string[]`, so KB-3's typing holds — but KB-3 says the `KNOWN_*` vocabularies "do not constrain what
-a guest may carry", and for these two fields the input now does. There is an explicit "something
-else" path, so a rare allergy stays recordable: `KNOWN_ALLERGIES` carries KB-3's four values where
-fourteen allergens are regulated, and widening that list is KB-3's owner's call, not ours.
-
-The comments on `Guest.age` in `src/domain/types.ts` and on the two fields in
-`src/screens/guests/GuestPanel.tsx` are the record until the pages catch up.
+`addGuest`, `updateGuest`, `removeGuest`, `pinGuest` and `unpinGuest`. `addGuest`, `updateGuest`
+and `removeGuest` are thin delegates onto `src/domain/guests.ts`, which owns reciprocal
+`partnerOf` and `conflictsWith` and is the only place that logic lives; `pinGuest` and
+`unpinGuest` are the same onto `src/domain/pins.ts`. See [docs/state.md](docs/state.md).
