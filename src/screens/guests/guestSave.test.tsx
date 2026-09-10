@@ -192,14 +192,16 @@ describe('deleting a guest leaves nothing dangling (C13)', () => {
 })
 
 describe('nothing is seated by either ticket (C33)', () => {
-  it('adding, editing and removing a guest through the screen writes no seat, pin, plan or violation key to the store', async () => {
+  it('adding, editing and removing a guest through the screen writes no seat, plan or violation key to the store, and leaves pins empty', async () => {
     useTopTableStore.getState().setGuests([makeGuest('existing', { name: 'Dev Patel' })])
     const user = userEvent.setup()
     renderGuestsScreen()
 
+    // TT-12 gave the store a real `pins` key, so this guest-only guard now checks that key's
+    // *value* stays empty (none of these guests are ever pinned) rather than its absence.
     function assertNoSeatingState() {
       const state = useTopTableStore.getState() as unknown as Record<string, unknown>
-      expect(state).not.toHaveProperty('pins')
+      expect(state.pins).toEqual([])
       expect(state).not.toHaveProperty('plan')
       expect(state).not.toHaveProperty('seats')
       expect(state).not.toHaveProperty('violations')
