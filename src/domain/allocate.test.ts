@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { allocate } from './allocate'
 import type { SeatCandidate, SeatGuard } from './allocate'
 import { seatOf, tablesInRoom } from './seating'
+import type { SeatedTable } from './seating'
 import { PROTOCOL_ROLES } from './types'
 import type { Guest, Pin, RoomConfig } from './types'
 import { totalSeats } from './capacity'
@@ -560,16 +561,13 @@ describe('allocate — what a guard is handed (C11)', () => {
   })
 
   it('types the seats it hands a guard as readonly, so a rule cannot write to them by accident', () => {
-    // Never invoked: the guarantee is the type, not a runtime freeze. If SeatedTable.seats ever
-    // stops being readonly, the directive below becomes an unused-directive error and the gate
-    // fails. A guard that casts the marker away can corrupt the plan, and nothing prevents that
-    // at runtime — TT-14's rules read this plan and must not write to it.
-    const wouldNotTypecheck = (candidate: SeatCandidate): void => {
-      const table = candidate.plan.tables[0]
-      // @ts-expect-error SeatedTable.seats is readonly
-      table?.seats.push(null)
-    }
+    // The guarantee is the type, not a runtime freeze: a readonly array is not assignable to a
+    // mutable one, so this resolves to true only while the marker holds and the gate fails if it
+    // is ever dropped. A guard that casts the marker away can still corrupt the plan and nothing
+    // stops it at runtime — TT-14's rules read this plan and must not write to it.
+    type SeatsAreReadonly = SeatedTable['seats'] extends unknown[] ? false : true
+    const marker: SeatsAreReadonly = true
 
-    expect(typeof wouldNotTypecheck).toBe('function')
+    expect(marker).toBe(true)
   })
 })
