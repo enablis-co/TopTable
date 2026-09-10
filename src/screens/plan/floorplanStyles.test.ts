@@ -29,6 +29,10 @@ const ROUND_PINNED_AFTER = /\.round\[\s*data-pinned(?:\s*=\s*['"]?true['"]?)?\s*
 // specificity rather than on source order.
 const FACE_BASE = /\.table\s+\.face\s*\{/
 const FACE_FOCUS_VISIBLE = /\.table\s+\.face:focus-visible\s*\{/
+// (0,4,0): .table, .face, :hover and :not(:disabled) each count, beating Button.module.css's
+// .quiet:hover:not(:disabled) at (0,3,0) regardless of source order.
+const FACE_HOVER = /\.table\s+\.face:hover:not\(:disabled\)\s*\{/
+const RELEASE_HOVER = /\.guests\s+\.release:hover:not\(:disabled\)\s*\{/
 
 function readCss(): string {
   return readFileSync(CSS_PATH, 'utf8')
@@ -300,5 +304,36 @@ describe('PlanTable.module.css — .guests stays first inside the @container blo
       if (match[1] === '.guests') continue
       expect(match.index).toBeGreaterThan(guestsIndex)
     }
+  })
+})
+
+describe('PlanTable.module.css — hovering the face or a release button repaints nothing (TT-12)', () => {
+  it('.table .face:hover:not(:disabled) neutralises the background back to transparent', () => {
+    const rule = requireRule(readCss(), FACE_HOVER, '.table .face:hover:not(:disabled)')
+    expect(rule.body).toMatch(/background\s*:\s*transparent/i)
+  })
+
+  it('.guests .release:hover:not(:disabled) does the same for a release button', () => {
+    const rule = requireRule(readCss(), RELEASE_HOVER, '.guests .release:hover:not(:disabled)')
+    expect(rule.body).toMatch(/background\s*:\s*transparent/i)
+  })
+})
+
+describe("PlanTable.module.css — the face fills the table's width always, and only grows vertically while it is the sole visible child", () => {
+  it('the base .face rule declares align-self: stretch, not left to .table\'s shrink-wrapping align-items: center', () => {
+    const rule = requireRule(readCss(), FACE_BASE, '.table .face')
+    expect(rule.body).toMatch(/align-self\s*:\s*stretch/i)
+  })
+
+  it('the base .face rule still grows by default — for when it is the table\'s only visible child, below the container-query threshold', () => {
+    const rule = requireRule(readCss(), FACE_BASE, '.table .face')
+    expect(rule.body).toMatch(/flex\s*:\s*1\b/)
+  })
+
+  it('inside the @container block, a .face override stops it growing once the guest list is revealed', () => {
+    const body = containerBlockBody(readCss())
+    const rule = /\.table\s+\.face\s*\{([^}]*)\}/.exec(body)
+    expect(rule, 'expected a .table .face override inside the @container block').not.toBeNull()
+    expect(rule?.[1] ?? '').toMatch(/flex\s*:\s*initial/i)
   })
 })
