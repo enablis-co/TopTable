@@ -26,6 +26,11 @@ screen and the plan would each be right about something different.
 (TT-12), so unlike the plan, the seat assignments and the violations above, it is real stored
 state rather than something the app recomputes.
 
+**TT-13's allocated seating is exactly this kind of derived state.** It is computed on demand
+from the room, the guest list, the pins and whatever rules are registered — never written back.
+Whether the room has been auto-allocated at all is `PlanScreen`'s own view state, not a field on
+`TopTableData`, which is why `STORAGE_VERSION` did not move when the seating model landed.
+
 **Anything computed.** Total seats is `roundTables * seatsEach + topTableSeats` and lives with the
 setup screen, TT-3. Nothing that can be recomputed from the three fields above belongs here.
 
@@ -96,6 +101,10 @@ is untested code guarding data that never existed. Once there is a released vers
 real `migrate` and the honest answer changes.
 
 `partialize` writes the five data fields and never the actions.
+
+TT-13 needed no version bump: the table address it canonicalised — `'top'`, `roundTableId(n)` —
+is the same string scheme already written into every pin in storage, so every pin from before
+that ticket stays valid.
 
 ## First visit
 
