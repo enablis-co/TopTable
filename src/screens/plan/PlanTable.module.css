@@ -1,0 +1,113 @@
+/*
+ * KB-5: colour never carries meaning alone, so each state below owns a distinct property —
+ * `color` (empty/full), `background` (full only), `border-style`/`border-color` (violation
+ * only, which is how it overrides `.top`'s slate border), and the pin mark (`::after` only) —
+ * so no two state rules ever contest the same property. The one same-specificity pair left,
+ * `.table` against `.round`/`.top`, is resolved by source order: `.round` and `.top` MUST stay
+ * written after `.table`. `floorplanStyles.test.ts` asserts this order directly.
+ */
+
+/* Base. Specificity 0,1,0. */
+.table {
+  position: relative;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+  color: var(--ink);
+  text-align: center;
+}
+
+/* Shape. Also 0,1,0 — written after .table so the pair above resolves correctly. */
+.round {
+  border-radius: 50%;
+  aspect-ratio: 1;
+  /* Lets aspect-ratio win over the grid item's content-based automatic minimum height. */
+  min-height: 0;
+  /* Clips content taller than the circle, so it cannot cross the curve. */
+  overflow: hidden;
+}
+
+/* Not a grid item — FloorplanGrid.tsx renders this table in its own list, outside the grid. */
+.top {
+  border-radius: var(--r-card);
+  border-color: var(--slate);
+  /* Capped and centred, not full-width: KB-6 and the style guide both draw it narrower than
+     the round-table row. floorplanStyles.test.ts guards the cap and the centring. */
+  width: max(280px, 38%);
+  margin-inline: auto;
+}
+
+/* States. Each 0,2,0 (a class plus an attribute selector), beating .table AND .round/.top
+   regardless of where in the file it sits.
+   Known gap: empty and full are not distinguishable with colour stripped out, which fails
+   KB-5's own bar. Recorded, not fixed here — needs KB-5's owner to rule on a shape for one. */
+.table[data-occupancy='empty'] {
+  color: var(--ink-muted);
+  /* No border-color here: the base .table rule already gives an empty table --rule-strong;
+     restating it would just be another place for the two to drift apart. */
+}
+
+/* No rule for data-occupancy="partial": it reads as the base .table rule leaves it. */
+
+.table[data-occupancy='full'] {
+  background: var(--sunken);
+  color: var(--ink-muted);
+}
+
+.table[data-violation='true'] {
+  border-style: dashed;
+  border-color: var(--hard);
+}
+
+.table[data-pinned='true']::after {
+  content: '';
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--slate);
+}
+
+/* Percentages, not fixed pixels, so the dot stays proportionally inside the circle at any
+   track size. 17/28 and 18/28 match design's own floorplan SVG proportions; translate(50%,
+   -50%) recentres the dot on that anchor point. */
+.round[data-pinned='true']::after {
+  top: calc(50% - (18 / 28) * 50%);
+  right: calc(50% - (17 / 28) * 50%);
+  transform: translate(50%, -50%);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: var(--weight-medium);
+}
+
+.occupancy {
+  margin: 0;
+  font-size: var(--text-caption);
+}
+
+.guests {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-caption);
+}
+
+/* Revealed by container query, not a ResizeObserver — jsdom does no layout, so a
+   measurement-based approach would be untestable. */
+@container (min-width: 132px) {
+  .guests {
+    display: block;
+  }
+}

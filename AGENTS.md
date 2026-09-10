@@ -100,9 +100,14 @@ link. `TT-24` names `KB-4` in a comment and links nothing.
 - **A thin ticket is thin on purpose.** `TT-24` and `TT-25` have a title and nothing else because
   someone else writes that specification. Never fill one in, and never invent an acceptance
   criterion to have something to build.
-- **Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP. Drag and
-  drop, undo, catering output, export and sharing are all on the board already, under TT-23,
-  TT-25 and TT-31 to TT-34.
+- **Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP: drag and
+  drop, undo, catering output, export, print, sharing and accounts. Those are on the board under
+  `TT-23`, `TT-25` and `TT-31` to `TT-34`, which is exactly the child set of the `TT-30`
+  Enhancements epic — so ask the board for TT-30's children rather than trusting that range here.
+  **Every rule on KB-2 is in the MVP**, at the severity KB-2 gives it: `TT-14` builds the engine
+  and the first three, `TT-17` to `TT-22` add the remaining six, and `TT-16` scores a plan rather
+  than being a rule. All of those are `TT-10`'s children, so a seating rule is never "ahead of the
+  board" — it is someone else's ticket. This line is a summary, and it has gone stale twice.
 - **The allocation engine is pure domain logic.** No rendering, no React, no store. Rules do not
   mutate the plan, do not depend on the order they run in, and produce the same result twice.
 - **Adding a rule must not require editing a shared file.** Several people add rules at once.
@@ -199,7 +204,9 @@ goes stale.
 
 `src/ui/` (tokens, base styles, the shared components) and `src/shell/` (the header and the tab
 frame) exist now; TT-7 built them. The setup screen is TT-3 and has landed; TT-4 has added the
-scenario cards to it. Guests is TT-5 and TT-6 and has landed. The plan is still TT-11 to TT-15.
+scenario cards to it. Guests is TT-5 and TT-6 and has landed. The Plan screen's floorplan is TT-11
+and has landed; placing, the seating model, the rules engine and the table detail are TT-12 to TT-15
+and have not.
 
 The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`,
 `addGuest`, `updateGuest` and `removeGuest`. The last three are thin delegates onto

@@ -23,7 +23,7 @@ in them.
 
 | Page | What you need from it |
 |---|---|
-| `docs/engineering-standards.md` | The layout, the domain boundary and its direction, the TypeScript settings, where tests live, what the suite cannot see, the gate |
+| `docs/engineering-standards.md` | The layout, the domain boundary and its direction, the TypeScript settings, **what a comment is for**, where tests live, what the suite cannot see, the gate |
 | `docs/state.md` | What the store holds, what it must not, and the whole write surface |
 | `docs/style-guide.html` | The brand as a working page. Its CSS is the starting point for tokens and its markup can be lifted |
 

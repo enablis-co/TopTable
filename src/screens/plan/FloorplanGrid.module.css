@@ -1,0 +1,46 @@
+/* `.grid` doesn't use `auto-fit`/`auto-fill` — those respond only to container width and would
+   keep every track growing back to a fixed ceiling regardless of count. `--floorplan-columns`
+   (FloorplanGrid.tsx, from ./floorplan.ts) makes the column count respond to table count
+   instead. */
+.floorplan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* A one-item list: a bare <li> outside any list container does not carry the "listitem" role. */
+.topRow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* `.grid` (the `<ul>` inside) stays at the default `overflow: visible`, so its excess width
+   escapes into this wrapper, which is what `overflow-x: auto` here catches. `overflow-y` stays
+   unset — floorplanStyles.test.ts checks it isn't pinned to hidden/scroll — so vertical
+   scrolling stays with the document. */
+.gridScroll {
+  overflow-x: auto;
+}
+
+/* Restates base.css's global :focus-visible — the same convention Button.module.css and
+   CardButton.module.css follow for the focusable elements they own. */
+.gridScroll:focus-visible {
+  outline: 2px solid var(--slate);
+  outline-offset: 2px;
+}
+
+.grid {
+  display: grid;
+  /* --floorplan-columns is set inline by FloorplanGrid.tsx; the `, 1` fallback only matters if
+     this class is ever used without it. 112px/200px are the floor and ceiling. */
+  grid-template-columns: repeat(var(--floorplan-columns, 1), minmax(112px, 200px));
+  gap: var(--space-4);
+  /* `safe center`, not plain `center`: centres the row while it fits, but falls back to start
+     alignment once it overflows its own box, so the first table stays reachable rather than
+     being centred off-screen along with the rest of the overflow. */
+  justify-content: safe center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

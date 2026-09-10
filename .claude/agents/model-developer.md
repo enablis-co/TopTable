@@ -23,7 +23,7 @@ in them.
 
 | Page | What you need from it |
 |---|---|
-| `docs/engineering-standards.md` | The layout, the domain boundary and its direction, the three properties every rule holds, the TypeScript settings, where tests live, the gate |
+| `docs/engineering-standards.md` | The layout, the domain boundary and its direction, the three properties every rule holds, the TypeScript settings, **what a comment is for**, where tests live, the gate |
 
 `docs/state.md` is deliberately not on that list. The domain is pure and does not touch the store.
 
@@ -64,9 +64,11 @@ direction. Whatever writes them keeps both sides in step.
 
 ## Hold the line on scope
 
-- What is out of the MVP is in `docs/engineering-standards.md`, under Scope. **Any rule beyond
-  capacity** is out.
-- A rule being specified in KB-2 does not mean it is in scope yet. Check the board.
+- What is out of the MVP is in `docs/engineering-standards.md`, under Scope. **Every rule on KB-2
+  is in the MVP**, at the severity KB-2 gives it, so no seating rule is "ahead of the board".
+- But each rule has its own ticket — `TT-14` builds the engine and the first three, `TT-17` to
+  `TT-22` add the rest — and only the one your plan names is yours. Check the board; do not build a
+  neighbouring rule because the engine is open in front of you.
 - Pinning is the idea the product turns on: placing someone by hand pins them, and auto-allocate
   works around the pins rather than over them.
 
