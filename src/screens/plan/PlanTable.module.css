@@ -105,11 +105,9 @@
 }
 
 /* Revealed by container query, not a ResizeObserver — jsdom does no layout, so a
-   measurement-based approach would be untestable. A size query reads the container's content
-   box regardless of box-sizing, so this threshold also has to clear .table's own padding and
-   border, not just the reveal width itself, or it silently never fires. floorplanStyles.test.ts
-   only asserts the rule exists and toggles display; only the browser pass catches the wrong box. */
-@container (min-width: 158px) {
+   measurement-based approach would be untestable. A container query's min-width reads the
+   content box, not the border box, so this threshold is not the table's own rendered width. */
+@container (min-width: 132px) {
   .guests {
     display: block;
   }
