@@ -105,9 +105,47 @@
 }
 
 /* Revealed by container query, not a ResizeObserver — jsdom does no layout, so a
-   measurement-based approach would be untestable. */
-@container (min-width: 132px) {
+   measurement-based approach would be untestable. A size query reads the container's content
+   box regardless of box-sizing, so this threshold also has to clear .table's own padding and
+   border, not just the reveal width itself, or it silently never fires. floorplanStyles.test.ts
+   only asserts the rule exists and toggles display; only the browser pass catches the wrong box. */
+@container (min-width: 158px) {
   .guests {
     display: block;
   }
+}
+
+/* Descendant selectors (0,2,0) beat Button.module.css's .button and .quiet (0,1,0) whatever
+   order the bundle emits them in — floorplanStyles.test.ts asserts the frame is neutralised. */
+.table .face {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+  border-radius: inherit;
+}
+
+/* .round sets overflow: hidden, which clips an outline drawn outside the element — so this
+   ring is inset. floorplanStyles.test.ts asserts the negative offset; only the browser pass
+   can confirm it is visible. */
+.table .face:focus-visible {
+  outline: 2px solid var(--slate);
+  outline-offset: -3px;
+}
+
+/* Same reasoning as .table .face above: without this, every guest name would carry the
+   shared button's border and padding rather than reading as a plain name in the list. */
+.guests .release {
+  display: inline;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  font: inherit;
+  color: inherit;
 }

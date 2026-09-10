@@ -1,4 +1,4 @@
-import type { Guest, RoomConfig } from '../../domain/types'
+import type { Guest, Pin, RoomConfig } from '../../domain/types'
 
 /** TT-11's pure view model for the Plan screen: pure, but screen-local, not a domain module. */
 
@@ -99,6 +99,56 @@ export const NOTHING_SEATED: SeatingView = { byTableId: {} }
 /** The entry for a slot, or the empty-table value — never undefined, so callers don't each need their own `?? EMPTY_TABLE` fallback. */
 export function occupantsAt(seating: SeatingView, id: string): TableOccupants {
   return seating.byTableId[id] ?? EMPTY_TABLE
+}
+
+/** guestId -> tableId, from the pins that resolve. Shared by seatingFromPins and unseatedGuests so the two can never disagree about which pins are live. */
+function liveTableByGuestId(slots: TableSlot[], pins: Pin[]): Map<string, string> {
+  const validIds = new Set(slots.map((slot) => slot.id))
+  const byGuestId = new Map<string, string>()
+  for (const pin of pins) {
+    if (validIds.has(pin.tableId)) {
+      byGuestId.set(pin.guestId, pin.tableId)
+    }
+  }
+  return byGuestId
+}
+
+/**
+ * Iterates `guests`, not `pins`, so a table's guest order always follows the guest list
+ * regardless of pin order — two routes to the same seating state render identically. A pin
+ * naming a guest or table that does not resolve is ignored rather than repaired: storage is
+ * not a trusted input, and shrinking the room can strand a pin on a table that no longer
+ * exists. `pinnedCount` equals the bucket length and `inViolation` is always false — until
+ * TT-13's auto-allocate exists every seated guest is a pinned one, and TT-14 owns violations.
+ */
+export function seatingFromPins(slots: TableSlot[], guests: Guest[], pins: Pin[]): SeatingView {
+  const tableByGuestId = liveTableByGuestId(slots, pins)
+
+  const buckets = new Map<string, Guest[]>()
+  for (const guest of guests) {
+    const tableId = tableByGuestId.get(guest.id)
+    if (tableId === undefined) continue
+
+    const bucket = buckets.get(tableId)
+    if (bucket) {
+      bucket.push(guest)
+    } else {
+      buckets.set(tableId, [guest])
+    }
+  }
+
+  const byTableId: Record<string, TableOccupants> = {}
+  for (const [tableId, tableGuests] of buckets) {
+    byTableId[tableId] = { guests: tableGuests, pinnedCount: tableGuests.length, inViolation: false }
+  }
+
+  return { byTableId }
+}
+
+/** The complement of seatingFromPins: guests holding no pin that resolves to a real table, in guest-list order. */
+export function unseatedGuests(slots: TableSlot[], guests: Guest[], pins: Pin[]): Guest[] {
+  const tableByGuestId = liveTableByGuestId(slots, pins)
+  return guests.filter((guest) => !tableByGuestId.has(guest.id))
 }
 
 /**

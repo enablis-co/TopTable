@@ -56,13 +56,14 @@ function renderPlanScreen(goTo: (tab: string) => void = () => {}) {
   )
 }
 
-// The store's full key set today: four data fields plus eight actions. Asserting the exact
-// set, not a substring scan, is what catches a future pin/seat/plan/violation key creeping in.
+// The store's full key set today: five data fields plus ten actions. Asserting the exact
+// set, not a substring scan, is what catches a future seat/plan/violation key creeping in.
 const EXPECTED_STORE_KEYS = [
   'event',
   'room',
   'guests',
   'scenario',
+  'pins',
   'setEventName',
   'setRoom',
   'setGuests',
@@ -71,6 +72,8 @@ const EXPECTED_STORE_KEYS = [
   'addGuest',
   'updateGuest',
   'removeGuest',
+  'pinGuest',
+  'unpinGuest',
 ].sort()
 
 beforeEach(() => {
@@ -244,8 +247,11 @@ describe('PlanScreen — the scaffold is gone (C11)', () => {
     renderPlanScreen()
 
     expect(document.body.textContent).not.toContain('The plan lands here')
-    // Real content in its place: the header's own vocabulary, and at least one table.
-    expect(screen.queryByText(/unseated/i)).toBeInTheDocument()
+    // Real content in its place: the header's own vocabulary, and at least one table. A body
+    // text-content check, not screen.queryByText — TT-12's rail heading also says "Unseated",
+    // so a single-element query is now ambiguous by design (two independent, correct pieces
+    // of copy both carry the word).
+    expect(document.body.textContent).toMatch(/unseated/i)
     expect(tables().length).toBeGreaterThan(0)
   })
 
@@ -268,25 +274,54 @@ describe('PlanScreen — a visually-hidden "Plan" heading, in every state', () =
   })
 })
 
-describe('PlanScreen — no aria-live region, nothing on this screen can change yet (A11)', () => {
-  it('mounts no [aria-live] element and no role="status" when configured', () => {
+describe('PlanScreen — one live region announces placing and releasing (C13)', () => {
+  it('mounts exactly one role="status" element when configured, empty at rest', () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 4 })
     renderPlanScreen()
 
-    expect(document.querySelector('[aria-live]')).toBeNull()
+    expect(screen.getAllByRole('status')).toHaveLength(1)
+    expect(screen.getByRole('status').textContent).toBe('')
+  })
+
+  it('mounts no role="status" element when unconfigured', () => {
+    renderPlanScreen()
+
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('mounts no [aria-live] element and no role="status" when unconfigured', () => {
+  it('names the guest and the table once a placement is made', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    const user = userEvent.setup()
     renderPlanScreen()
 
-    expect(document.querySelector('[aria-live]')).toBeNull()
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Guest g-0' }))
+    const [placingButton] = screen.getAllByRole('button', { name: /^Place Guest g-0 at/ })
+    if (!placingButton) {
+      throw new Error('expected a placing button once a guest is selected')
+    }
+    await user.click(placingButton)
+
+    expect(screen.getByRole('status').textContent).toMatch(/Guest g-0/)
+    expect(screen.getByRole('status').textContent).toMatch(/placed/i)
+  })
+
+  it('names the guest and the table once a placed guest is released', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
+
+    expect(screen.getByRole('status').textContent).toMatch(/Guest g-0/)
+    expect(screen.getByRole('status').textContent).toMatch(/released/i)
   })
 })
 
-describe('PlanScreen — C6: renders and reacts to every interaction without writing pin, seat, plan or violation state', () => {
-  it('the configured, floorplan-rendering branch leaves the store untouched', async () => {
+describe('PlanScreen — placing writes a pin and nothing else (C6, C7)', () => {
+  it('placing a guest changes only pins; event, room, guests and scenario stay byte-identical', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })
     useTopTableStore.getState().setGuests(makeGuests(4))
 
@@ -298,21 +333,17 @@ describe('PlanScreen — C6: renders and reacts to every interaction without wri
       scenario: before.scenario,
     })
     expect(Object.keys(before).sort()).toEqual(EXPECTED_STORE_KEYS)
+    expect(before.pins).toEqual([])
 
     const user = userEvent.setup()
     renderPlanScreen()
 
-    // Activate everything activatable: every button and every table (no click handler is
-    // wired to a table, but clicking anyway is the honest way to prove nothing happens).
-    for (const button of screen.queryAllByRole('button')) {
-      await user.click(button)
+    await user.click(screen.getByRole('button', { name: 'Guest g-0' }))
+    const [placingButton] = screen.getAllByRole('button', { name: /^Place Guest g-0 at/ })
+    if (!placingButton) {
+      throw new Error('expected a placing button once a guest is selected')
     }
-    for (const table of tables()) {
-      await user.click(table)
-    }
-    for (const item of screen.queryAllByRole('listitem')) {
-      await user.click(item)
-    }
+    await user.click(placingButton)
 
     const after = useTopTableStore.getState()
     const afterSnapshot = {
@@ -323,9 +354,12 @@ describe('PlanScreen — C6: renders and reacts to every interaction without wri
     }
 
     expect(afterSnapshot).toEqual(beforeSnapshot)
+    // The top table's placing button is first in DOM order (FloorplanGrid renders it before
+    // the round grid), so this is the one the click above landed on.
+    expect(after.pins).toEqual([{ guestId: 'g-0', tableId: 'top' }])
     expect(Object.keys(after).sort()).toEqual(EXPECTED_STORE_KEYS)
     for (const key of Object.keys(after)) {
-      expect(key.toLowerCase()).not.toMatch(/pin|seat|plan|violation/)
+      expect(key.toLowerCase()).not.toMatch(/seat|plan|violation/)
     }
   })
 
