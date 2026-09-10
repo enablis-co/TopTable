@@ -16,9 +16,6 @@ import { NavigationContext } from '../../shell/navigation'
  * The empty-state button label and copy are asserted exactly, not loosely matched the way
  * GuestsScreen.test.tsx's analogous control is — that looseness there is because neither TT-6
  * nor KB-6 publishes its copy, but this screen's copy is a definite, quoted decision.
- *
- * Every Guest fixture sets `age` to an AgeBand, never a number — see floorplan.test.ts's header
- * comment for why KB-3's `number` typing is the stale copy.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -274,7 +271,7 @@ describe('PlanScreen — a visually-hidden "Plan" heading, in every state', () =
   })
 })
 
-describe('PlanScreen — one live region announces placing and releasing (C13)', () => {
+describe('PlanScreen — one live region announces placing and releasing', () => {
   it('mounts exactly one role="status" element when configured, empty at rest', () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 4 })
     renderPlanScreen()
@@ -320,7 +317,7 @@ describe('PlanScreen — one live region announces placing and releasing (C13)',
   })
 })
 
-describe('PlanScreen — placing writes a pin and nothing else (C6, C7)', () => {
+describe('PlanScreen — placing writes a pin and nothing else', () => {
   it('placing a guest changes only pins; event, room, guests and scenario stay byte-identical', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })
     useTopTableStore.getState().setGuests(makeGuests(4))
