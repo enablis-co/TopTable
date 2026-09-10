@@ -28,15 +28,6 @@ import { totalSeats } from '../../domain/capacity'
  *
  * Every Guest fixture sets `age` to an AgeBand, never a number — see the comment on Guest.age
  * in src/domain/types.ts for why KB-3's `number` typing is the stale copy here.
- *
- * TT-12's plan names `seatingFromPins` exactly, but describes its unseated-guests helper only
- * as "a small helper returning the unseated guests" — no export name or signature is given.
- * `unseatedGuests` is this file's own choice of name, made without opening floorplan.ts, and it
- * resolved on the first run. Its parameter shape was not guessable from the plan text alone:
- * a first attempt calling it as `(guests, seating)` threw "pins is not iterable" out of an
- * internal `liveTableByGuestId(slots, pins)` helper, which is enough on its own — arity and
- * argument types, not behaviour — to show the real signature is `(slots, guests, pins)`,
- * mirroring `seatingFromPins`. The calls below use that shape.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -550,7 +541,7 @@ describe('seatingFromPins — placing guests at slots from a pin list (TT-12)', 
     for (const slot of slots) {
       expect(occupantsAt(seating, slot.id).guests).toEqual([])
     }
-    expect(unseatedGuests(slots, guests, pins)).toEqual(guests)
+    expect(unseatedGuests(guests, seating)).toEqual(guests)
   })
 
   it('a pin naming a guest not in the list is ignored the same way', () => {
@@ -562,7 +553,7 @@ describe('seatingFromPins — placing guests at slots from a pin list (TT-12)', 
     const seating = seatingFromPins(slots, guests, pins)
 
     expect(occupantsAt(seating, 'round-1').guests).toEqual([])
-    expect(unseatedGuests(slots, guests, pins)).toEqual(guests)
+    expect(unseatedGuests(guests, seating)).toEqual(guests)
   })
 
   it('removing the only pin at a table returns it to pinnedCount: 0, which is what clears the dot', () => {
@@ -593,8 +584,9 @@ describe('unseatedGuests — the guests with no resolvable pin (TT-12)', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
     const slots = floorplanFromRoom(room)
     const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
+    const seating = seatingFromPins(slots, guests, [])
 
-    expect(unseatedGuests(slots, guests, [])).toEqual(guests)
+    expect(unseatedGuests(guests, seating)).toEqual(guests)
   })
 
   it('returns exactly the guests with no resolvable pin, in guest-list order', () => {
@@ -602,8 +594,9 @@ describe('unseatedGuests — the guests with no resolvable pin (TT-12)', () => {
     const slots = floorplanFromRoom(room)
     const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
     const pins: Pin[] = [{ guestId: 'g-2', tableId: 'round-1' }]
+    const seating = seatingFromPins(slots, guests, pins)
 
-    expect(unseatedGuests(slots, guests, pins).map((g) => g.id)).toEqual(['g-1', 'g-3'])
+    expect(unseatedGuests(guests, seating).map((g) => g.id)).toEqual(['g-1', 'g-3'])
   })
 
   it('with every guest seated, returns an empty list', () => {
@@ -614,8 +607,9 @@ describe('unseatedGuests — the guests with no resolvable pin (TT-12)', () => {
       { guestId: 'g-1', tableId: 'round-1' },
       { guestId: 'g-2', tableId: 'round-1' },
     ]
+    const seating = seatingFromPins(slots, guests, pins)
 
-    expect(unseatedGuests(slots, guests, pins)).toEqual([])
+    expect(unseatedGuests(guests, seating)).toEqual([])
   })
 
   it('a pin naming a table not in the room does not count as seating the guest — they still show as unseated', () => {
@@ -623,7 +617,16 @@ describe('unseatedGuests — the guests with no resolvable pin (TT-12)', () => {
     const slots = floorplanFromRoom(room)
     const guests = [makeGuest('g-1')]
     const pins: Pin[] = [{ guestId: 'g-1', tableId: 'round-99' }]
+    const seating = seatingFromPins(slots, guests, pins)
 
-    expect(unseatedGuests(slots, guests, pins)).toEqual(guests)
+    expect(unseatedGuests(guests, seating)).toEqual(guests)
+  })
+
+  it('reads who is seated off the given SeatingView rather than re-resolving pins: a guest seated there with no pin of their own still counts as seated', () => {
+    const guest1 = makeGuest('g-1')
+    const guest2 = makeGuest('g-2')
+    const seating: SeatingView = { byTableId: { 'round-1': occupantsFixture({ guests: [guest1] }) } }
+
+    expect(unseatedGuests([guest1, guest2], seating).map((g) => g.id)).toEqual(['g-2'])
   })
 })

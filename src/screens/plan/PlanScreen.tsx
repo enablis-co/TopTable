@@ -37,7 +37,7 @@ export function PlanScreen() {
   const hasSeats = totalSeats(normaliseRoom(room)) > 0
   const slots = floorplanFromRoom(room)
   const seating = seatingFromPins(slots, guests, pins)
-  const unseated = unseatedGuests(slots, guests, pins)
+  const unseated = unseatedGuests(guests, seating)
   const selectedGuest = guests.find((guest) => guest.id === selectedGuestId) ?? null
 
   // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern.

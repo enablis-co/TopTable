@@ -93,7 +93,11 @@ export type SeatingView = {
 
 const EMPTY_TABLE: TableOccupants = { guests: [], pinnedCount: 0, inViolation: false }
 
-/** Nothing is seated yet — TT-12, TT-13 and TT-14 will populate a real `SeatingView`. Not a stub to delete. */
+/**
+ * The empty SeatingView: every table clean and unpinned. `seatingFromPins` is what a real
+ * screen reads from now (TT-12); this remains as the fixture tests reach for when nothing is
+ * seated at all.
+ */
 export const NOTHING_SEATED: SeatingView = { byTableId: {} }
 
 /** The entry for a slot, or the empty-table value — never undefined, so callers don't each need their own `?? EMPTY_TABLE` fallback. */
@@ -101,7 +105,7 @@ export function occupantsAt(seating: SeatingView, id: string): TableOccupants {
   return seating.byTableId[id] ?? EMPTY_TABLE
 }
 
-/** guestId -> tableId, from the pins that resolve. Shared by seatingFromPins and unseatedGuests so the two can never disagree about which pins are live. */
+/** guestId -> tableId, from the pins that resolve. Used by seatingFromPins to build its buckets. */
 function liveTableByGuestId(slots: TableSlot[], pins: Pin[]): Map<string, string> {
   const validIds = new Set(slots.map((slot) => slot.id))
   const byGuestId = new Map<string, string>()
@@ -145,10 +149,19 @@ export function seatingFromPins(slots: TableSlot[], guests: Guest[], pins: Pin[]
   return { byTableId }
 }
 
-/** The complement of seatingFromPins: guests holding no pin that resolves to a real table, in guest-list order. */
-export function unseatedGuests(slots: TableSlot[], guests: Guest[], pins: Pin[]): Guest[] {
-  const tableByGuestId = liveTableByGuestId(slots, pins)
-  return guests.filter((guest) => !tableByGuestId.has(guest.id))
+/**
+ * The complement of a SeatingView's buckets: guests seated at no table, in guest-list order.
+ * Reads the seating it is handed rather than re-resolving pins its own way, so this and
+ * planTotals's own unseatedCount can never disagree about who counts as seated.
+ */
+export function unseatedGuests(guests: Guest[], seating: SeatingView): Guest[] {
+  const seatedIds = new Set<string>()
+  for (const occupants of Object.values(seating.byTableId)) {
+    for (const guest of occupants.guests) {
+      seatedIds.add(guest.id)
+    }
+  }
+  return guests.filter((guest) => !seatedIds.has(guest.id))
 }
 
 /**
