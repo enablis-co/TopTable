@@ -149,3 +149,14 @@ export type RoomConfig = {
 export type EventDetails = {
   name: string
 }
+
+/**
+ * A pin is a human decision, not a derivation, so — unlike the rest of a plan — it is stored
+ * (KB-1, "Pinning is the idea the product turns on"). `tableId` is opaque here: the domain
+ * matches on `guestId` only and never interprets the address, which today is the Plan screen's
+ * `TableSlot.id`. TT-13 defines a table address canonically.
+ */
+export type Pin = {
+  guestId: string
+  tableId: string
+}

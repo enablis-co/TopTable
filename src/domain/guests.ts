@@ -1,4 +1,5 @@
-import type { Guest } from './types'
+import type { Guest, Pin } from './types'
+import { unpinGuest } from './pins'
 
 /**
  * The whole of reciprocal relationship handling for the guest list, and the only place it
@@ -175,28 +176,27 @@ export function updateGuest(guests: Guest[], guest: Guest): Guest[] {
 }
 
 /**
- * Drops the guest, sets `partnerOf` to `null` on anyone whose partner they were, and filters
- * their id out of every `conflictsWith`. Returns `guests` unchanged (same reference) if `id`
- * is absent — a double-fired remove is plausible and there is nothing to corrupt.
+ * Drops the guest, then reconciles the other two: nulls the ex-partner's `partnerOf`, filters
+ * the id out of every `conflictsWith`, and clears any pin naming them via `unpinGuest`
+ * (src/domain/pins.ts) — all three inside this one function, so nothing calling it can do two
+ * and forget the third.
+ *
+ * Returns `guests` unchanged (same reference) if `id` is absent — a double-fired remove is
+ * plausible and there is nothing to corrupt — and `unpinGuest` gives `pins` that same
+ * guarantee, clearing a pin stranded there even when the guest it named is already gone.
  *
  * Undo is out of the MVP (KB-1), so this is final: nothing here holds a copy to restore from.
- *
- * OBLIGATION, held here on behalf of TT-11 to TT-15 (plan risk R5): TT-5's criterion "deleting
- * a guest clears them from... any plan" has no plan state to clear from today — pins arrive
- * only with the ticket that introduces placing (`docs/state.md`). When they do, clearing a
- * removed guest's pin belongs *inside this function* — extending its signature and return
- * shape the same way it already owns `partnerOf` and `conflictsWith` — and not as a step the
- * caller of `removeGuest` also has to remember to perform. A pin-clearing path added beside
- * this one instead of inside it is exactly how a deleted guest ends up staying pinned. See
- * the "removeGuest and future pins" test below, which names this obligation for whoever reads
- * this file while building TT-11 to TT-15.
  */
-export function removeGuest(guests: Guest[], id: string): Guest[] {
+export function removeGuest(
+  guests: Guest[],
+  pins: Pin[],
+  id: string,
+): { guests: Guest[]; pins: Pin[] } {
   if (!guests.some((candidate) => candidate.id === id)) {
-    return guests
+    return { guests, pins: unpinGuest(pins, id) }
   }
 
-  return guests
+  const nextGuests = guests
     .filter((candidate) => candidate.id !== id)
     .map((candidate) => {
       const partnerOf = candidate.partnerOf === id ? null : candidate.partnerOf
@@ -209,6 +209,8 @@ export function removeGuest(guests: Guest[], id: string): Guest[] {
       }
       return { ...candidate, partnerOf, conflictsWith }
     })
+
+  return { guests: nextGuests, pins: unpinGuest(pins, id) }
 }
 
 /**

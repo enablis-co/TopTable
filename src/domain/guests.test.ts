@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addGuest, availablePartners, hasNeeds, removeGuest, tagsInUse, updateGuest } from './guests'
-import type { Guest } from './types'
+import type { Guest, Pin } from './types'
 
 /**
  * TT-5, "Add and edit guests" — the reciprocity module. Written from the acceptance criteria
@@ -188,36 +188,63 @@ describe('removeGuest (C13)', () => {
     const conflictOwner = makeGuest('g-3', { conflictsWith: ['g-1', 'g-4'] })
     const unrelated = makeGuest('g-4', { conflictsWith: ['g-3'] })
 
-    const result = removeGuest([target, partner, conflictOwner, unrelated], 'g-1')
+    const result = removeGuest([target, partner, conflictOwner, unrelated], [], 'g-1')
 
-    expect(result.map((g) => g.id)).toEqual(['g-2', 'g-3', 'g-4'])
-    expect(result.find((g) => g.id === 'g-2')?.partnerOf).toBeNull()
-    expect(result.find((g) => g.id === 'g-3')?.conflictsWith).toEqual(['g-4'])
-    expect(result.find((g) => g.id === 'g-4')?.conflictsWith).toEqual(['g-3'])
+    expect(result.guests.map((g) => g.id)).toEqual(['g-2', 'g-3', 'g-4'])
+    expect(result.guests.find((g) => g.id === 'g-2')?.partnerOf).toBeNull()
+    expect(result.guests.find((g) => g.id === 'g-3')?.conflictsWith).toEqual(['g-4'])
+    expect(result.guests.find((g) => g.id === 'g-4')?.conflictsWith).toEqual(['g-3'])
   })
 
   it('removing an id that is not present returns the list unchanged', () => {
     const guests = [makeGuest('g-1'), makeGuest('g-2')]
 
-    expect(removeGuest(guests, 'g-does-not-exist')).toEqual(guests)
+    expect(removeGuest(guests, [], 'g-does-not-exist').guests).toBe(guests)
   })
 })
 
-describe('removeGuest and future pins (R5)', () => {
-  it('is the whole of what removeGuest cleans up today — partnerOf and conflictsWith, and nothing else, because no plan state exists yet (docs/state.md). Pins join this list when TT-11 to TT-15 lands, and belong inside this function, not beside it', () => {
+describe('removeGuest also reconciles pins', () => {
+  it('removing a guest who is pinned, partnered and in conflict unpicks all three in one call', () => {
     const target = makeGuest('g-1', { partnerOf: 'g-2', conflictsWith: ['g-3'] })
     const partner = makeGuest('g-2', { partnerOf: 'g-1' })
     const conflictOwner = makeGuest('g-3', { conflictsWith: ['g-1'] })
+    const pins: Pin[] = [
+      { guestId: 'g-1', tableId: 'round-1' },
+      { guestId: 'g-3', tableId: 'round-2' },
+    ]
 
-    const result = removeGuest([target, partner, conflictOwner], 'g-1')
+    const result = removeGuest([target, partner, conflictOwner], pins, 'g-1')
 
-    // Read this test's title, and the OBLIGATION comment on removeGuest, before adding a
-    // pin-clearing step anywhere else in the codebase (plan risk R5). This assertion is the
-    // marker to extend — with a third reconciled field — once pins exist.
-    expect(result).toEqual([
-      { ...partner, partnerOf: null },
-      { ...conflictOwner, conflictsWith: [] },
-    ])
+    // Asserted against removeGuest's own single-call return rather than built up field by
+    // field — a pin cleared by some caller instead of by removeGuest itself would leave g-1's
+    // pin sitting in result.pins and fail this.
+    expect(result).toEqual({
+      guests: [
+        { ...partner, partnerOf: null },
+        { ...conflictOwner, conflictsWith: [] },
+      ],
+      pins: [{ guestId: 'g-3', tableId: 'round-2' }],
+    })
+  })
+
+  it('removing a guest with no pin of their own leaves every other pin untouched', () => {
+    const target = makeGuest('g-1')
+    const other = makeGuest('g-2')
+    const pins: Pin[] = [{ guestId: 'g-2', tableId: 'round-1' }]
+
+    const result = removeGuest([target, other], pins, 'g-1')
+
+    expect(result.pins).toBe(pins)
+  })
+
+  it('removing an id that names no guest still clears a pin stranded under that id, and returns guests by reference', () => {
+    const guests = [makeGuest('g-1'), makeGuest('g-2')]
+    const pins: Pin[] = [{ guestId: 'g-stranded', tableId: 'round-1' }]
+
+    const result = removeGuest(guests, pins, 'g-stranded')
+
+    expect(result.guests).toBe(guests)
+    expect(result.pins).toEqual([])
   })
 })
 
@@ -362,15 +389,18 @@ describe('purity', () => {
     expect(updateGuest(guests, patch)).toEqual(first)
   })
 
-  it('removeGuest does not mutate its input and is repeatable', () => {
+  it('removeGuest does not mutate its inputs and is repeatable', () => {
     const a = makeGuest('g-1', { partnerOf: 'g-2' })
     const b = makeGuest('g-2', { partnerOf: 'g-1' })
     const guests = [a, b]
     const guestsSnapshot = clone(guests)
+    const pins: Pin[] = [{ guestId: 'g-1', tableId: 'round-1' }]
+    const pinsSnapshot = clone(pins)
 
-    const first = removeGuest(guests, 'g-1')
+    const first = removeGuest(guests, pins, 'g-1')
 
     expect(guests).toEqual(guestsSnapshot)
-    expect(removeGuest(guests, 'g-1')).toEqual(first)
+    expect(pins).toEqual(pinsSnapshot)
+    expect(removeGuest(guests, pins, 'g-1')).toEqual(first)
   })
 })
