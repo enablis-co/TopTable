@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlanTable } from './PlanTable'
-import type { TableOccupants, TableSlot } from './floorplan'
+import type { TableOccupants } from './floorplan'
 import type { Guest } from '../../domain/types'
+import type { TableSlot } from '../../domain/seating'
 
 /**
  * TT-11, "Render the floorplan from config", extended by TT-12, "Place a guest by clicking".

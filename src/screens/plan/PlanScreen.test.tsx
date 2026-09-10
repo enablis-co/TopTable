@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { PlanScreen } from './PlanScreen'
 import { useTopTableStore } from '../../store/store'
 import type { Guest } from '../../domain/types'
+import { PROTOCOL_ROLES } from '../../domain/types'
 import { NavigationContext } from '../../shell/navigation'
 
 /**
@@ -660,5 +661,253 @@ describe('PlanScreen — Celebrity scale renders every guest and every table, wi
 
     expect(screen.getAllByRole('button', { name: /^Guest g-\d+$/ })).toHaveLength(200)
     expect(tables()).toHaveLength(27)
+  })
+})
+
+/*
+ * TT-13. Auto-allocate: the button, the derived `allocated` flag, and the seam that must call
+ * the solver a second time for the announcement rather than trust the render-scope `plan` —
+ * `setAllocated(true)` does not update that closure until the next render.
+ */
+
+describe('PlanScreen — Auto-allocate is the screen\'s one primary control', () => {
+  it('a configured room renders exactly one "Auto-allocate" button', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 6 })
+    useTopTableStore.getState().setGuests(makeGuests(70))
+    renderPlanScreen()
+
+    expect(screen.getAllByRole('button', { name: 'Auto-allocate' })).toHaveLength(1)
+  })
+
+  it('the first-visit, unconfigured branch renders no Auto-allocate button', () => {
+    renderPlanScreen()
+    expect(screen.queryByRole('button', { name: 'Auto-allocate' })).not.toBeInTheDocument()
+  })
+})
+
+describe('PlanScreen — Auto-allocate fills every seat it can', () => {
+  it('pressing it on a room with exactly enough seats for everyone leaves the rail empty and the header at zero unseated', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 4, seatsEach: 8, topTableSeats: 8 })
+    // The top table's 8 seats are only reachable by a protocol-role holder (C9) — without one
+    // for each role, those seats are structurally unfillable and 8 of 40 would stay unseated
+    // however this room is configured, so the fixture needs all eight roles present, matching
+    // how every shipped scenario is built (KB-3).
+    const roleGuests = PROTOCOL_ROLES.map((role, index) => makeGuest(`role-${index}`, { role }))
+    useTopTableStore.getState().setGuests([...roleGuests, ...makeGuests(32)])
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    expect(screen.getByText('Everyone has a seat.')).toBeInTheDocument()
+    expect(document.body.textContent).toContain('0 unseated')
+  })
+})
+
+describe('PlanScreen — after allocating, the top table holds exactly the protocol role-holders', () => {
+  it('seats each of the eight roles at the top table, and no ordinary guest joins them', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 8 })
+    const roleGuests = PROTOCOL_ROLES.map((role, index) => makeGuest(`role-${index}`, { role, name: `Role ${index}` }))
+    const ordinaryGuests = [makeGuest('extra-1', { name: 'Extra One' }), makeGuest('extra-2', { name: 'Extra Two' })]
+    useTopTableStore.getState().setGuests([...roleGuests, ...ordinaryGuests])
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    const [topTable] = tables()
+    if (!topTable) {
+      throw new Error('expected the top table to render first')
+    }
+    expect(topTable.textContent).toContain('Top table')
+    for (const guest of roleGuests) {
+      expect(topTable.textContent).toContain(guest.name)
+    }
+    expect(topTable.textContent).not.toContain('Extra One')
+    expect(topTable.textContent).not.toContain('Extra Two')
+    expect(topTable.textContent).toMatch(/8\s*of\s*8\s*seats/i)
+  })
+})
+
+describe('PlanScreen — Auto-allocate honours a pin that was already there', () => {
+  it('three guests pinned before allocating remain pinned at their tables afterward, and the header still reads three pinned', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 8, topTableSeats: 6 })
+    useTopTableStore.getState().setGuests(makeGuests(10))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    useTopTableStore.getState().pinGuest('g-1', 'round-1')
+    useTopTableStore.getState().pinGuest('g-2', 'round-2')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    expect(document.body.textContent).toContain('3 pinned')
+    const stillTogether = tables().find((table) => table.textContent?.includes('Guest g-0'))
+    expect(stillTogether?.textContent).toContain('Guest g-1')
+    expect(tables().some((table) => table.textContent?.includes('Guest g-2'))).toBe(true)
+  })
+})
+
+describe('PlanScreen — a pin to the top table with no protocol role is not honoured', () => {
+  it('after allocating, that guest is not at the top table, and the header drops the pinned count by one', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 6 })
+    useTopTableStore.getState().setGuests(makeGuests(5))
+    useTopTableStore.getState().pinGuest('g-0', 'top')
+    useTopTableStore.getState().pinGuest('g-1', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    // Pre-click, seatPins alone does honour a non-protocol pin to the top table (TT-13's model).
+    expect(document.body.textContent).toContain('2 pinned')
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    expect(document.body.textContent).toContain('1 pinned')
+    const [topTable] = tables()
+    if (!topTable) {
+      throw new Error('expected the top table to render first')
+    }
+    expect(topTable.textContent).not.toContain('Guest g-0')
+  })
+})
+
+describe('PlanScreen — the announcement reports the figures this press produced, not the pre-click ones', () => {
+  it('reads the post-allocation seated and unseated counts even though the pre-click header read differently', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 6 })
+    useTopTableStore.getState().setGuests(makeGuests(70))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    // Nothing pinned, so the pre-click header already reads "70 unseated" — the exact figure a
+    // stale read of the pre-click render would wrongly repeat in the announcement.
+    expect(document.body.textContent).toContain('70 unseated')
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    expect(screen.getByRole('status').textContent).toBe('Allocated. 70 seated, 0 unseated.')
+  })
+
+  it('reports a non-zero unseated figure when the room is too short to seat everyone', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setGuests(makeGuests(6))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    expect(screen.getByRole('status').textContent).toBe('Allocated. 4 seated, 2 unseated.')
+  })
+})
+
+describe('PlanScreen — pressing Auto-allocate twice renders the identical plan', () => {
+  it('the same names sit at the same tables after a second press', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 8, topTableSeats: 6 })
+    useTopTableStore.getState().setGuests(makeGuests(20))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+    const firstPass = tables().map((table) => table.textContent)
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+    const secondPass = tables().map((table) => table.textContent)
+
+    expect(secondPass).toEqual(firstPass)
+  })
+})
+
+describe('PlanScreen — correcting the plan after allocating takes effect with no second press', () => {
+  it('placing a still-unseated guest seats them immediately', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setGuests(makeGuests(5))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+    const [firstUnseated] = screen.getAllByRole('button', { name: /^Guest g-\d+$/ })
+    if (!firstUnseated) {
+      throw new Error('expected exactly one guest left on the rail')
+    }
+    const firstUnseatedName = firstUnseated.textContent ?? ''
+
+    await user.click(firstUnseated)
+    await user.click(screen.getByRole('button', { name: new RegExp(`^Place ${firstUnseatedName} at Table 1`) }))
+
+    // The table is still exactly full — a pin re-runs the whole solver, it does not grow the
+    // table — but the guest just placed is seated and no longer on the rail, and Auto-allocate
+    // was pressed only once.
+    expect(screen.queryByRole('button', { name: firstUnseatedName })).not.toBeInTheDocument()
+    const [table] = tables()
+    if (!table) {
+      throw new Error('expected one table')
+    }
+    expect(table.textContent).toMatch(/4\s*of\s*4\s*seats/i)
+    expect(screen.getAllByRole('button', { name: /^Guest g-\d+$/ })).toHaveLength(1)
+  })
+
+  it('releasing an honoured pin drops the header pinned count immediately', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 8, topTableSeats: 0 })
+    useTopTableStore.getState().setGuests(makeGuests(5))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+    expect(document.body.textContent).toContain('1 pinned')
+
+    await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
+
+    expect(document.body.textContent).toContain('0 pinned')
+  })
+})
+
+describe('PlanScreen — Auto-allocate writes nothing to the store', () => {
+  it('event, room, guests, scenario and pins are all byte-identical before and after pressing it', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 6 })
+    useTopTableStore.getState().setGuests(makeGuests(70))
+
+    const before = useTopTableStore.getState()
+    const beforeSnapshot = structuredClone({
+      event: before.event,
+      room: before.room,
+      guests: before.guests,
+      scenario: before.scenario,
+      pins: before.pins,
+    })
+    expect(Object.keys(before).sort()).toEqual(EXPECTED_STORE_KEYS)
+
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    const after = useTopTableStore.getState()
+    const afterSnapshot = {
+      event: after.event,
+      room: after.room,
+      guests: after.guests,
+      scenario: after.scenario,
+      pins: after.pins,
+    }
+
+    expect(afterSnapshot).toEqual(beforeSnapshot)
+    expect(Object.keys(after).sort()).toEqual(EXPECTED_STORE_KEYS)
+    for (const key of Object.keys(after)) {
+      expect(key.toLowerCase()).not.toMatch(/seat|plan|violation/)
+    }
+  })
+})
+
+describe('PlanScreen — Celebrity scale still allocates fully', () => {
+  it('200 guests and 27 tables render after pressing Auto-allocate, with nobody left unseated', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 26, seatsEach: 8, topTableSeats: 8 })
+    useTopTableStore.getState().setGuests(makeGuests(200))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    expect(tables()).toHaveLength(27)
+    expect(document.body.textContent).toContain('0 unseated')
   })
 })

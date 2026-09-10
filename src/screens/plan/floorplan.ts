@@ -1,56 +1,12 @@
-import type { Guest, Pin, RoomConfig } from '../../domain/types'
-
-/** TT-11's pure view model for the Plan screen: pure, but screen-local, not a domain module. */
-
-export type TableKind = 'top' | 'round'
-
-export type TableSlot = {
-  id: string
-  kind: TableKind
-  number: number | null
-  label: string
-  capacity: number
-}
-
-/** Coerces a possibly-degenerate room number to a finite, non-negative integer. */
-function normaliseCount(value: number): number {
-  return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
-}
+import type { Guest } from '../../domain/types'
+import type { SeatingPlan } from '../../domain/seating'
 
 /**
- * The same coercion applied to all three fields, shared by every reader of `RoomConfig` so the
- * gate, the header and the generator can never disagree about the same stored room.
+ * TT-11's view model for the Plan screen, now fed by TT-13's domain plan through
+ * `seatingViewFrom` below. The table geometry itself (`TableSlot`, `tablesInRoom`,
+ * `normaliseRoom`) and the seating model moved to `src/domain/seating.ts`, which this screen
+ * only ever reads from — nothing here re-derives a table address or a seat.
  */
-export function normaliseRoom(room: RoomConfig): RoomConfig {
-  return {
-    roundTables: normaliseCount(room.roundTables),
-    seatsEach: normaliseCount(room.seatsEach),
-    topTableSeats: normaliseCount(room.topTableSeats),
-  }
-}
-
-/** KB-6 "Plan": the top table first (when it has seats), then round tables 1..N, grid-generated from `RoomConfig` rather than fixed. */
-export function floorplanFromRoom(room: RoomConfig): TableSlot[] {
-  const { roundTables, seatsEach, topTableSeats } = normaliseRoom(room)
-
-  const slots: TableSlot[] = []
-
-  if (topTableSeats > 0) {
-    slots.push({ id: 'top', kind: 'top', number: null, label: 'Top table', capacity: topTableSeats })
-  }
-
-  for (let number = 1; number <= roundTables; number++) {
-    slots.push({
-      id: `round-${number}`,
-      kind: 'round',
-      number,
-      label: `Table ${number}`,
-      capacity: seatsEach,
-    })
-  }
-
-  return slots
-}
 
 /** How many `minmax(112px, 200px)` tracks fit across this app's content width at the 112px floor. */
 export const MAX_ROUND_TABLE_COLUMNS = 11
@@ -94,9 +50,9 @@ export type SeatingView = {
 const EMPTY_TABLE: TableOccupants = { guests: [], pinnedCount: 0, inViolation: false }
 
 /**
- * The empty SeatingView: every table clean and unpinned. `seatingFromPins` is what a real
- * screen reads from now (TT-12); this remains as the fixture tests reach for when nothing is
- * seated at all.
+ * The empty SeatingView: every table clean and unpinned. Nothing in the running app builds
+ * this any more — `seatingViewFrom` below is what a real screen reads from — but
+ * `PlanHeader.test.tsx` still renders against it directly, seven times.
  */
 export const NOTHING_SEATED: SeatingView = { byTableId: {} }
 
@@ -105,63 +61,37 @@ export function occupantsAt(seating: SeatingView, id: string): TableOccupants {
   return seating.byTableId[id] ?? EMPTY_TABLE
 }
 
-/** guestId -> tableId, from the pins that resolve. Used by seatingFromPins to build its buckets. */
-function liveTableByGuestId(slots: TableSlot[], pins: Pin[]): Map<string, string> {
-  const validIds = new Set(slots.map((slot) => slot.id))
-  const byGuestId = new Map<string, string>()
-  for (const pin of pins) {
-    if (validIds.has(pin.tableId)) {
-      byGuestId.set(pin.guestId, pin.tableId)
-    }
-  }
-  return byGuestId
-}
-
 /**
- * Iterates `guests`, not `pins`, so a table's guest order always follows the guest list
- * regardless of pin order — two routes to the same seating state render identically. A pin
- * naming a guest or table that does not resolve is ignored rather than repaired: storage is
- * not a trusted input, and shrinking the room can strand a pin on a table that no longer
- * exists. `pinnedCount` equals the bucket length and `inViolation` is always false — until
- * TT-13's auto-allocate exists every seated guest is a pinned one, and TT-14 owns violations.
+ * TT-13's domain plan projected onto this screen's render contract. A table with nothing
+ * seated at it — no filled seat, no overflow — gets no entry at all, keeping the shared
+ * `EMPTY_TABLE` value meaningful rather than allocating an equivalent object per empty table.
  */
-export function seatingFromPins(slots: TableSlot[], guests: Guest[], pins: Pin[]): SeatingView {
-  const tableByGuestId = liveTableByGuestId(slots, pins)
-
-  const buckets = new Map<string, Guest[]>()
-  for (const guest of guests) {
-    const tableId = tableByGuestId.get(guest.id)
-    if (tableId === undefined) continue
-
-    const bucket = buckets.get(tableId)
-    if (bucket) {
-      bucket.push(guest)
-    } else {
-      buckets.set(tableId, [guest])
-    }
-  }
-
+export function seatingViewFrom(plan: SeatingPlan): SeatingView {
   const byTableId: Record<string, TableOccupants> = {}
-  for (const [tableId, tableGuests] of buckets) {
-    byTableId[tableId] = { guests: tableGuests, pinnedCount: tableGuests.length, inViolation: false }
+
+  for (const table of plan.tables) {
+    const seated: Guest[] = []
+    const overflow: Guest[] = []
+    let pinnedCount = 0
+
+    for (const seat of table.seats) {
+      if (!seat) continue
+      seated.push(seat.guest)
+      if (seat.pinned) pinnedCount += 1
+    }
+    // Overflow renders after the seated occupants, so a hand pin that overfilled a table still
+    // reads as "9 of 8 seats" (PlanTable's occupancyOf) rather than losing the ninth guest.
+    for (const seat of table.overflow) {
+      overflow.push(seat.guest)
+      if (seat.pinned) pinnedCount += 1
+    }
+
+    if (seated.length === 0 && overflow.length === 0) continue
+
+    byTableId[table.id] = { guests: [...seated, ...overflow], pinnedCount, inViolation: false }
   }
 
   return { byTableId }
-}
-
-/**
- * The complement of a SeatingView's buckets: guests seated at no table, in guest-list order.
- * Reads the seating it is handed rather than re-resolving pins its own way, so this and
- * planTotals's own unseatedCount can never disagree about who counts as seated.
- */
-export function unseatedGuests(guests: Guest[], seating: SeatingView): Guest[] {
-  const seatedIds = new Set<string>()
-  for (const occupants of Object.values(seating.byTableId)) {
-    for (const guest of occupants.guests) {
-      seatedIds.add(guest.id)
-    }
-  }
-  return guests.filter((guest) => !seatedIds.has(guest.id))
 }
 
 /**

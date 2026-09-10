@@ -1,22 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useTopTableStore } from '../../store/store'
 import { useNavigation } from '../../shell/navigation'
 import { totalSeats } from '../../domain/capacity'
 import { pinnedTableFor } from '../../domain/pins'
-import { floorplanFromRoom, normaliseRoom, seatingFromPins, unseatedGuests } from './floorplan'
+import { normaliseRoom, seatPins, tablesInRoom } from '../../domain/seating'
+import { allocate } from '../../domain/allocate'
+import { seatingViewFrom } from './floorplan'
 import { PlanHeader } from './PlanHeader'
 import { FloorplanGrid } from './FloorplanGrid'
 import { PlanEmpty } from './PlanEmpty'
 import { UnseatedRail } from './UnseatedRail'
+import { Button } from '../../ui'
 import styles from './PlanScreen.module.css'
 
 /**
- * TT-11, TT-12, KB-6 "Plan". Owns every store read and write for this screen; PlanHeader,
- * FloorplanGrid, UnseatedRail and PlanEmpty are presentational and write nothing themselves.
- * Placing pins a guest at a table — the seating model beyond one pin per guest is still
- * TT-13's, and violations are still TT-14's. Two columns, not three: KB-6's third, the
- * violations panel, belongs to TT-14.
+ * TT-11, TT-12, TT-13, KB-6 "Plan". Owns every store read and write for this screen, plus the
+ * `allocated` flag that switches the derived plan from pins-only to solver-filled; PlanHeader,
+ * FloorplanGrid, UnseatedRail and PlanEmpty stay presentational. The plan itself is always
+ * derived — from the room, the guests and the pins, plus the solver once `allocated` is true —
+ * and never stored (docs/state.md): `allocated` is view state, so a tab switch costs nobody a
+ * re-click, and the re-click is deterministic. Two columns, not three: KB-6's third column, the
+ * violations panel, is TT-14's, and the numbered seats in its table detail are TT-15's.
  */
 export function PlanScreen() {
   const room = useTopTableStore((s) => s.room)
@@ -29,15 +34,19 @@ export function PlanScreen() {
 
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  const [allocated, setAllocated] = useState(false)
 
   const railRef = useRef<HTMLDivElement>(null)
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
 
-  // Normalised first, matching FloorplanGrid's own generator — see normaliseRoom in ./floorplan.
+  // Normalised first, matching FloorplanGrid's own generator — see normaliseRoom in ../../domain/seating.
   const hasSeats = totalSeats(normaliseRoom(room)) > 0
-  const slots = floorplanFromRoom(room)
-  const seating = seatingFromPins(slots, guests, pins)
-  const unseated = unseatedGuests(guests, seating)
+  const slots = tablesInRoom(room)
+  const plan = useMemo(
+    () => (allocated ? allocate(room, guests, pins) : seatPins(room, guests, pins)),
+    [allocated, room, guests, pins],
+  )
+  const seating = useMemo(() => seatingViewFrom(plan), [plan])
   const selectedGuest = guests.find((guest) => guest.id === selectedGuestId) ?? null
 
   // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern.
@@ -101,16 +110,33 @@ export function PlanScreen() {
     reappeared?.focus()
   }
 
+  function handleAllocate() {
+    // setAllocated(true) leaves this render's own `plan` pointed at the pre-click seating —
+    // that closure doesn't update until the next render, and flushSync can't change that, only
+    // when the DOM catches up. A second, throwaway solver run is what the announcement can
+    // trust; see the PlanScreen test asserting the announced figures are the post-click ones.
+    const justAllocated = allocate(room, guests, pins)
+    const seatedCount = guests.length - justAllocated.unseated.length
+    setAllocated(true)
+    setSelectedGuestId(null)
+    setAnnouncement(`Allocated. ${seatedCount} seated, ${justAllocated.unseated.length} unseated.`)
+  }
+
   return (
     <div>
       <h1 className="tt-visually-hidden">Plan</h1>
       {hasSeats ? (
         <>
+          <div className={styles.actions}>
+            <Button variant="primary" onClick={handleAllocate}>
+              Auto-allocate
+            </Button>
+          </div>
           <PlanHeader scenario={scenario} room={room} guests={guests} seating={seating} />
           <div className={styles.screen}>
             <div ref={railRef}>
               <UnseatedRail
-                guests={unseated}
+                guests={plan.unseated}
                 selectedGuestId={selectedGuestId}
                 onSelect={handleSelect}
                 headingRef={railHeadingRef}

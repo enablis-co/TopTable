@@ -10,3 +10,9 @@
   align-items: start;
   margin-top: var(--space-4);
 }
+
+/* Auto-allocate, right-aligned above the header line (KB-6 "Plan", TT-13). */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}

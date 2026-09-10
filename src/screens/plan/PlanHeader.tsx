@@ -3,7 +3,8 @@ import { totalSeats } from '../../domain/capacity'
 import type { Guest, RoomConfig } from '../../domain/types'
 import type { ScenarioState } from '../../store/store'
 import { tabularClass } from '../../ui'
-import { normaliseRoom, planTotals, type SeatingView } from './floorplan'
+import { normaliseRoom } from '../../domain/seating'
+import { planTotals, type SeatingView } from './floorplan'
 import styles from './PlanHeader.module.css'
 
 type PlanHeaderProps = {

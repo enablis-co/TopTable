@@ -1,5 +1,6 @@
 import { Button, cx, tabularClass } from '../../ui'
-import { occupancyOf, type TableOccupants, type TableSlot } from './floorplan'
+import type { TableSlot } from '../../domain/seating'
+import { occupancyOf, type TableOccupants } from './floorplan'
 import styles from './PlanTable.module.css'
 
 type PlanTableProps = {

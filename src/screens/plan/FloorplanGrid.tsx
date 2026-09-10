@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { RoomConfig } from '../../domain/types'
-import { floorplanFromRoom, occupantsAt, roundTableColumns, type SeatingView } from './floorplan'
+import { tablesInRoom } from '../../domain/seating'
+import { occupantsAt, roundTableColumns, type SeatingView } from './floorplan'
 import { PlanTable } from './PlanTable'
 import styles from './FloorplanGrid.module.css'
 
@@ -32,7 +33,7 @@ function placingFor(
  * column count.
  */
 export function FloorplanGrid({ room, seating, placingGuestName, onPlace, onRelease }: FloorplanGridProps) {
-  const slots = floorplanFromRoom(room)
+  const slots = tablesInRoom(room)
   const topSlot = slots.find((slot) => slot.kind === 'top')
   const roundSlots = slots.filter((slot) => slot.kind === 'round')
 
