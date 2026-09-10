@@ -148,8 +148,10 @@ export type EventDetails = {
 /**
  * A pin is a human decision, not a derivation, so — unlike the rest of a plan — it is stored
  * (KB-1, "Pinning is the idea the product turns on"). `tableId` is opaque here: the domain
- * matches on `guestId` only and never interprets the address, which today is the Plan screen's
- * `TableSlot.id`. TT-13 defines a table address canonically.
+ * matches on `guestId` only and never interprets the address. The canonical scheme —
+ * `TOP_TABLE_ID` and `roundTableId(n)` — is `src/domain/seating.ts`'s (TT-13); this type does
+ * not repeat it, and does not gain a seat index, because a pin binds a guest to a table, never
+ * to a seat.
  */
 export type Pin = {
   guestId: string
