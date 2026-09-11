@@ -1,0 +1,110 @@
+/*
+ * TT-15, KB-5/KB-6 "Table detail". Row shape and the needs block, from the handoff's own Table
+ * detail section and KB-5's system-wide pinned-guest mark ("a filled dot") — the same shape
+ * `PlanTable.module.css`'s `.top[data-pinned]::after` already uses for the floorplan. Every
+ * value below is a token; the outer panel padding itself comes from `src/ui/Panel.module.css`,
+ * not repeated here.
+ */
+
+.dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.dismiss:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+.occupancy {
+  margin: 0 0 var(--s-3);
+  font: var(--t-body);
+  color: var(--ink-muted);
+}
+
+.seats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: 7px 0;
+  border-bottom: 1px solid var(--sunken);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.seatNumber {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.name {
+  font: var(--t-body);
+  color: var(--ink);
+}
+
+.empty {
+  font: var(--t-body);
+  color: var(--ink-faint);
+}
+
+.auto {
+  flex: none;
+  font: var(--t-caption);
+  color: var(--ink-faint);
+}
+
+/* Same trap as PlanTable.module.css's own .table .face — the shared Button frame (border,
+   padding) would otherwise make a guest's name read as a bordered control rather than a plain
+   name that happens to be interactive. */
+.release {
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  font: var(--t-body);
+  color: var(--ink);
+}
+
+.release:hover:not(:disabled) {
+  background: transparent;
+  text-decoration: underline;
+}
+
+/* KB-5 "a pinned guest [gets] a filled dot" — decorative only (aria-hidden in the markup); the
+   release button beside it already carries the accessible "pinned" fact in its own name. */
+.pinnedDot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--slate);
+}
+
+.needs {
+  margin: var(--s-4) 0 0;
+  padding: var(--s-3);
+  border-radius: var(--r-nav);
+  background: var(--sunken);
+  font: var(--t-body);
+  color: var(--ink);
+}

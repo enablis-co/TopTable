@@ -1,11 +1,12 @@
 /*
- * KB-5, TT-35 "Lit canvas". Colour never carries meaning alone, so each state below owns a
- * distinct set of properties — `color` (text), the outer `background`/`border-*` where a
- * material needs to extend past the ring for legible text, and the `--ring-*` custom properties
- * TableRing.module.css reads to paint the seat ring, the table body and its pin — so no two
- * state rules ever contest the same property by accident. The one same-specificity pair left,
- * `.table` against `.round`/`.top`, is resolved by source order: `.round` and `.top` MUST stay
- * written after `.table`. `floorplanStyles.test.ts` asserts this order directly.
+ * KB-5, KB-6, TT-15. Colour never carries meaning alone, so each state below owns a distinct
+ * set of properties — `color` (text), the outer `background`/`border-*` where a material needs
+ * to extend past the ring for legible text, and the `--ring-*`/`--table-*-ink` custom properties
+ * TableRing.module.css and this file's own `.round .heading`/`.round .occupancy` read to paint
+ * the seat ring, the table body, its pin and its figures — so no two state rules ever contest the
+ * same property by accident. The one same-specificity pair left, `.table` against `.round`/`.top`,
+ * is resolved by source order: `.round` and `.top` MUST stay written after `.table`.
+ * `floorplanStyles.test.ts` asserts this order directly.
  *
  * Four materials (KB-6 "Floorplan"), one per data-occupancy value plus data-violation — for
  * .round only. The violation rule is written after every occupancy rule and repeats every
@@ -19,6 +20,12 @@
  * heads "Round tables". It is always the slate-filled bar the handoff draws at 6 of 6, at 0 of 6,
  * at every count in between: see .top .face below, which is why data-occupancy is read only by
  * .table[data-occupancy=...] selectors, never by a .top-scoped one.
+ *
+ * TT-15 closes TT-35's documented deviation: guest names and the pin-release control that used
+ * to live in this file's own `.guests` list now live in `TableDetailPanel` instead, so the
+ * number and fill count move inside the ring, as the handoff always drew them (`.round .heading`/
+ * `.round .occupancy` below) — and every table's face is always clickable, to select it for that
+ * panel (`.table[data-selected]` below), not only while a guest is selected on the rail.
  */
 
 /* Base. Specificity 0,1,0. */
@@ -38,29 +45,27 @@
 }
 
 /* Shape. Also 0,1,0 — written after .table so the pair above resolves correctly. The ring and
-   body are now drawn by TableRing's SVG, not this box, so this box carries no border or radius
-   of its own any more: dropping border-radius is what lets the guest list below (the documented
-   deviation, see .guests) sit below the ring in normal flow instead of being clipped at a curve
-   that no longer exists here. Its own violation state is carried by the SVG body's dashed stroke
-   (PlanTable.module.css's --ring-* declarations below), not a CSS border — see .top's own
-   data-violation rule for why that mechanism stays TOP-only. */
+   body are drawn by TableRing's SVG, not this box, so this box carries no border or radius of
+   its own any more. */
 .round {
   aspect-ratio: 1;
   border: none;
   /* Lets aspect-ratio win over the grid item's content-based automatic minimum height. */
   min-height: 0;
-  /* Clips content taller than the box, same TT-11 fix as before — the SVG's own min-height: 0
-     (below) is what keeps this from ever having to. */
+  /* Clips content taller than the box — the number and count now sit inside the ring itself
+     (.round .heading/.round .occupancy below), so this guards the ring's own curve, not a
+     guest list that used to sit below it. */
   overflow: hidden;
 }
 
 /* Not a grid item — FloorplanGrid.tsx renders this table in its own list, outside the grid. */
 .top {
-  border-radius: var(--r-card);
+  border-radius: var(--r-nav);
   border-color: var(--slate);
-  /* Capped and centred, not full-width: KB-6 and the style guide both draw it narrower than
-     the round-table row. floorplanStyles.test.ts guards the cap and the centring. */
-  width: max(280px, 38%);
+  /* A fixed, compact pill (handoff "Floorplan": rx=9, 220 × 46), not a share of the row's width —
+     floorplanStyles.test.ts guards the exact size and the centring. */
+  width: 220px;
+  min-height: 46px;
   margin-inline: auto;
 }
 
@@ -69,14 +74,14 @@
    table's face is never touched by data-occupancy; see .top .face further down.
    Browser-pass finding (TT-35): the handoff paints its four materials on a single SVG where the
    ring, the body AND the number all sit inside one drawing, so a slate body and white text are
-   the same shape. This hybrid keeps the number and seat count as separate HTML text below the
-   ring (§2's decision C), never on top of it — painting a round table's outer face the same
-   fill as the SVG body (as an earlier pass here did) does not reproduce that look; it hides the
-   ring inside a same-colour square, which is worse than not trying. So no *occupancy* state
-   gives .round's outer face a background of its own: the ring alone carries that material, and
-   the text below it stays an ordinary ink colour in every state, legible on the --surface floor
-   regardless. (The top table's face is a different case — see .top .face — because it has no
-   ring to carry a material and, per the handoff, needs none: it never varies at all.) */
+   the same shape. This hybrid keeps the number and seat count as separate HTML text (TT-15: now
+   layered over the ring via .round .heading/.round .occupancy, not below it) — painting a round
+   table's outer face the same fill as the SVG body (as an earlier pass here did) does not
+   reproduce that look; it hides the ring inside a same-colour square, which is worse than not
+   trying. So no *occupancy* state gives .round's outer face a background of its own: the ring
+   alone carries that material. (The top table's face is a different case — see .top .face —
+   because it has no ring to carry a material and, per the handoff, needs none: it never varies
+   at all.) */
 /* --ink-faint here is 2.95:1 on --surface — below WCAG AA, and knowingly kept anyway (review,
    TT-35): the faintness is load-bearing. It is what separates an empty table's number from a
    filling one's at a glance, per the handoff's four-materials table (AC14). Raising it to
@@ -89,6 +94,8 @@
   --ring-body-stroke: var(--rule);
   --ring-body-stroke-width: 1.5px;
   --ring-pin: var(--slate);
+  --table-number-ink: var(--ink-faint);
+  --table-count-ink: var(--ink-faint);
 }
 
 .table[data-occupancy='partial'] {
@@ -98,6 +105,8 @@
   --ring-body-stroke: var(--rule-strong);
   --ring-body-stroke-width: 1.5px;
   --ring-pin: var(--slate);
+  --table-number-ink: var(--ink);
+  --table-count-ink: var(--ink-muted);
 }
 
 .table[data-occupancy='full'] {
@@ -108,6 +117,8 @@
   /* The pin sits inside the SVG, on the slate body it is drawn over — unlike the text below,
      it really is on that fill, so --on-slate (white) is right here and only here. */
   --ring-pin: var(--on-slate);
+  --table-number-ink: var(--on-slate);
+  --table-count-ink: var(--chrome-ink-dim);
 }
 
 .table[data-violation='true'] {
@@ -118,6 +129,15 @@
   --ring-body-stroke-width: 1.8px;
   --ring-body-dasharray: 6 4;
   --ring-pin: var(--slate);
+  --table-number-ink: var(--hard-deep);
+  --table-count-ink: var(--hard-deep);
+}
+
+/* TT-15, handoff "Selecting a table": seat ring stroke-width 7 → 9, nothing else. A top table
+   carries this attribute too (it is selectable like any other) but has no TableRing to read it,
+   so it is visually a no-op there — "no other selection treatment" either way. */
+.table[data-selected='true'] {
+  --ring-stroke-width: 9px;
 }
 
 /* The dashed hard border is TOP-only: a round table's dashed outline is already the SVG body
@@ -131,16 +151,16 @@
   border-color: var(--hard);
 }
 
-/* The pinned marker. A round table's now lives inside TableRing's SVG instead (PlanTable.tsx,
-   TableRing.tsx), so this fixed-offset ::after mark now describes the top table alone — which
+/* The pinned marker. A round table's lives inside TableRing's SVG instead (PlanTable.tsx,
+   TableRing.tsx), so this fixed-offset ::after mark describes the top table alone — which
    keeps its rounded-rect CSS treatment untouched, except for two changes forced by one browser-
-   pass finding (coordinator, TT-35): the mark sits over the now-always-slate .face, not the
-   .table it is actually positioned against, so (1) it needs the same fill/background swap
+   pass finding (coordinator, TT-35): the mark sits over the always-slate .face, not the .table
+   it is actually positioned against, so (1) it needs the same fill/background swap
    TableRing.module.css's own SVG pin already gets on a full round table — --slate would vanish
    into the face it is drawn on — and (2) its offset has to clear .table's own padding-plus-border
-   (--s-3 + 1px = 13px) before it reaches that face at all: the old --s-2 (8px), correct when
-   .table's whole box was the coloured surface, now lands the mark mostly in the gap outside the
-   face, where an on-slate (white) dot is as invisible as a slate one would have been on white.
+   (--s-3 + 1px = 13px) before it reaches that face at all: --s-2 (8px), correct when .table's
+   whole box was the coloured surface, would land the mark mostly in the gap outside the face,
+   where an on-slate (white) dot is as invisible as a slate one would have been on white.
    --s-4 (16px) clears that inset with room to spare, so the full 6px circle lands on the face. */
 .top[data-pinned='true']::after {
   content: '';
@@ -155,7 +175,6 @@
 
 .heading {
   margin: 0;
-  /* Never shrunk — see the .table .face svg comment below for the sibling this protects it from. */
   flex: none;
   font: var(--t-heading);
 }
@@ -164,33 +183,6 @@
   margin: 0;
   flex: none;
   font: var(--t-caption);
-}
-
-/*
- * overflow: hidden (not just .round's, above) is what lets a flex item's automatic minimum size
- * become 0 instead of its content's height — see the @container block below for why that matters
- * here (TT-11 fix).
- *
- * TT-35's documented deviation (plan §2): the handoff's reference shows no names on the
- * floorplan at all, because they live in a Table detail panel — TT-15, not yet built. This list
- * carries the app's only pin-release control, so it is not hidden to match the reference; it
- * stays, styled to read as a caption under the ring rather than a leftover list, until TT-15
- * gives guest names a home of their own and this deviation closes.
- */
-.guests {
-  display: none;
-  overflow: hidden;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font: var(--t-caption);
-  border-top: 1px solid var(--rule);
-  padding-top: var(--s-2);
-  margin-top: var(--s-2);
-  width: 100%;
-  color: var(--ink-muted);
-  text-align: center;
 }
 
 /* Descendant selectors (0,2,0) beat Button.module.css's .button and .quiet (0,1,0) whatever
@@ -212,6 +204,48 @@
   border-radius: inherit;
 }
 
+/* TT-15, handoff "Round tables": the number and fill count sit inside the ring, not below it.
+   Written after the shared .table .face (both 0,2,0) so display: grid wins the tie. The ring's
+   own SVG becomes the sole normal-flow child; .heading and .occupancy are pulled out of flow
+   entirely (position: absolute below) and laid over it, so they no longer compete with the ring
+   for the column's height the way the old stacked layout did. */
+.round .face {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.round .face svg {
+  width: 100%;
+  height: auto;
+}
+
+/* Percentages come from ringGeometry.ts: viewBox 94, centre 47, number at cy − 2 (45/94 =
+   47.9%), count 14 below centre (61/94 = 64.9%). `top` resolves against .round .face's own box
+   (position: relative, above), so both stay proportional as the table scales — never a fixed
+   pixel offset, which would drift off the ring's centre at a different rendered radius. Colour
+   comes from --table-number-ink/--table-count-ink (not --ring-*: tableRingStyles.test.ts's
+   set-equality guard is a TableRing.module.css contract, and nothing here is read by that file). */
+.round .heading {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 47.9%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  color: var(--table-number-ink);
+}
+
+.round .occupancy {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 64.9%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--table-count-ink);
+}
+
 /* Coordinator browser-pass finding (TT-35): the top table has no TableRing to carry a material,
    so removing every occupancy state's outer background (above) left it with none at all — a
    white box at 6 of 6 indistinguishable from 0 of 6. The handoff's fix is not a fifth material:
@@ -221,34 +255,13 @@
    Same specificity as .table .face (0,2,0) and declared after it, so this literal colour wins the
    tie over that rule's color: inherit — which would otherwise still carry through whichever
    data-occupancy or data-violation colour landed on the <li> (both of those are moot for .top now).
-   Painted on .face, not .table: .guests (the guest-name list) is a sibling of .face, not inside
-   it, so it stays on the white floor exactly as a round table's does — six names on a slate block
-   would be the heaviest thing on the screen and would fight Auto-allocate for the one-primary
-   rule (handoff rule 2). border-radius: inherit (above) already matches .top's own r-card corners. */
+   TT-15: the label, the middot and the count now sit on one line (handoff "Top table · 6 of 6"),
+   so this is the one place .face still lays its children out in a row rather than a column. */
 .top .face {
+  flex-direction: row;
+  gap: var(--s-2);
   background: var(--slate);
   color: var(--on-slate);
-}
-
-/* Browser-pass finding (TT-35): TableRing.module.css's own .svg is width: 100%; height: auto —
-   right for a lone SVG, wrong once it shares .face with two lines of text, because that rule
-   asks for the *whole* available width (and, being square, that much height too) regardless of
-   what else is in the column. min-width/min-height: 0 alone were not enough to make it give any
-   of that back — a flex item's automatic minimum only ever stops it being pushed narrower than
-   its own request, it does not make the request smaller. Overridden here at higher specificity
-   (0,2,1 beats TableRing.module.css's own 0,1,0): flex-basis: 0 plus flex-grow hands the ring
-   whatever height .heading and .occupancy do not claim (both flex: none, so their claim is fixed
-   first), and aspect-ratio with width: auto is what keeps that height square rather than
-   stretching a fixed 100%-width box vertically. Without this, "8 of 8 seats" renders past
-   .round's own height and .round's overflow: hidden clips it — invisible with every test in the
-   suite still passing, since jsdom does no layout at all. */
-.table .face svg {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
-  width: auto;
-  height: auto;
-  aspect-ratio: 1;
 }
 
 /* (0,4,0): .table, .face, :hover and :not(:disabled) each count, beating Button.module.css's
@@ -264,40 +277,4 @@
 .table .face:focus-visible {
   outline: 2px solid var(--slate);
   outline-offset: -3px;
-}
-
-/* Same reasoning as .table .face above: without this, every guest name would carry the
-   shared button's border and padding rather than reading as a plain name in the list. */
-.guests .release {
-  display: inline;
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
-  font: inherit;
-  color: inherit;
-}
-
-/* Same trap as .table .face's hover rule above, for the same reason. The underline is new
-   (TT-35): the release control is now plain text sitting in a caption rather than a bordered
-   button, so hover needs its own signal that it is a control at all. */
-.guests .release:hover:not(:disabled) {
-  background: transparent;
-  text-decoration: underline;
-}
-
-/* Revealed by container query, not a ResizeObserver — jsdom does no layout, so a
-   measurement-based approach would be untestable. A container query's min-width reads the
-   content box, not the border box, so this threshold is not the table's own rendered width.
-   .face (flex: 1, above) must stop growing once the guest list is revealed, or it pushes the
-   list past the table's centre — and must stop shrinking too, or overflow pushes back into it
-   and clips the number instead (TT-11 fix). .guests is the child that yields; see its own
-   overflow: hidden above. floorplanStyles.test.ts asserts both halves of this. */
-@container (min-width: 132px) {
-  .guests {
-    display: block;
-  }
-
-  .table .face {
-    flex: 0 0 auto;
-  }
 }

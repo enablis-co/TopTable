@@ -84,6 +84,18 @@ async function renderAppOnPlanTab(user: ReturnType<typeof userEvent.setup>) {
   return result
 }
 
+// TT-15. The release control, and every guest name, now live in the table detail panel rather
+// than the floorplan tile, so opening that table's panel is a precondition for both — matching
+// PlanScreen.test.tsx's own helper of the same name. Only ever used with no guest selected on
+// the rail, where the table's face is a select button.
+async function selectTable(user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> {
+  const button = tableLabelled(label).querySelector('button')
+  if (!button) {
+    throw new Error(`expected a select button on the table labelled "${label}"`)
+  }
+  await user.click(button)
+}
+
 /**
  * The header's four figures (TT-35: the capacity headline "N seats for M guests", then the
  * stat pair pinned/unseated). Each is matched by its own pattern, in the shape the redesigned
@@ -153,11 +165,13 @@ describe('TT-12 ("Clicking a pinned guest releases the pin") — the release con
     await renderAppOnPlanTab(user)
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+    await selectTable(user, 'Table 1')
 
-    const table = tableLabelled('Table 1')
-    // Sanity: the pinned and the solver-seated guest really did land at the same table.
-    expect(table.textContent).toContain('Auto Guest One')
-    expect(table.textContent).toContain('Pinned Guest')
+    // Sanity: the pinned and the solver-seated guest really did land at the same table — read
+    // from the table detail panel, since TT-15 moves guest names off the floorplan tile itself.
+    expect(screen.getByRole('heading', { name: 'Table 1' })).toBeInTheDocument()
+    expect(document.body.textContent).toContain('Auto Guest One')
+    expect(document.body.textContent).toContain('Pinned Guest')
 
     expect(screen.queryByRole('button', { name: /^Release Auto Guest One from/ })).not.toBeInTheDocument()
     const anyButtonNamingAutoGuestOne = screen
@@ -172,6 +186,7 @@ describe('TT-12 ("Clicking a pinned guest releases the pin") — the release con
     await renderAppOnPlanTab(user)
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+    await selectTable(user, 'Table 1')
 
     const releaseButton = screen.getByRole('button', { name: /^Release Pinned Guest from/ })
     await user.click(releaseButton)

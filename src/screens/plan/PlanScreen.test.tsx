@@ -67,6 +67,18 @@ function tableLabelled(label: string): HTMLElement {
   return match
 }
 
+// TT-15. The release control now lives in the table detail panel, not the floorplan tile, so
+// every test that releases a pin has to open that table's panel first. Only ever used with no
+// guest selected on the rail — the table's face is a select button in that state (TT-12's
+// placing button takes priority over selecting for the same click otherwise).
+async function selectTable(user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> {
+  const button = tableLabelled(label).querySelector('button')
+  if (!button) {
+    throw new Error(`expected a select button on the table labelled "${label}"`)
+  }
+  await user.click(button)
+}
+
 // TT-35: the header's stat pair renders its value and its label ("Pinned"/"Unseated") as two
 // separate, stacked paragraphs (PlanHeader.module.css's .statValue/.statLabel), so a flattened
 // read of the body joins them with no space and the label's own sentence-case capital — this
@@ -423,6 +435,7 @@ describe('PlanScreen — one live region announces placing and releasing', () =>
     const user = userEvent.setup()
     renderPlanScreen()
 
+    await selectTable(user, 'Table 1')
     await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
 
     expect(screen.getByRole('status').textContent).toMatch(/Guest g-0/)
@@ -540,20 +553,59 @@ describe('PlanScreen — placing a guest with two clicks', () => {
   })
 })
 
-describe('PlanScreen — a table offers nothing to click without a selection', () => {
-  it('with no guest selected the table has no button to click, and clicking it writes no pin', async () => {
+describe('PlanScreen — a table with no guest selected offers a select control, not a placing one (TT-15 supersedes "offers nothing to click")', () => {
+  it('with no guest selected, the table has exactly one button, and it is not a placing button — clicking it writes no pin', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     const user = userEvent.setup()
     renderPlanScreen()
 
     const table = tableLabelled('Table 1')
-    expect(table.querySelectorAll('button')).toHaveLength(0)
+    const buttons = table.querySelectorAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]?.textContent).not.toMatch(/^Place /)
 
-    await user.click(table)
+    await user.click(buttons[0] as HTMLButtonElement)
 
     expect(useTopTableStore.getState().pins).toEqual([])
     expect(screen.getByRole('button', { name: 'Guest g-0' })).toBeInTheDocument()
+  })
+})
+
+describe('PlanScreen — selecting a table opens its detail panel; dismissing returns the violations panel (TT-15, C1, C9)', () => {
+  it('clicking a table swaps the violations panel for that table\'s detail, marks the table selected, and the dismiss control returns the violations panel', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })
+    useTopTableStore.getState().setGuests(makeGuests(3))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    expect(screen.getByRole('heading', { name: 'Violations' })).toBeInTheDocument()
+
+    await selectTable(user, 'Table 1')
+
+    expect(screen.queryByRole('heading', { name: 'Violations' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Table 1' })).toBeInTheDocument()
+    expect(tableLabelled('Table 1').getAttribute('data-selected')).toBe('true')
+
+    await user.click(screen.getByRole('button', { name: 'Close table detail' }))
+
+    expect(screen.getByRole('heading', { name: 'Violations' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Table 1' })).not.toBeInTheDocument()
+    expect(tableLabelled('Table 1').hasAttribute('data-selected')).toBe(false)
+  })
+
+  it('clicking the same table again toggles its detail panel closed', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })
+    useTopTableStore.getState().setGuests(makeGuests(3))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await selectTable(user, 'Table 1')
+    expect(screen.getByRole('heading', { name: 'Table 1' })).toBeInTheDocument()
+
+    await selectTable(user, 'Table 1')
+    expect(screen.queryByRole('heading', { name: 'Table 1' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Violations' })).toBeInTheDocument()
   })
 })
 
@@ -583,6 +635,7 @@ describe('PlanScreen — releasing a pinned guest', () => {
     const user = userEvent.setup()
     renderPlanScreen()
 
+    await selectTable(user, 'Table 1')
     await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
 
     expect(screen.getByRole('button', { name: 'Guest g-0' })).toBeInTheDocument()
@@ -600,6 +653,7 @@ describe('PlanScreen — releasing a pinned guest', () => {
     const user = userEvent.setup()
     renderPlanScreen()
 
+    await selectTable(user, 'Table 1')
     await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
 
     const table = tableLabelled('Table 1')
@@ -622,7 +676,9 @@ describe('PlanScreen — Escape clears the selection', () => {
 
     expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveAttribute('aria-pressed', 'false')
     const table = tableLabelled('Table 1')
-    expect(table.querySelectorAll('button')).toHaveLength(0)
+    const buttons = table.querySelectorAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]?.textContent).not.toMatch(/^Place /)
     expect(useTopTableStore.getState().pins).toEqual([])
   })
 
@@ -722,9 +778,28 @@ describe('PlanScreen — focus follows the gesture, since the control just activ
     const user = userEvent.setup()
     renderPlanScreen()
 
+    await selectTable(user, 'Table 1')
     await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
 
     expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveFocus()
+  })
+
+  it('after releasing, when the solver re-seats the guest immediately rather than leaving them on the rail, focus falls back to the table detail panel\'s dismiss control (TT-15)', async () => {
+    // One round table with exactly one seat and one guest: once allocated, releasing the only
+    // pin leaves one free seat and one unpinned guest, so the very next recompute re-seats them
+    // at the same table instead of leaving them unseated — no rail row ever appears to focus.
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 1, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+    await selectTable(user, 'Table 1')
+    await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
+
+    expect(screen.queryByRole('button', { name: 'Guest g-0' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Close table detail' })).toHaveFocus()
   })
 })
 
@@ -814,12 +889,16 @@ describe('PlanScreen — after allocating, the top table holds exactly the proto
       throw new Error('expected the top table to render first')
     }
     expect(topTable.textContent).toContain('Top table')
-    for (const guest of roleGuests) {
-      expect(topTable.textContent).toContain(guest.name)
-    }
-    expect(topTable.textContent).not.toContain('Extra One')
-    expect(topTable.textContent).not.toContain('Extra Two')
     expect(topTable.textContent).toMatch(/8\s*of\s*8\s*seats/i)
+
+    // Guest names no longer render on the floorplan tile itself (TT-15) — read them from the
+    // table detail panel instead.
+    await selectTable(user, 'Top table')
+    for (const guest of roleGuests) {
+      expect(document.body.textContent).toContain(guest.name)
+    }
+    expect(document.body.textContent).not.toContain('Extra One')
+    expect(document.body.textContent).not.toContain('Extra Two')
   })
 })
 
@@ -836,9 +915,15 @@ describe('PlanScreen — Auto-allocate honours a pin that was already there', ()
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
     expect(readsStat(3, 'Pinned')).toBe(true)
-    const stillTogether = tables().find((table) => table.textContent?.includes('Guest g-0'))
-    expect(stillTogether?.textContent).toContain('Guest g-1')
-    expect(tables().some((table) => table.textContent?.includes('Guest g-2'))).toBe(true)
+
+    // Guest names no longer render on the floorplan tile itself (TT-15) — read them from each
+    // table's own detail panel instead.
+    await selectTable(user, 'Table 1')
+    expect(document.body.textContent).toContain('Guest g-0')
+    expect(document.body.textContent).toContain('Guest g-1')
+
+    await selectTable(user, 'Table 2')
+    expect(document.body.textContent).toContain('Guest g-2')
   })
 })
 
@@ -858,12 +943,12 @@ describe('PlanScreen — a pin to the top table with no protocol role is honoure
     // Both pins survive the solver: allocate seats a top table pin rather than moving it, so the
     // figure a hand placement produced is the figure Auto-allocate leaves behind.
     expect(readsStat(2, 'Pinned')).toBe(true)
-    const [topTable] = tables()
-    if (!topTable) {
-      throw new Error('expected the top table to render first')
-    }
-    expect(topTable.textContent).toContain('Guest g-0')
-    expect(topTable.textContent).not.toContain('Guest g-1')
+
+    // Guest names no longer render on the floorplan tile itself (TT-15) — read them from the
+    // table detail panel instead.
+    await selectTable(user, 'Top table')
+    expect(document.body.textContent).toContain('Guest g-0')
+    expect(document.body.textContent).not.toContain('Guest g-1')
   })
 })
 
@@ -952,6 +1037,7 @@ describe('PlanScreen — correcting the plan after allocating takes effect with 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
     expect(readsStat(1, 'Pinned')).toBe(true)
 
+    await selectTable(user, 'Table 1')
     await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
 
     expect(readsStat(0, 'Pinned')).toBe(true)
