@@ -27,9 +27,22 @@
  * --t-figure-xl), so .canvasHeader now wraps the button below once the canvas cannot offer both;
  * flex-wrap below is the release valve for whatever still doesn't fit inside that floor — .stats
  * moves to its own line rather than crushing the headline further.
+ *
+ * Browser-pass finding (TT-37): flex-basis moved from 0% to auto. ClearControls joined this row
+ * as a third sibling, and with basis: 0% this box told .canvasHeader's line-fit test it needed
+ * nothing at all — only min-width's 240px floor counted — so all three always looked like they
+ * fit on one line, and the 240px floor is all this box ever got: 788px available minus the
+ * button's ~111px minus the controls column's ~300px left 343px, well under the ~410px .capacity
+ * and .stats need side by side, so *this* box's own internal flex-wrap (above) folded the stat
+ * pair under the headline instead — at a completely ordinary laptop width, not some
+ * accessibility-only extreme. flex-basis: auto reports this box's real, unwrapped preferred
+ * width to that same test, so .canvasHeader now wraps the controls column below *before*
+ * squeezing this box internally, and this box still shrinks to the 240px floor when a line
+ * genuinely has no room to spare (min-width does that regardless of which basis it started
+ * from). See ClearControls.module.css's own comment for the other side of this.
  */
 .header {
-  flex: 1;
+  flex: auto;
   min-width: 240px;
   display: flex;
   flex-wrap: wrap;

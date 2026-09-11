@@ -1,0 +1,89 @@
+/*
+ * TT-37. Sits as a third item in PlanScreen's .canvasHeader, beside PlanHeader (flex: auto) and
+ * the Auto-allocate button (flex: none). The confirm prompt reads as stacked beneath the two
+ * triggers, but renders as an anchored overlay rather than sitting in normal flow — see
+ * .confirm's own comment below for why that changed from the original in-flow design.
+ *
+ * flex-grow: 0 (never claims width PlanHeader's own growth is meant to claim) but flex-shrink: 1
+ * with min-width: 0. Whether this column ever *wraps down to its own line* is decided by
+ * PlanHeader's flex-basis, not by this rule (browser-pass fix, TT-37 review): PlanHeader moved
+ * from flex-basis: 0% to auto so the outer wrap test sees its real preferred width, and once
+ * that landed, this column wrapping to a full line of its own at ordinary widths (1280px and up)
+ * had nothing to do with whether *this* item could shrink — shrink only governs what happens
+ * once an item is already the sole occupant of a too-narrow line, which is exactly the case one
+ * width band below that: at the row-layout's own pinch point, just above the 720px breakpoint
+ * where the violations column is still beside the canvas rather than under it, the canvas can be
+ * narrower than even PlanHeader's 240px floor. A fixed, non-shrinking width here (shrink: 0)
+ * held its ground past that edge and spilled to the left of the sidebar instead of wrapping
+ * internally — the same class of "jsdom can't see this" defect the confirm text below caused
+ * the other way. shrink: 1 with min-width: 0 lets this column compress that far down instead.
+ */
+/* position: relative (TT-37 browser-pass fix): the anchor .confirm positions itself against
+   once it drops out of flow — see .confirm's own comment for why. */
+.controls {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s-3);
+}
+
+/* flex-wrap: wrap is the release valve at the row-layout pinch point just above the 720px
+   breakpoint: once .controls has shrunk as far as it can, the two triggers themselves stack
+   rather than overflow. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s-3);
+}
+
+/*
+ * position: absolute (TT-37 browser-pass fix, second regression): .confirm used to sit in
+ * normal flow, stacked under .row inside .controls — which put its height into the *same
+ * .canvasHeader flex line* as PlanHeader and Auto-allocate whenever all three fit on one line
+ * (any width from roughly 900px to 1550px, i.e. most ordinary desktop widths, not some extreme).
+ * align-items: flex-end on .canvasHeader then bottom-aligned everything on that line to the
+ * *tallest* item — .confirm at ~210px open versus PlanHeader's own ~125px and Auto-allocate's
+ * ~39px — sinking both of them down by the difference and opening a gap above them. Confirming
+ * or cancelling never changes PlanHeader's own height, so nothing should move it, and jsdom's
+ * lack of layout is exactly why the suite never saw a header that visibly jumps down every time
+ * a user opens this prompt. Absolute positioning is a correct fit, not a workaround: .confirm
+ * only exists in the DOM at all while `flow.kind === 'confirming'` (ClearControls.tsx), so it
+ * was already an overlay in every sense but its CSS — nothing else in .canvasHeader should ever
+ * have to reflow to make room for it. right: 0 keeps it flush with .controls' own right edge
+ * (matching the triggers above it); max-width: 100% is what lets it narrow alongside .controls
+ * at the pinch point above the 720px breakpoint instead of holding 320px past whatever room is
+ * left, the same reasoning as when this rule lived in-flow.
+ */
+.confirm {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: var(--s-3);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: 320px;
+  max-width: 100%;
+}
+
+.confirmTitle {
+  margin: 0;
+  font: var(--t-body);
+  color: var(--ink);
+}
+
+.confirmBody {
+  margin: 0;
+  font: var(--t-body);
+  color: var(--ink-muted);
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--s-3);
+}

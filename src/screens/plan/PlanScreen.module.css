@@ -38,16 +38,30 @@
 /* Auto-allocate moves here from the old .actions row above the header (TT-13) to this row's
    right edge (handoff rule 2, A13 in the plan): the primary action stays on the canvas rather
    than the top bar, so the shell never has to know this screen's handlers. PlanHeader's own
-   root is flex: 1 so its internal space-between (capacity block vs stat pair) still has the
-   canvas's full width to work across, with this button as a third, non-growing item beside it —
-   a deliberate change from PlanHeader.module.css's plainly-stated flex: none, which describes
-   the header sitting alone in a column and does not anticipate a sibling in a row. */
+   root is flex: auto (TT-37 browser-pass fix, see PlanHeader.module.css) so its internal
+   space-between (capacity block vs stat pair) still has the canvas's full width to work across,
+   with this button as a third, non-growing item beside it — a deliberate change from
+   PlanHeader.module.css's plainly-stated flex: none, which describes the header sitting alone
+   in a column and does not anticipate a sibling in a row.
+
+   justify-content: flex-end (TT-37): with ClearControls added as a fourth-in-order item that
+   wraps to its own line below at ordinary widths (PlanHeader.module.css's flex: auto is what
+   makes that line-fit decision correctly now), that wrapped line has no other item on it, so
+   the default flex-start packed it flush against the sidebar rather than under Auto-allocate.
+   flex-end is a no-op on the row above — PlanHeader's own flex-grow already consumes every bit
+   of that line's free space, leaving none for justify-content to redistribute — so this only
+   ever moves the second line. */
 .canvasHeader {
   flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--s-4);
+  justify-content: flex-end;
+  /* row-gap tighter than column-gap (TT-37): once ClearControls wraps to its own line below,
+     that row-gap is the only air between PlanHeader/Auto-allocate and the two triggers — --s-3
+     reads as one related header rather than two stacked-up sections, where --s-4 (still used
+     between items sharing a line) read as too much for that relationship. */
+  gap: var(--s-3) var(--s-4);
 }
 
 .allocate {

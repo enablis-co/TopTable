@@ -34,14 +34,22 @@ above the section switch, rather than on `PlanScreen` itself — `PlanScreen` un
 tab change, so state kept there was losing the allocation the moment someone left for Guests
 and came back (TT-13 review).
 
+**A scenario import resets it too (TT-37).** The flag outlives the guest list it describes —
+nothing ties them together at the type level — so `SetupScreen.handleImport` clears it
+explicitly, in the same handler that calls `importScenario`, or an import would silently leave
+the new guest list rendered as if it had already been auto-allocated. `allocated` now has three
+writers across two screens (`PlanScreen`'s allocate and clear actions, and `SetupScreen`'s
+import) with nothing enforcing the pairing beyond this note: wiring `setGuests` or `reset` to a
+new control reintroduces the same defect, silently, and the compiler cannot see it.
+
 **Anything computed.** Total seats is `roundTables * seatsEach + topTableSeats` and lives with the
 setup screen, TT-3. Nothing that can be recomputed from the three fields above belongs here.
 
 ## The write surface
 
 `setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`, `addGuest`, `updateGuest`,
-`removeGuest`, `pinGuest` and `unpinGuest`. `setEventName`, `setRoom` and `setGuests` are what
-TT-2 needs to stand the project up and prove persistence.
+`removeGuest`, `pinGuest`, `unpinGuest` and `clearPins`. `setEventName`, `setRoom` and `setGuests`
+are what TT-2 needs to stand the project up and prove persistence.
 
 **Guest add, edit and remove are here, and reciprocity is not improvised in this file.**
 `partnerOf` and `conflictsWith` are reciprocal — present on both guests, resolvable from either
@@ -57,6 +65,12 @@ pins in that same call (TT-12): a removed guest's pin, if they held one, is clea
 Placing a guest pins them at a table; releasing drops that pin. Neither validates the guest or
 table id — the caller reads the guest out of the list first, and a pin naming nothing real is
 simply left unresolved wherever the plan is built from the pins.
+
+**`clearPins` (TT-37) is not a delegate.** It is `set({ pins: [] })` directly on the store.
+`pinGuest`/`unpinGuest` earn their place in `src/domain/pins.ts` because they own real
+behaviour — replace-in-place at the same index, returning the same reference when nothing
+matched — and emptying a list has no such behaviour to own; a `clearPins(pins) => []` domain
+function would be an argument-ignoring no-op.
 
 `setGuests` replaces the whole list, because a scenario import is a replacement and not a merge.
 Both it and `importScenario` clear the pins in the same `set` call, because every pin names a
