@@ -103,7 +103,7 @@ function deepFreeze<T>(value: T): T {
   return value
 }
 
-describe('the registry registers every rule file on disk (A7)', () => {
+describe('the registry registers every rule file on disk (TT-14; AGENTS.md)', () => {
   it('has exactly as many registered rules as there are *.rule.ts files, so a misnamed export cannot silently register nothing', () => {
     expect(REGISTERED_RULES.length).toBe(ruleFilesOnDisk().length)
   })
@@ -125,18 +125,18 @@ describe('every registered rule carries a real identity', () => {
   })
 })
 
-describe('every registered rule is deterministic (A6; docs/engineering-standards.md)', () => {
+describe('every registered rule is deterministic (docs/engineering-standards.md)', () => {
   it.each(REGISTERED_RULES)('$id gives deeply equal findings from two separately-built but equal plans', (rule) => {
     expect(rule.evaluate(buildViolatingPlan())).toEqual(rule.evaluate(buildViolatingPlan()))
   })
 
-  it.each(REGISTERED_RULES)('$id neither throws nor changes a deeply frozen plan (A4)', (rule) => {
+  it.each(REGISTERED_RULES)('$id neither throws nor changes a deeply frozen plan (TT-14)', (rule) => {
     const frozen = deepFreeze(buildViolatingPlan())
     expect(() => rule.evaluate(frozen)).not.toThrow()
   })
 })
 
-describe('the registry is order-independent (A5; docs/engineering-standards.md)', () => {
+describe('the registry is order-independent (docs/engineering-standards.md)', () => {
   it('evaluating the registered rules in reverse order produces the same set of violations', () => {
     const plan = buildViolatingPlan()
     const forward = evaluatePlan(plan, REGISTERED_RULES)
@@ -164,7 +164,7 @@ describe('evaluateRegistered and registeredSeatGuard bind REGISTERED_RULES into 
   })
 })
 
-describe('every hard, seating-remedy rule can point at what it objects to (A3: "Auto-allocate has to tell those apart, or it will hunt for a seating fix that does not exist")', () => {
+describe('every hard, seating-remedy rule can point at what it objects to (TT-14: "Auto-allocate has to tell those apart, or it will hunt for a seating fix that does not exist")', () => {
   const hardSeatingRules = REGISTERED_RULES.filter((rule) => rule.severity === 'hard' && rule.remedy === 'seating')
 
   it('the registry currently has at least one hard, seating rule to check — otherwise the check below would be vacuous', () => {

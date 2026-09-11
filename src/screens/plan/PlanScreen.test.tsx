@@ -1018,7 +1018,7 @@ describe('PlanScreen — the violations panel is the third column, beside the ra
     expect(screen.getByRole('heading', { name: 'Violations' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Unseated' })).toBeInTheDocument()
     expect(tables().length).toBeGreaterThan(0)
-    // Capacity, top table and partners adjacent (A16).
+    // Capacity, top table and partners adjacent.
     expect(document.body.textContent).toContain('3 rules registered')
   })
 
@@ -1033,7 +1033,7 @@ describe('PlanScreen — the violations panel is the third column, beside the ra
   })
 })
 
-describe('PlanScreen — a hard violation marks the table and lists in the panel, in agreeing figures (A15, A19)', () => {
+describe('PlanScreen — a hard violation marks the table and lists in the panel, in agreeing figures (TT-14; KB-5; KB-6)', () => {
   it('nine guests hand-pinned to an eight-seat table before Auto-allocate carry data-violation on the table, and the panel names it with the same seat count', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(9))

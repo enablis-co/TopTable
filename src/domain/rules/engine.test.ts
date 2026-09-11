@@ -74,7 +74,7 @@ function makeRule(overrides: Partial<SeatingRule> & Pick<SeatingRule, 'id'>): Se
   }
 }
 
-describe("evaluatePlan — a finding is stamped with its own rule's id, severity and remedy (A1, A2)", () => {
+describe("evaluatePlan — a finding is stamped with its own rule's id, severity and remedy (TT-14)", () => {
   it('carries every finding field through unchanged, plus ruleId, severity and remedy taken from the rule, not the finding', () => {
     const finding: Finding = {
       tableIds: ['round-1'],
@@ -104,7 +104,7 @@ describe("evaluatePlan — a finding is stamped with its own rule's id, severity
   })
 })
 
-describe('evaluatePlan — ruleCount reflects exactly the rules passed in (A9)', () => {
+describe('evaluatePlan — ruleCount reflects exactly the rules passed in (TT-14; TT-16)', () => {
   it('counts every rule given, whether or not it fires', () => {
     const firing = makeRule({ id: 'fires', evaluate: () => [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }] })
     const quiet1 = makeRule({ id: 'quiet-1' })
@@ -122,7 +122,7 @@ describe('evaluatePlan — ruleCount reflects exactly the rules passed in (A9)',
   })
 })
 
-describe('hardViolations, softViolations, hardViolationCount and tablesWithHardViolation partition one report (A8)', () => {
+describe('hardViolations, softViolations, hardViolationCount and tablesWithHardViolation partition one report (TT-14; KB-2)', () => {
   it('splits a mix of hard and soft findings, from different rules and different tables, correctly', () => {
     const hardRule = makeRule({
       id: 'hard-rule',
@@ -185,7 +185,7 @@ describe('withSeat — the hypothetical plan a guard reasons about', () => {
   })
 })
 
-describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candidate seat (A3: \"Auto-allocate has to tell those apart, or it will hunt for a seating fix that does not exist\")", () => {
+describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candidate seat (TT-14: \"Auto-allocate has to tell those apart, or it will hunt for a seating fix that does not exist\")", () => {
   it('refuses when a hard, seating rule finds a violation naming that table and that guest', () => {
     const rule = makeRule({
       id: 'hard-seating',
