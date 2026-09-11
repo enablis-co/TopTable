@@ -39,14 +39,14 @@ import styles from './SetupScreen.module.css'
  * different state again, and is never silent about it.
  */
 export function SetupScreen({
-  allocated = false,
-  clearAllocation = () => {},
+  allocated,
+  clearAllocation,
 }: {
-  allocated?: boolean
+  allocated: boolean
   /** Called once an import completes (TT-37), so the flag it resets never outlives the guest
-   * list it described. Optional with a no-op default: existing tests render `<SetupScreen />`
-   * with no props and must keep compiling. */
-  clearAllocation?: () => void
+   * list it described. Required, not defaulted: `allocated` has three writers across two
+   * screens and no other type-level guard against a fourth call site forgetting to reset it. */
+  clearAllocation: () => void
 }) {
   const event = useTopTableStore((s) => s.event)
   const room = useTopTableStore((s) => s.room)

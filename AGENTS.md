@@ -210,7 +210,8 @@ in `src/domain/seating.ts` (the model and the table address) and `src/domain/all
 solver and the rule seam); the rules engine (TT-14) and the table detail (TT-15) have not.
 
 The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`,
-`addGuest`, `updateGuest`, `removeGuest`, `pinGuest` and `unpinGuest`. `addGuest`, `updateGuest`
-and `removeGuest` are thin delegates onto `src/domain/guests.ts`, which owns reciprocal
-`partnerOf` and `conflictsWith` and is the only place that logic lives; `pinGuest` and
-`unpinGuest` are the same onto `src/domain/pins.ts`. See [docs/state.md](docs/state.md).
+`addGuest`, `updateGuest`, `removeGuest`, `pinGuest`, `unpinGuest` and `clearPins`. `addGuest`,
+`updateGuest` and `removeGuest` are thin delegates onto `src/domain/guests.ts`, which owns
+reciprocal `partnerOf` and `conflictsWith` and is the only place that logic lives; `pinGuest` and
+`unpinGuest` are the same onto `src/domain/pins.ts`; `clearPins` (TT-37) is not, because emptying
+a list owns no behaviour worth a domain function. See [docs/state.md](docs/state.md).

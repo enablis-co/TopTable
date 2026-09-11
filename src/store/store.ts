@@ -184,7 +184,7 @@ export const useTopTableStore = create<TopTableStore>()(
 
       unpinGuest: (guestId) => set((state) => ({ pins: domainUnpinGuest(state.pins, guestId) })),
 
-      // Not a delegate (A5): emptying a list is not domain behaviour worth its own function.
+      // Not a delegate: emptying a list is not domain behaviour worth its own function.
       clearPins: () => set({ pins: [] }),
     }),
     {
