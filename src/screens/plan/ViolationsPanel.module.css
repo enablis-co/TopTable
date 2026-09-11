@@ -1,0 +1,27 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  padding-left: var(--space-3);
+}
+
+.list p {
+  margin: 0;
+}
+
+/* KB-5's left bar, shape as well as colour (TT-14 supersedes KB-5's "soft gets the same, in
+   amber"): solid for hard, dotted for soft — never dashed, which PlanTable.module.css already
+   uses for a table in violation, so one shape does not mean two things. */
+[data-severity='hard'] {
+  border-left: 3px solid var(--hard);
+}
+
+[data-severity='soft'] {
+  border-left: 3px dotted var(--soft);
+}
