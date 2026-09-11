@@ -258,10 +258,13 @@ describe("TT-11 (the header's unseated figure) — it always agrees with the pla
       for (const guestCase of GUEST_SET_CASES) {
         const guests = guestCase.guests()
 
-        // A room with no seats at all and no guests is the true first-visit invitation screen
-        // (matches the SetupScreen and PlanScreen "guests.length > 0 OR totalSeats > 0" gate),
-        // which renders no header to read a figure from — not what this property is about.
-        if (guests.length === 0 && totalSeats(roomCase.room) === 0) {
+        // A zero-seat room renders the first-visit invitation screen instead of a header,
+        // confirmed empirically (not by reading PlanScreen.tsx): guests alone did not avert it
+        // when this file's own "zero-capacity round tables" case still had topTableSeats: 0.
+        // None of ROOM_CASES has totalSeats 0 any more, so this guard is currently a no-op —
+        // kept so a future zero-seat room added here fails loudly here, not with a confusing
+        // "no header figures found" error three functions away.
+        if (totalSeats(roomCase.room) === 0) {
           continue
         }
 
