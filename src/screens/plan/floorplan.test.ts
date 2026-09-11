@@ -55,7 +55,7 @@ function occupantsFixture(overrides: Partial<TableOccupants> = {}): TableOccupan
   return { guests: [], pinnedCount: 0, inViolation: false, ...overrides }
 }
 
-describe('occupancyOf — the three states, and the degenerate zero-capacity table (C4)', () => {
+describe('occupancyOf — the three states, and the degenerate zero-capacity table', () => {
   it.each([
     [0, 8, 'empty'],
     [8, 8, 'full'],
@@ -72,17 +72,16 @@ describe('occupancyOf — the three states, and the degenerate zero-capacity tab
   })
 })
 
-describe('planTotals (C5)', () => {
-  it('with nothing seated, every guest is unseated and nobody is pinned', () => {
+describe('planTotals', () => {
+  it('with nothing seated, nobody is pinned and guestCount is the full list', () => {
     const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
     expect(planTotals(guests, NOTHING_SEATED)).toEqual({
       guestCount: 3,
       pinnedCount: 0,
-      unseatedCount: 3,
     })
   })
 
-  it('two guests placed, one pinned, drops unseated by two and counts the one pin', () => {
+  it('two guests seated, one pinned, counts the one pin', () => {
     const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
     const seatedPair = [guests[0], guests[1]]
     if (!seatedPair[0] || !seatedPair[1]) {
@@ -90,39 +89,27 @@ describe('planTotals (C5)', () => {
     }
     const seating: SeatingView = {
       byTableId: {
-        'round-1': occupantsFixture({ guests: [seatedPair[0], seatedPair[1]], pinnedCount: 1 }),
+        'round-1': occupantsFixture({
+          guests: [
+            { guest: seatedPair[0], pinned: true },
+            { guest: seatedPair[1], pinned: false },
+          ],
+          pinnedCount: 1,
+        }),
       },
     }
 
     expect(planTotals(guests, seating)).toEqual({
       guestCount: 3,
       pinnedCount: 1,
-      unseatedCount: 1,
     })
-  })
-
-  it('a guest listed at two tables does not drive unseatedCount below zero', () => {
-    const guest = makeGuest('g-1')
-    const guests = [guest]
-    // The same guest, double-listed at two tables — what a sum-of-counts implementation would
-    // double-count, and what a Set of seated ids gets right.
-    const seating: SeatingView = {
-      byTableId: {
-        'round-1': occupantsFixture({ guests: [guest] }),
-        'round-2': occupantsFixture({ guests: [guest] }),
-      },
-    }
-
-    const totals = planTotals(guests, seating)
-    expect(totals.unseatedCount).toBe(0)
-    expect(totals.unseatedCount).toBeGreaterThanOrEqual(0)
   })
 
   it('pinnedCount sums the per-table figures directly, with no deduplication', () => {
     const guest = makeGuest('g-1')
     const seating: SeatingView = {
       byTableId: {
-        'round-1': occupantsFixture({ guests: [guest], pinnedCount: 1 }),
+        'round-1': occupantsFixture({ guests: [{ guest, pinned: true }], pinnedCount: 1 }),
         'round-2': occupantsFixture({ pinnedCount: 2 }),
       },
     }
@@ -134,7 +121,9 @@ describe('planTotals (C5)', () => {
     const guests = [makeGuest('g-1'), makeGuest('g-2')]
     const seating: SeatingView = {
       byTableId: {
-        'round-1': occupantsFixture({ guests: [...guests, makeGuest('not-in-the-guest-list')] }),
+        'round-1': occupantsFixture({
+          guests: [...guests, makeGuest('not-in-the-guest-list')].map((guest) => ({ guest, pinned: false })),
+        }),
       },
     }
 
@@ -142,7 +131,7 @@ describe('planTotals (C5)', () => {
   })
 })
 
-describe('occupantsAt — the empty-table default, never undefined (C4, C5)', () => {
+describe('occupantsAt — the empty-table default, never undefined', () => {
   const emptyTable: TableOccupants = { guests: [], pinnedCount: 0, inViolation: false }
 
   it('returns the empty-table value for any id at all when nothing is seated', () => {
@@ -153,13 +142,17 @@ describe('occupantsAt — the empty-table default, never undefined (C4, C5)', ()
 
   it('returns the empty-table value for an id missing from a partially-seated view', () => {
     const seating: SeatingView = {
-      byTableId: { 'round-1': occupantsFixture({ guests: [makeGuest('g-1')] }) },
+      byTableId: { 'round-1': occupantsFixture({ guests: [{ guest: makeGuest('g-1'), pinned: false }] }) },
     }
     expect(occupantsAt(seating, 'round-2')).toEqual(emptyTable)
   })
 
   it('returns the real entry, unchanged, for an id that is present', () => {
-    const entry = occupantsFixture({ guests: [makeGuest('g-1')], pinnedCount: 1, inViolation: true })
+    const entry = occupantsFixture({
+      guests: [{ guest: makeGuest('g-1'), pinned: true }],
+      pinnedCount: 1,
+      inViolation: true,
+    })
     const seating: SeatingView = { byTableId: { 'round-1': entry } }
     expect(occupantsAt(seating, 'round-1')).toEqual(entry)
   })
@@ -261,7 +254,7 @@ describe('FloorplanGrid.module.css — .gridScroll absorbs the grid\'s horizonta
 })
 
 describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (TT-13)', () => {
-  it('a table with nothing seated at it gets no entry in byTableId (C19)', () => {
+  it('a table with nothing seated at it gets no entry in byTableId', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 0 }
     const guests = [makeGuest('g-1')]
     const pins: Pin[] = [{ guestId: 'g-1', tableId: 'round-1' }]
@@ -274,7 +267,7 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
     expect(occupantsAt(seating, 'round-2')).toEqual({ guests: [], pinnedCount: 0, inViolation: false })
   })
 
-  it("a table's guests appear in seat order, which is also guest-list order for an un-allocated plan (C1)", () => {
+  it("a table's guests appear in seat order, which is also guest-list order for an un-allocated plan", () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 0 }
     const guests = [makeGuest('g-1'), makeGuest('g-2'), makeGuest('g-3')]
     // Pinned in the opposite order to the guest list — seatPins fills the lowest free seat by
@@ -288,10 +281,10 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
 
     const seating = seatingViewFrom(plan)
 
-    expect(occupantsAt(seating, 'round-1').guests.map((guest) => guest.id)).toEqual(['g-1', 'g-2', 'g-3'])
+    expect(occupantsAt(seating, 'round-1').guests.map(({ guest }) => guest.id)).toEqual(['g-1', 'g-2', 'g-3'])
   })
 
-  it('overflow occupants render after the seated ones, so a hand-pinned ninth guest still reads through to "9 of 8 seats" (C17, C19)', () => {
+  it('overflow occupants render after the seated ones, so a hand-pinned ninth guest still reads through to "9 of 8 seats"', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
     const guests = Array.from({ length: 9 }, (_, index) => makeGuest(`g-${index + 1}`))
     const pins: Pin[] = guests.map((guest) => ({ guestId: guest.id, tableId: 'round-1' }))
@@ -299,13 +292,13 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
 
     const occupants = occupantsAt(seatingViewFrom(plan), 'round-1')
 
-    expect(occupants.guests.map((guest) => guest.id)).toEqual([
+    expect(occupants.guests.map(({ guest }) => guest.id)).toEqual([
       'g-1', 'g-2', 'g-3', 'g-4', 'g-5', 'g-6', 'g-7', 'g-8', 'g-9',
     ])
     expect(occupancyOf(occupants.guests.length, 8)).toBe('full')
   })
 
-  it('pinnedCount counts only honoured pins — a solver-filled table with no pins at all reads 0 (C12)', () => {
+  it('pinnedCount counts only honoured pins — a solver-filled table with no pins at all reads 0', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
     const guests = makeGuests(8)
     const plan = allocate(room, guests, [])
@@ -316,7 +309,7 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
     expect(occupants.pinnedCount).toBe(0)
   })
 
-  it('two honoured pins plus six solver-filled guests at the same table reads pinnedCount 2 (C12)', () => {
+  it('two honoured pins plus six solver-filled guests at the same table reads pinnedCount 2', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
     const guests = makeGuests(8)
     const pins: Pin[] = [
@@ -331,7 +324,7 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
     expect(occupants.pinnedCount).toBe(2)
   })
 
-  it('inViolation is false for every table, including one overfilled by a hand pin (C18)', () => {
+  it('inViolation is false for every table, including one overfilled by a hand pin', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 0 }
     const guests = makeGuests(5)
     const pins: Pin[] = guests.map((guest) => ({ guestId: guest.id, tableId: 'round-1' }))
@@ -340,7 +333,7 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
     expect(occupantsAt(seatingViewFrom(plan), 'round-1').inViolation).toBe(false)
   })
 
-  it('agrees with plan.unseated on who counts as unseated, for an un-allocated plan (R4 guard)', () => {
+  it('pinnedCount sums correctly against a real seatPins-derived seating view, with two honoured pins', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 0 }
     const guests = makeGuests(6)
     const pins: Pin[] = [
@@ -349,32 +342,10 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
     ]
     const plan = seatPins(room, guests, pins)
 
-    const totals = planTotals(guests, seatingViewFrom(plan))
-    expect(totals.unseatedCount).toBe(plan.unseated.length)
-    expect(totals.pinnedCount).toBe(2)
+    expect(planTotals(guests, seatingViewFrom(plan)).pinnedCount).toBe(2)
   })
 
-  it('agrees with plan.unseated on who counts as unseated, for a fully allocated plan (R4 guard)', () => {
-    const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
-    const guests = makeGuests(70)
-    const plan = allocate(room, guests, [])
-
-    const totals = planTotals(guests, seatingViewFrom(plan))
-    expect(totals.unseatedCount).toBe(plan.unseated.length)
-    expect(totals.unseatedCount).toBe(0)
-  })
-
-  it('agrees with plan.unseated on who counts as unseated, for a short room the solver cannot fully seat (R4 guard)', () => {
-    const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 0 }
-    const guests = makeGuests(6)
-    const plan = allocate(room, guests, [])
-
-    const totals = planTotals(guests, seatingViewFrom(plan))
-    expect(totals.unseatedCount).toBe(plan.unseated.length)
-    expect(totals.unseatedCount).toBeGreaterThan(0)
-  })
-
-  it('is deterministic: the same plan produces a deeply equal view twice (C13)', () => {
+  it('is deterministic: the same plan produces a deeply equal view twice', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 4 }
     const guests = makeGuests(6)
     const plan = allocate(room, guests, [])

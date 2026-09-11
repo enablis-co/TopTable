@@ -32,12 +32,18 @@ export function occupancyOf(occupantCount: number, capacity: number): Occupancy 
   return 'partial'
 }
 
+/** A seated guest, alongside whether their own seat is a pin PlanTable can offer to release. */
+export type SeatedGuest = {
+  guest: Guest
+  pinned: boolean
+}
+
 export type TableOccupants = {
   /**
    * `readonly`: every empty table shares the single `EMPTY_TABLE` object below, so a mutating
    * call on one would silently poison every empty table in the app at once.
    */
-  guests: readonly Guest[]
+  guests: readonly SeatedGuest[]
   pinnedCount: number
   inViolation: boolean
 }
@@ -70,19 +76,19 @@ export function seatingViewFrom(plan: SeatingPlan): SeatingView {
   const byTableId: Record<string, TableOccupants> = {}
 
   for (const table of plan.tables) {
-    const seated: Guest[] = []
-    const overflow: Guest[] = []
+    const seated: SeatedGuest[] = []
+    const overflow: SeatedGuest[] = []
     let pinnedCount = 0
 
     for (const seat of table.seats) {
       if (!seat) continue
-      seated.push(seat.guest)
+      seated.push({ guest: seat.guest, pinned: seat.pinned })
       if (seat.pinned) pinnedCount += 1
     }
     // Overflow renders after the seated occupants, so a hand pin that overfilled a table still
     // reads as "9 of 8 seats" (PlanTable's occupancyOf) rather than losing the ninth guest.
     for (const seat of table.overflow) {
-      overflow.push(seat.guest)
+      overflow.push({ guest: seat.guest, pinned: seat.pinned })
       if (seat.pinned) pinnedCount += 1
     }
 
@@ -94,27 +100,19 @@ export function seatingViewFrom(plan: SeatingPlan): SeatingView {
   return { byTableId }
 }
 
-/**
- * `unseatedCount` comes from a `Set` of seated guest ids, not a sum of per-table counts, so a
- * guest double-listed at two tables can't push it negative.
- */
+/** guestCount is the guest list's own length; pinnedCount sums the per-table figures. */
 export function planTotals(
   guests: Guest[],
   seating: SeatingView,
-): { guestCount: number; pinnedCount: number; unseatedCount: number } {
-  const seatedIds = new Set<string>()
+): { guestCount: number; pinnedCount: number } {
   let pinnedCount = 0
 
   for (const occupants of Object.values(seating.byTableId)) {
     pinnedCount += occupants.pinnedCount
-    for (const guest of occupants.guests) {
-      seatedIds.add(guest.id)
-    }
   }
 
   return {
     guestCount: guests.length,
     pinnedCount,
-    unseatedCount: guests.filter((guest) => !seatedIds.has(guest.id)).length,
   }
 }

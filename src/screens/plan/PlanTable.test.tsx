@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlanTable } from './PlanTable'
-import type { TableOccupants } from './floorplan'
+import type { SeatedGuest, TableOccupants } from './floorplan'
 import type { Guest } from '../../domain/types'
 import type { TableSlot } from '../../domain/seating'
 
@@ -16,8 +16,7 @@ import type { TableSlot } from '../../domain/seating'
  * PlanTable renders in. The table root is located via `[data-occupancy]` rather than by role,
  * since a seated table's nested guest names are themselves `<li>` elements.
  *
- * Every Guest fixture sets `age` to an AgeBand, never a number — see floorplan.test.ts's header
- * comment for why KB-3's `number` typing is the stale copy.
+ * Every Guest fixture sets `age` to an AgeBand, never a number.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -41,6 +40,10 @@ function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
 
 function makeGuests(count: number): Guest[] {
   return Array.from({ length: count }, (_, index) => makeGuest(`g-${index}`))
+}
+
+function seatedGuests(guests: Guest[], pinned = false): SeatedGuest[] {
+  return guests.map((guest) => ({ guest, pinned }))
 }
 
 function roundSlot(overrides: Partial<TableSlot> = {}): TableSlot {
@@ -95,7 +98,7 @@ function renderTableWithProps(slot: TableSlot, occupants: TableOccupants, extra:
   return table as HTMLElement
 }
 
-describe('PlanTable — occupancy against capacity (C3, C4)', () => {
+describe('PlanTable — occupancy against capacity', () => {
   it('no occupants reads empty, and shows "0 of m seats"', () => {
     const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: [] }))
     expect(table.getAttribute('data-occupancy')).toBe('empty')
@@ -104,25 +107,25 @@ describe('PlanTable — occupancy against capacity (C3, C4)', () => {
   })
 
   it('occupants exactly at capacity reads full, and shows "m of m seats"', () => {
-    const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: makeGuests(8) }))
+    const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: seatedGuests(makeGuests(8)) }))
     expect(table.getAttribute('data-occupancy')).toBe('full')
     expect(table.textContent).toMatch(/8\s*of\s*8\s*seats/i)
   })
 
   it('occupants above capacity still reads full, and shows the true, over-capacity count', () => {
-    const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: makeGuests(9) }))
+    const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: seatedGuests(makeGuests(9)) }))
     expect(table.getAttribute('data-occupancy')).toBe('full')
     expect(table.textContent).toMatch(/9\s*of\s*8\s*seats/i)
   })
 
   it('some but not all seats occupied reads partial', () => {
-    const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: makeGuests(3) }))
+    const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: seatedGuests(makeGuests(3)) }))
     expect(table.getAttribute('data-occupancy')).toBe('partial')
     expect(table.textContent).toMatch(/3\s*of\s*8\s*seats/i)
   })
 })
 
-describe('PlanTable — pinned and violation are independent flags, absent rather than "false" (C4, load-bearing)', () => {
+describe('PlanTable — pinned and violation are independent flags, absent rather than "false" (load-bearing)', () => {
   it('an unpinned table carries no data-pinned attribute at all — not the string "false"', () => {
     const table = renderTable(roundSlot(), makeOccupants({ pinnedCount: 0 }))
     expect(table.hasAttribute('data-pinned')).toBe(false)
@@ -148,11 +151,11 @@ describe('PlanTable — pinned and violation are independent flags, absent rathe
   })
 })
 
-describe('PlanTable — the composition: full, pinned and in violation all at once (C4, A1)', () => {
+describe('PlanTable — the composition: full, pinned and in violation all at once', () => {
   it('carries data-occupancy="full", data-pinned="true" and data-violation="true" together', () => {
     const table = renderTable(
       roundSlot({ capacity: 8 }),
-      makeOccupants({ guests: makeGuests(8), pinnedCount: 2, inViolation: true }),
+      makeOccupants({ guests: seatedGuests(makeGuests(8)), pinnedCount: 2, inViolation: true }),
     )
 
     expect(table.getAttribute('data-occupancy')).toBe('full')
@@ -161,11 +164,13 @@ describe('PlanTable — the composition: full, pinned and in violation all at on
   })
 })
 
-describe('PlanTable — content (C3)', () => {
+describe('PlanTable — content', () => {
   it('the guest names are in the DOM, whether or not the container query would currently reveal them', () => {
     const table = renderTable(
       roundSlot(),
-      makeOccupants({ guests: [makeGuest('g-1', { name: 'Danny Whitaker' }), makeGuest('g-2', { name: 'Maureen Shah' })] }),
+      makeOccupants({
+        guests: seatedGuests([makeGuest('g-1', { name: 'Danny Whitaker' }), makeGuest('g-2', { name: 'Maureen Shah' })]),
+      }),
     )
 
     expect(table.textContent).toContain('Danny Whitaker')
@@ -181,14 +186,14 @@ describe('PlanTable — content (C3)', () => {
   })
 })
 
-describe('PlanTable — both occupancy figures are tabular (C9)', () => {
+describe('PlanTable — both occupancy figures are tabular', () => {
   it('the occupant count and the capacity both carry the tt-num class', () => {
-    const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: makeGuests(3) }))
+    const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: seatedGuests(makeGuests(3)) }))
     expect(tabularTexts(table)).toEqual(expect.arrayContaining(['3', '8']))
   })
 })
 
-describe('PlanTable — the top table is distinct from a round table (C2)', () => {
+describe('PlanTable — the top table is distinct from a round table', () => {
   it('a top slot renders its label, not a bare number, and never leaks the literal "null"', () => {
     const table = renderTable(topSlot({ capacity: 8 }), makeOccupants())
     expect(table.textContent).toContain('Top table')
@@ -212,7 +217,7 @@ describe('PlanTable — the top table is distinct from a round table (C2)', () =
   })
 })
 
-describe('PlanTable — accessible content (A10)', () => {
+describe('PlanTable — accessible content', () => {
   it('a pinned table\'s accessible text names the pin', () => {
     const table = renderTable(roundSlot(), makeOccupants({ pinnedCount: 1 }))
     expect(table.textContent).toMatch(/pinned/i)
@@ -241,7 +246,7 @@ describe('PlanTable — accessible content (A10)', () => {
 
 describe('PlanTable — at rest, with no guest selected, the floorplan is inert (TT-12)', () => {
   it('renders no button at all when the placing prop is absent', () => {
-    const table = renderTable(roundSlot(), makeOccupants({ guests: makeGuests(2) }))
+    const table = renderTable(roundSlot(), makeOccupants({ guests: seatedGuests(makeGuests(2)) }))
     expect(table.querySelectorAll('button')).toHaveLength(0)
   })
 })
@@ -276,7 +281,7 @@ describe('PlanTable — with a guest selected, the face becomes one placing butt
   it('the visible table number and the "n of m seats" pair remain part of the placing button, not left outside it', () => {
     const table = renderTableWithProps(
       roundSlot({ number: 7, label: 'Table 7', capacity: 8 }),
-      makeOccupants({ guests: makeGuests(3) }),
+      makeOccupants({ guests: seatedGuests(makeGuests(3)) }),
       { placing: { guestName: 'Priya Shah', onPlace: () => {} } },
     )
 
@@ -310,10 +315,10 @@ describe('PlanTable — with a pinned guest, their name becomes a release button
     const table = renderTableWithProps(
       roundSlot({ number: 3, label: 'Table 3', capacity: 8 }),
       makeOccupants({
-        guests: [
-          makeGuest('g-1', { name: 'Danny Whitaker' }),
-          makeGuest('g-2', { name: 'Maureen Shah' }),
-        ],
+        guests: seatedGuests(
+          [makeGuest('g-1', { name: 'Danny Whitaker' }), makeGuest('g-2', { name: 'Maureen Shah' })],
+          true,
+        ),
         pinnedCount: 2,
       }),
       { onRelease },
@@ -342,7 +347,7 @@ describe('PlanTable — with a pinned guest, their name becomes a release button
   it('with onRelease absent, guest names render as plain text and are not buttons', () => {
     const table = renderTable(
       roundSlot(),
-      makeOccupants({ guests: [makeGuest('g-1', { name: 'Danny Whitaker' })], pinnedCount: 1 }),
+      makeOccupants({ guests: seatedGuests([makeGuest('g-1', { name: 'Danny Whitaker' })], true), pinnedCount: 1 }),
     )
 
     expect(table.textContent).toContain('Danny Whitaker')

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import { PlanHeader } from './PlanHeader'
 import { NOTHING_SEATED } from './floorplan'
-import type { SeatingView, TableOccupants } from './floorplan'
+import type { SeatedGuest, SeatingView, TableOccupants } from './floorplan'
 import type { Guest, RoomConfig } from '../../domain/types'
 import type { ScenarioState } from '../../store/store'
 
@@ -13,8 +13,7 @@ import type { ScenarioState } from '../../store/store'
  * `scenarioLabel` is local to PlanHeader and not exported, so it is exercised only through the
  * component's rendered text, never called directly.
  *
- * Every Guest fixture sets `age` to an AgeBand, never a number — see floorplan.test.ts's header
- * comment for why KB-3's `number` typing is the stale copy.
+ * Every Guest fixture sets `age` to an AgeBand, never a number.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -44,17 +43,21 @@ function occupantsFixture(overrides: Partial<TableOccupants> = {}): TableOccupan
   return { guests: [], pinnedCount: 0, inViolation: false, ...overrides }
 }
 
+function seatedGuests(guests: Guest[], pinned = false): SeatedGuest[] {
+  return guests.map((guest) => ({ guest, pinned }))
+}
+
 function tabularTexts(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll('.tt-num')).map((el) => el.textContent?.trim() ?? '')
 }
 
-describe('PlanHeader — the five figures, in order (C5)', () => {
+describe('PlanHeader — the five figures, in order', () => {
   it('shows guests, seats, pinned and unseated for a configured room with nothing seated', () => {
     // Adding up's own room: 9 × 8 + 6 = 78 seats.
     const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
     const guests = makeGuests(70)
     const { container } = render(
-      <PlanHeader scenario={null} room={room} guests={guests} seating={NOTHING_SEATED} />,
+      <PlanHeader scenario={null} room={room} guests={guests} seating={NOTHING_SEATED} unseatedCount={70} />,
     )
 
     const text = container.textContent ?? ''
@@ -78,12 +81,12 @@ describe('PlanHeader — the five figures, in order (C5)', () => {
     }
     const seating: SeatingView = {
       byTableId: {
-        'round-1': occupantsFixture({ guests: [seatedPair[0], seatedPair[1]], pinnedCount: 1 }),
+        'round-1': occupantsFixture({ guests: seatedGuests([seatedPair[0], seatedPair[1]], true), pinnedCount: 1 }),
       },
     }
 
     const { container } = render(
-      <PlanHeader scenario={null} room={room} guests={guests} seating={seating} />,
+      <PlanHeader scenario={null} room={room} guests={guests} seating={seating} unseatedCount={68} />,
     )
 
     const text = container.textContent ?? ''
@@ -94,7 +97,7 @@ describe('PlanHeader — the five figures, in order (C5)', () => {
   it('an unconfigured, guestless room reads all zeroes, not a blank or a throw', () => {
     const room: RoomConfig = { roundTables: 0, seatsEach: 0, topTableSeats: 0 }
     const { container } = render(
-      <PlanHeader scenario={null} room={room} guests={[]} seating={NOTHING_SEATED} />,
+      <PlanHeader scenario={null} room={room} guests={[]} seating={NOTHING_SEATED} unseatedCount={0} />,
     )
 
     const text = container.textContent ?? ''
@@ -111,7 +114,7 @@ describe('PlanHeader — the seat figure is normalised, agreeing with the grid (
     // its 8-seat top table — the figure this line must show.
     const room: RoomConfig = { roundTables: -1, seatsEach: 8, topTableSeats: 8 }
     const { container } = render(
-      <PlanHeader scenario={null} room={room} guests={[]} seating={NOTHING_SEATED} />,
+      <PlanHeader scenario={null} room={room} guests={[]} seating={NOTHING_SEATED} unseatedCount={0} />,
     )
 
     expect(container.textContent).toContain('8 seats')
@@ -119,7 +122,7 @@ describe('PlanHeader — the seat figure is normalised, agreeing with the grid (
   })
 })
 
-describe('PlanHeader — the scenario segment (C5, A7)', () => {
+describe('PlanHeader — the scenario segment', () => {
   const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 4 }
   const guests = makeGuests(2)
 
@@ -129,7 +132,7 @@ describe('PlanHeader — the scenario segment (C5, A7)', () => {
     ['celebrity-scale', 'Celebrity scale'],
   ] as const)('scenario %s renders as "%s", before the guest count', (id, name) => {
     const { container } = render(
-      <PlanHeader scenario={id as ScenarioState} room={room} guests={guests} seating={NOTHING_SEATED} />,
+      <PlanHeader scenario={id as ScenarioState} room={room} guests={guests} seating={NOTHING_SEATED} unseatedCount={2} />,
     )
     const text = container.textContent ?? ''
     expect(text).toContain(name)
@@ -138,14 +141,14 @@ describe('PlanHeader — the scenario segment (C5, A7)', () => {
 
   it('scenario "custom" renders as "Custom"', () => {
     const { container } = render(
-      <PlanHeader scenario="custom" room={room} guests={guests} seating={NOTHING_SEATED} />,
+      <PlanHeader scenario="custom" room={room} guests={guests} seating={NOTHING_SEATED} unseatedCount={2} />,
     )
     expect(container.textContent).toContain('Custom')
   })
 
   it('scenario null omits the segment entirely — no "Custom", no stray separator, no throw, no literal "null"', () => {
     const { container } = render(
-      <PlanHeader scenario={null} room={room} guests={guests} seating={NOTHING_SEATED} />,
+      <PlanHeader scenario={null} room={room} guests={guests} seating={NOTHING_SEATED} unseatedCount={2} />,
     )
     const text = container.textContent ?? ''
     expect(text).not.toContain('Custom')
@@ -158,12 +161,12 @@ describe('PlanHeader — the scenario segment (C5, A7)', () => {
   })
 })
 
-describe('PlanHeader — the four numeric figures are tabular (C9)', () => {
+describe('PlanHeader — the four numeric figures are tabular', () => {
   it('renders exactly the four counted figures with the tt-num class, in order', () => {
     const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
     const guests = makeGuests(70)
     const { container } = render(
-      <PlanHeader scenario={null} room={room} guests={guests} seating={NOTHING_SEATED} />,
+      <PlanHeader scenario={null} room={room} guests={guests} seating={NOTHING_SEATED} unseatedCount={70} />,
     )
 
     expect(tabularTexts(container)).toEqual(['70', '78', '0', '70'])
