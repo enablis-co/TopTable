@@ -1239,3 +1239,87 @@ describe('PlanScreen — a hard violation marks the table and lists in the panel
     expect(violationEntries()).toHaveLength(0)
   })
 })
+
+/*
+ * TT-38, "Scroll and filter the unseated list" — C11 and C13. Only C11's filter half is
+ * testable here: "leaves the scroll position ... intact" is a DOM-identity/`scrollTop`
+ * property, and jsdom does no layout at all (`getBoundingClientRect` and `scrollTop` are both
+ * inert there) — that half is browser-only and is not asserted in this suite (plan §5, R1).
+ * C13 is a regression guard: A6 in the plan says click-to-place must keep working unchanged
+ * once the rail can be filtered, because the placing button and the focus-follows-the-gesture
+ * behaviour both read the rail's *currently rendered* rows, filtered or not.
+ */
+
+describe('PlanScreen — a search filter survives a placement (TT-38, C11 filter half)', () => {
+  it('placing a guest visible under an active search removes only them, and the search text and the other visible guest remain', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests([
+      makeGuest('g-0', { name: 'Anna Field' }),
+      makeGuest('g-1', { name: 'Ben Ojo' }),
+      makeGuest('g-2', { name: 'Anthony Cole' }),
+    ])
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    const search = screen.getByRole('textbox', { name: /search/i })
+    await user.type(search, 'An')
+
+    expect(screen.getByRole('button', { name: 'Anna Field' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Anthony Cole' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ben Ojo' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Anna Field' }))
+    await user.click(screen.getByRole('button', { name: /^Place Anna Field at Table 1/ }))
+
+    expect(screen.queryByRole('button', { name: 'Anna Field' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Anthony Cole' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ben Ojo' })).not.toBeInTheDocument()
+    expect(search).toHaveValue('An')
+  })
+})
+
+describe('PlanScreen — click-to-place still pins and still moves focus to the first remaining visible row under a filter (C13 regression guard)', () => {
+  it('places the clicked guest, writes their pin, and moves focus to the next visible row rather than the one the filter is hiding', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests([
+      makeGuest('g-0', { name: 'Anna Field' }),
+      makeGuest('g-1', { name: 'Ben Ojo' }),
+      makeGuest('g-2', { name: 'Anthony Cole' }),
+    ])
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.type(screen.getByRole('textbox', { name: /search/i }), 'An')
+    await user.click(screen.getByRole('button', { name: 'Anna Field' }))
+    await user.click(screen.getByRole('button', { name: /^Place Anna Field at Table 1/ }))
+
+    expect(useTopTableStore.getState().pins).toEqual([{ guestId: 'g-0', tableId: 'round-1' }])
+    // Ben Ojo sits between Anna and Anthony in guest order but is filtered out throughout —
+    // if focus fell back to array order rather than the rendered rows, it would land on
+    // nothing (Ben has no button to focus) rather than on Anthony.
+    expect(screen.getByRole('button', { name: 'Anthony Cole' })).toHaveFocus()
+  })
+})
+
+describe('PlanScreen — Escape still clears the selection while a filter is active (TT-38 regression guard)', () => {
+  it('selecting a visible guest under a search then pressing Escape clears the selection, writes no pin, and leaves the search text untouched', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests([
+      makeGuest('g-0', { name: 'Anna Field' }),
+      makeGuest('g-1', { name: 'Ben Ojo' }),
+    ])
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    const search = screen.getByRole('textbox', { name: /search/i })
+    await user.type(search, 'An')
+    await user.click(screen.getByRole('button', { name: 'Anna Field' }))
+    expect(screen.getByRole('button', { name: 'Anna Field' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.getByRole('button', { name: 'Anna Field' })).toHaveAttribute('aria-pressed', 'false')
+    expect(useTopTableStore.getState().pins).toEqual([])
+    expect(search).toHaveValue('An')
+  })
+})

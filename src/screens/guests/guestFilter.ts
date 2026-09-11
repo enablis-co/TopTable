@@ -6,12 +6,15 @@ import type { Guest } from '../../domain/types'
  * never reaches the store — so this is a plain function beside the screen rather than a
  * `src/domain/` module.
  */
-export function filterGuests(guests: Guest[], query: string): Guest[] {
+export function filterGuests(guests: readonly Guest[], query: string): Guest[] {
   // Reviewer finding: ConflictPicker's own search already trims (`query.trim().toLowerCase()`)
   // — this one did not, so a trailing space (easy to leave in a search box without noticing)
   // matched nothing at all, since no guest name or tag ends in a space.
   const needle = query.trim().toLowerCase()
-  if (needle === '') return guests
+  // TT-38: `SeatingPlan.unseated` is `readonly Guest[]`, so the parameter widened to accept
+  // it — the return type stays `Guest[]` (GuestsScreen -> GuestTable's prop shape), so a
+  // fresh array is returned here rather than the input reference itself.
+  if (needle === '') return [...guests]
 
   return guests.filter(
     (guest) =>

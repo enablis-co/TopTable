@@ -1,7 +1,14 @@
 /*
- * TT-35, handoff "Unseated strip". This is now the bottom strip below the floorplan: a header
- * row (heading, total, hint), then a horizontally scrolling chip run — every guest still
- * renders in it (AC19), so the header's total is always the true count, never an estimate.
+ * TT-35, TT-38, handoff "Unseated strip". This is now the bottom strip below the floorplan: a
+ * header row (heading, total or shown/hidden count, hint), a search-and-filter row, then a
+ * vertically scrolling list — every guest that survives search and the three filters still
+ * renders in full (never truncated by count), so the header figures are always exact, never
+ * an estimate.
+ *
+ * TT-38, Option B (user's own choice, over a left-hand column per KB-6): the strip keeps its
+ * place as the bottom of the canvas column. `.rail` stays `flex: none` so the strip only ever
+ * takes its own content height and can never grow into `.floorplanArea`, which is `flex: 1`
+ * and already the squeezed thing at 27 tables; `.list` carries the one height bound below.
  */
 .rail {
   flex: none;
@@ -44,16 +51,16 @@
   color: var(--ink);
 }
 
-/* The chip run: a flex:1, min-width:0 scrolling row so it shrinks rather than pushing anything
-   off screen, with nowrap so chips sit in one line and scroll instead of wrapping. */
+/* TT-38: the list flips from a horizontal chip run to a vertical scroll box. max-height is
+   the one declaration that bounds the strip — clamp(120px, 26vh, 260px) keeps it usable on a
+   short viewport without letting it grow past 260px on a tall one, and never lets it push into
+   .floorplanArea's own budget. */
 .list {
   display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: clamp(120px, 26vh, 260px);
   gap: 7px;
-  flex: 1;
-  min-width: 0;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -84,10 +91,39 @@
   padding: 5px 10px;
   white-space: nowrap;
   color: var(--ink);
+  width: 100%;
+  text-align: left;
 }
 
 .rail .row[aria-pressed='true'] {
   border-width: 2px;
   border-color: var(--slate);
   padding: 4px 9px;
+}
+
+/* TT-38: the search-and-filter row. The search field grows to fill remaining space; the
+   selects and the clear button keep their intrinsic width. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-2);
+}
+
+.controls > *:first-child {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* Same single collapse point PlanScreen.module.css uses. At this width .layout has already
+   gone to a column, so .canvas shares height with .violations and the strip must take less,
+   not more — and the controls wrap onto their own lines rather than compressing further. */
+@media (max-width: 720px) {
+  .list {
+    max-height: 160px;
+  }
+
+  .controls > *:first-child {
+    flex-basis: 100%;
+  }
 }

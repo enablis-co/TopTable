@@ -18,6 +18,8 @@ import { ViolationsPanel } from './ViolationsPanel'
 import { TableDetailPanel } from './TableDetailPanel'
 import { ClearControls } from './ClearControls'
 import { Button } from '../../ui'
+import { NO_FILTERS, filterUnseated } from './unseatedFilter'
+import type { UnseatedFilters } from './unseatedFilter'
 import styles from './PlanScreen.module.css'
 
 /**
@@ -36,6 +38,12 @@ import styles from './PlanScreen.module.css'
  *
  * `selectedTableId` is local view state, unlike `allocated`: nothing requires a table selection
  * to survive a tab switch, so it resets on every remount rather than being hoisted to `App`.
+ *
+ * `filters` (TT-38) is local view state for the same reason and sits beside it: a trip to
+ * Guests and back clears the unseated rail's search and filters along with the scroll
+ * position, and that is accepted — `allocated` was lifted because losing it destroyed real
+ * work, whereas a search string is cheap to retype. It is never written to `src/store/`
+ * (docs/state.md).
  *
  * `showFloorplan` is `hasSeats && !topTableIncomplete` (fix to TT-3): a room short of the
  * top-table minimum renders `PlanEmpty` the same as an unconfigured one, just with different
@@ -60,6 +68,7 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  const [filters, setFilters] = useState<UnseatedFilters>(NO_FILTERS)
 
   const railRef = useRef<HTMLDivElement>(null)
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -87,6 +96,10 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const report = useMemo(() => evaluateRegistered(plan), [plan])
   const violatingTableIds = useMemo(() => tablesWithHardViolation(report), [report])
   const seating = useMemo(() => seatingViewFrom(plan, violatingTableIds), [plan, violatingTableIds])
+  // TT-38. Filtered here, not inside UnseatedRail, so the component stays a pure renderer of
+  // exactly the rows it is given — `totalCount` (plan.unseated.length) travels alongside it
+  // for the header's shown/hidden line.
+  const visibleUnseated = useMemo(() => filterUnseated(plan.unseated, filters), [plan.unseated, filters])
   const selectedGuest = guests.find((guest) => guest.id === selectedGuestId) ?? null
   // `?? null` guards a table that stopped existing after a room edit — the violations panel is
   // the fallback rather than a crash.
@@ -249,7 +262,10 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
             </div>
             <div ref={railRef}>
               <UnseatedRail
-                guests={plan.unseated}
+                guests={visibleUnseated}
+                totalCount={plan.unseated.length}
+                filters={filters}
+                onFiltersChange={setFilters}
                 selectedGuestId={selectedGuestId}
                 onSelect={handleSelect}
                 headingRef={railHeadingRef}
