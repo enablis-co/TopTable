@@ -6,12 +6,15 @@ import { totalSeats } from '../../domain/capacity'
 import { pinnedTableFor } from '../../domain/pins'
 import { normaliseRoom, seatPins, tablesInRoom } from '../../domain/seating'
 import { allocate } from '../../domain/allocate'
+import { evaluateRegistered, registeredSeatGuard } from '../../domain/rules/registry'
+import { tablesWithHardViolation } from '../../domain/rules/engine'
 import { isTopTableIncomplete } from '../setup/roomCompleteness'
 import { seatingViewFrom } from './floorplan'
 import { PlanHeader } from './PlanHeader'
 import { FloorplanGrid } from './FloorplanGrid'
 import { PlanEmpty } from './PlanEmpty'
 import { UnseatedRail } from './UnseatedRail'
+import { ViolationsPanel } from './ViolationsPanel'
 import { Button } from '../../ui'
 import styles from './PlanScreen.module.css'
 
@@ -25,8 +28,8 @@ import styles from './PlanScreen.module.css'
  * unmounts this component on every tab switch, so state kept here was losing the allocation the
  * moment someone left for Guests and came back. The flag now lives in `App`, above that unmount,
  * and survives it; re-allocating is deterministic, so remounting and recomputing from the same
- * room, guests and pins reproduces the same plan. Two columns, not three: KB-6's third column,
- * the violations panel, is TT-14's, and the numbered seats in its table detail are TT-15's.
+ * room, guests and pins reproduces the same plan. KB-6's three columns — rail, floorplan,
+ * violations — all render now (TT-14); only the table detail's numbered seats are still TT-15's.
  *
  * `showFloorplan` is `hasSeats && !topTableIncomplete` (fix to TT-3): a room short of the
  * top-table minimum renders `PlanEmpty` the same as an unconfigured one, just with different
@@ -62,11 +65,17 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const topTableIncomplete = isTopTableIncomplete(normalisedRoom)
   const showFloorplan = hasSeats && !topTableIncomplete
   const slots = tablesInRoom(room)
+  // Hoisted once and passed to every solver call below — including handleAllocate's own,
+  // separate run — so the rules a rendered seat obeys and the rules an announced figure was
+  // computed from can never be two different guards (TT-14).
+  const seatGuard = useMemo(() => registeredSeatGuard(), [])
   const plan = useMemo(
-    () => (allocated ? allocate(room, guests, pins) : seatPins(room, guests, pins)),
-    [allocated, room, guests, pins],
+    () => (allocated ? allocate(room, guests, pins, { allowSeat: seatGuard }) : seatPins(room, guests, pins)),
+    [allocated, room, guests, pins, seatGuard],
   )
-  const seating = useMemo(() => seatingViewFrom(plan), [plan])
+  const report = useMemo(() => evaluateRegistered(plan), [plan])
+  const violatingTableIds = useMemo(() => tablesWithHardViolation(report), [report])
+  const seating = useMemo(() => seatingViewFrom(plan, violatingTableIds), [plan, violatingTableIds])
   const selectedGuest = guests.find((guest) => guest.id === selectedGuestId) ?? null
 
   // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern.
@@ -134,8 +143,10 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
     // setAllocated(true) leaves this render's own `plan` pointed at the pre-click seating —
     // that closure doesn't update until the next render, and flushSync can't change that, only
     // when the DOM catches up. A second, throwaway solver run is what the announcement can
-    // trust; see the PlanScreen test asserting the announced figures are the post-click ones.
-    const justAllocated = allocate(room, guests, pins)
+    // trust — passed the same seatGuard as the memoised plan above, or the two could seat a
+    // guest differently; see the PlanScreen test asserting the announced figures match the plan
+    // actually rendered.
+    const justAllocated = allocate(room, guests, pins, { allowSeat: seatGuard })
     const seatedCount = guests.length - justAllocated.unseated.length
     setAllocated(true)
     setSelectedGuestId(null)
@@ -175,6 +186,7 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
               onPlace={handlePlace}
               onRelease={handleRelease}
             />
+            <ViolationsPanel report={report} />
           </div>
           <p role="status" className="tt-visually-hidden">
             {announcement}
