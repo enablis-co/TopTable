@@ -14,6 +14,11 @@ const PROTOCOL_ROLE_IDS = new Set<string>(PROTOCOL_ROLES)
  * KB-4 fixes the order, not that every seat is filled. `table.overflow` is not read here — an
  * over-capacity top table is the capacity rule's finding, so the panel does not say the same
  * thing twice.
+ *
+ * A pinned occupant is exempt, which diverges from KB-4's "no children, no partners of the
+ * above, no exceptions". The seat is a human instruction that `allocate` honours rather than
+ * overrides, so restoring the check to match that page would make every hand-pinned top table
+ * seat a hard violation.
  */
 export const rule: SeatingRule = {
   id: 'top-table',
@@ -28,7 +33,7 @@ export const rule: SeatingRule = {
     const findings: Finding[] = []
 
     table.seats.forEach((seat, index) => {
-      if (!seat) return
+      if (!seat || seat.pinned) return
 
       const { guest } = seat
       const expectedRole = expected[index]
