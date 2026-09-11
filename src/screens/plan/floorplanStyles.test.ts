@@ -330,10 +330,19 @@ describe("PlanTable.module.css — the face fills the table's width always, and 
     expect(rule.body).toMatch(/flex\s*:\s*1\b/)
   })
 
-  it('inside the @container block, a .face override stops it growing once the guest list is revealed', () => {
+  it('inside the @container block, a .face override stops it both growing and shrinking once the guest list is revealed — the number must never yield', () => {
     const body = containerBlockBody(readCss())
     const rule = /\.table\s+\.face\s*\{([^}]*)\}/.exec(body)
     expect(rule, 'expected a .table .face override inside the @container block').not.toBeNull()
-    expect(rule?.[1] ?? '').toMatch(/flex\s*:\s*initial/i)
+    expect(rule?.[1] ?? '').toMatch(/flex\s*:\s*0\s+0\s+auto/i)
+  })
+})
+
+describe('PlanTable.module.css — .guests is the only child that yields when content overflows the circle (TT-11 fix, C3)', () => {
+  const GUESTS_BASE = /\.guests\s*\{/
+
+  it('the base .guests rule declares overflow: hidden — what lets a flex item shrink below its own content size', () => {
+    const rule = requireRule(readCss(), GUESTS_BASE, 'the base .guests rule')
+    expect(rule.body).toMatch(/overflow\s*:\s*hidden/i)
   })
 })
