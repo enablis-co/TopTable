@@ -28,8 +28,11 @@ state rather than something the app recomputes.
 
 **TT-13's allocated seating is exactly this kind of derived state.** It is computed on demand
 from the room, the guest list, the pins and whatever rules are registered — never written back.
-Whether the room has been auto-allocated at all is `PlanScreen`'s own view state, not a field on
-`TopTableData`, which is why `STORAGE_VERSION` did not move when the seating model landed.
+Whether the room has been auto-allocated at all is view state, not a field on `TopTableData`,
+which is why `STORAGE_VERSION` did not move when the seating model landed. It lives in `App`,
+above the section switch, rather than on `PlanScreen` itself — `PlanScreen` unmounts on every
+tab change, so state kept there was losing the allocation the moment someone left for Guests
+and came back (TT-13 review).
 
 **Anything computed.** Total seats is `roundTables * seatsEach + topTableSeats` and lives with the
 setup screen, TT-3. Nothing that can be recomputed from the three fields above belongs here.

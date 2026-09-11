@@ -15,15 +15,24 @@ import { Button } from '../../ui'
 import styles from './PlanScreen.module.css'
 
 /**
- * TT-11, TT-12, TT-13, KB-6 "Plan". Owns every store read and write for this screen, plus the
- * `allocated` flag that switches the derived plan from pins-only to solver-filled; PlanHeader,
+ * TT-11, TT-12, TT-13, KB-6 "Plan". Owns every store read and write for this screen; PlanHeader,
  * FloorplanGrid, UnseatedRail and PlanEmpty stay presentational. The plan itself is always
  * derived — from the room, the guests and the pins, plus the solver once `allocated` is true —
- * and never stored (docs/state.md): `allocated` is view state, so a tab switch costs nobody a
- * re-click, and the re-click is deterministic. Two columns, not three: KB-6's third column, the
- * violations panel, is TT-14's, and the numbered seats in its table detail are TT-15's.
+ * and never stored (docs/state.md).
+ *
+ * `allocated`/`setAllocated` arrive as props rather than local state: `App`'s `CurrentScreen`
+ * unmounts this component on every tab switch, so state kept here was losing the allocation the
+ * moment someone left for Guests and came back. The flag now lives in `App`, above that unmount,
+ * and survives it; re-allocating is deterministic, so remounting and recomputing from the same
+ * room, guests and pins reproduces the same plan. Two columns, not three: KB-6's third column,
+ * the violations panel, is TT-14's, and the numbered seats in its table detail are TT-15's.
  */
-export function PlanScreen() {
+type PlanScreenProps = {
+  allocated: boolean
+  setAllocated: (allocated: boolean) => void
+}
+
+export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const room = useTopTableStore((s) => s.room)
   const guests = useTopTableStore((s) => s.guests)
   const scenario = useTopTableStore((s) => s.scenario)
@@ -34,7 +43,6 @@ export function PlanScreen() {
 
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
-  const [allocated, setAllocated] = useState(false)
 
   const railRef = useRef<HTMLDivElement>(null)
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -132,7 +140,13 @@ export function PlanScreen() {
               Auto-allocate
             </Button>
           </div>
-          <PlanHeader scenario={scenario} room={room} guests={guests} seating={seating} />
+          <PlanHeader
+            scenario={scenario}
+            room={room}
+            guests={guests}
+            seating={seating}
+            unseatedCount={plan.unseated.length}
+          />
           <div className={styles.screen}>
             <div ref={railRef}>
               <UnseatedRail

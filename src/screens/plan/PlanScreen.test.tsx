@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, expect, it, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -46,10 +47,19 @@ function tables(): HTMLElement[] {
   return Array.from(document.querySelectorAll('[data-occupancy]'))
 }
 
+/**
+ * Stands in for `App`'s own `allocated` state — PlanScreen takes `allocated`/`setAllocated` as
+ * props rather than owning them, so something above it has to.
+ */
+function PlanScreenHarness() {
+  const [allocated, setAllocated] = useState(false)
+  return <PlanScreen allocated={allocated} setAllocated={setAllocated} />
+}
+
 function renderPlanScreen(goTo: (tab: string) => void = () => {}) {
   return render(
     <NavigationContext.Provider value={{ tab: 'plan', goTo }}>
-      <PlanScreen />
+      <PlanScreenHarness />
     </NavigationContext.Provider>,
   )
 }
@@ -79,7 +89,7 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-describe('PlanScreen — table count is derived from the room, not fixed (C1, C7)', () => {
+describe('PlanScreen — table count is derived from the room, not fixed', () => {
   it('renders five tables for Small and cosy (4 round + the top table)', () => {
     useTopTableStore.getState().setRoom({ roundTables: 4, seatsEach: 8, topTableSeats: 8 })
     useTopTableStore.getState().setGuests([])
@@ -97,7 +107,7 @@ describe('PlanScreen — table count is derived from the room, not fixed (C1, C7
   })
 })
 
-describe('PlanScreen — the top table is first, before every round table, in DOM order (C2)', () => {
+describe('PlanScreen — the top table is first, before every round table, in DOM order', () => {
   it('the first table element is the top table, and no other table is', () => {
     useTopTableStore.getState().setRoom({ roundTables: 3, seatsEach: 8, topTableSeats: 6 })
     useTopTableStore.getState().setGuests([])
@@ -117,7 +127,7 @@ describe('PlanScreen — the top table is first, before every round table, in DO
   })
 })
 
-describe('PlanScreen — with nothing seated, every table is empty and clean (C4)', () => {
+describe('PlanScreen — with nothing seated, every table is empty and clean', () => {
   it('every table carries data-occupancy="empty" and no data-pinned or data-violation attribute', () => {
     useTopTableStore.getState().setRoom({ roundTables: 3, seatsEach: 8, topTableSeats: 6 })
     useTopTableStore.getState().setGuests(makeGuests(5))
@@ -133,7 +143,7 @@ describe('PlanScreen — with nothing seated, every table is empty and clean (C4
   })
 })
 
-describe('PlanScreen — an empty guest list is not an unconfigured room (C10)', () => {
+describe('PlanScreen — an empty guest list is not an unconfigured room', () => {
   it('a configured room with no guests still renders the floorplan, every table empty', () => {
     useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })
     useTopTableStore.getState().setGuests([])
@@ -147,7 +157,7 @@ describe('PlanScreen — an empty guest list is not an unconfigured room (C10)',
   })
 })
 
-describe('PlanScreen — first visit reads as an invitation, not an empty grid (C10)', () => {
+describe('PlanScreen — first visit reads as an invitation, not an empty grid', () => {
   it('renders no tables, and no header figures, when no seats are configured', () => {
     // reset() in beforeEach already leaves the room at {0,0,0} with no guests — true first visit.
     renderPlanScreen()
@@ -238,7 +248,7 @@ describe('PlanScreen — the round-table region is reachable by keyboard (WCAG 2
   })
 })
 
-describe('PlanScreen — the scaffold is gone (C11)', () => {
+describe('PlanScreen — the scaffold is gone', () => {
   it('never renders the old scaffold text, and renders real content in its place', () => {
     useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })
     useTopTableStore.getState().setGuests(makeGuests(3))
@@ -688,7 +698,7 @@ describe('PlanScreen — Auto-allocate is the screen\'s one primary control', ()
 describe('PlanScreen — Auto-allocate fills every seat it can', () => {
   it('pressing it on a room with exactly enough seats for everyone leaves the rail empty and the header at zero unseated', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 4, seatsEach: 8, topTableSeats: 8 })
-    // The top table's 8 seats are only reachable by a protocol-role holder (C9) — without one
+    // The top table's 8 seats are only reachable by a protocol-role holder — without one
     // for each role, those seats are structurally unfillable and 8 of 40 would stay unseated
     // however this room is configured, so the fixture needs all eight roles present, matching
     // how every shipped scenario is built (KB-3).
