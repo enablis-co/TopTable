@@ -17,14 +17,19 @@ import { tabularClass } from '../../ui'
  * implementation).
  *
  * "Neither control nor either confirm button is filled" (AC5) is KB-5's slate-filled `primary`
- * Button variant, which is a CSS module class with no ARIA distinction and no DOM hook — this
- * codebase's own Button.test.tsx never asserts on that class, and scenarioImport.test.tsx
- * documents the same call for TT-4's confirm button as a deliberate choice, not an oversight:
- * variant is untestable in jsdom the same way KB-5's colour-only states are. This file follows
- * that precedent rather than reaching for the CSS module directly, and instead asserts the one
- * structural proxy this codebase already uses for "primary" (PlanScreen.test.tsx: "a configured
- * room renders exactly one 'Auto-allocate' button") — including with a confirm prompt open,
- * which is the moment AC5 says the rule is easiest to break.
+ * Button variant, applied via a CSS module class. That class renders in this suite's jsdom
+ * configuration exactly as it does in a browser (verified directly), and this same directory's
+ * PlanTable.test.tsx:228-230 already asserts on module class names
+ * (`expect(top.className).not.toBe(round.className)`) — precedent for doing so, not against it.
+ * So AC5 is guarded on the classes themselves, never on a hashed literal: `assertOnlyAutoAllocateIsFilled`
+ * takes every clear-related button on screen plus Auto-allocate, subtracts whatever class token
+ * *all* of them share (the Button component's own base class, whatever its hash), and asserts
+ * none of the remainder — each button's own variant token — is shared with Auto-allocate's own.
+ * Two buttons sharing a token beyond the shared base means they share a variant, which for
+ * anything compared against Auto-allocate means "also filled". This runs with a confirm prompt
+ * open in each flow, which is the moment AC5 says the rule is easiest to break — the prompt's own
+ * `Cancel` button is what keeps the comparison honest there: it is definitely not filled, so it
+ * stops "everyone in the set happens to share a token" from reading as "nothing is filled".
  *
  * A confirm prompt is located by climbing from its own `Cancel` button (unique — only one flow
  * is ever `confirming` at a time) to the nearest ancestor whose text also contains "cannot be
@@ -180,6 +185,44 @@ function openPrompt(): HTMLElement {
 
 function tabularTexts(container: HTMLElement): string[] {
   return Array.from(container.querySelectorAll(`.${tabularClass}`)).map((el) => el.textContent?.trim() ?? '')
+}
+
+// AC5's guard. Takes Auto-allocate plus every clear-related button currently on screen (both
+// triggers, named "Clear allocation" / "Clear allocation and pins"; and, while a prompt is open,
+// its Cancel and its own confirm button, which share the trigger's name — hence
+// `queryAllByRole` rather than `getByRole`, and why a query anchored on `/^Clear allocation/`
+// finds both a trigger and its confirm button at once). The token every one of them shares
+// (Button's own base class, whatever its hash) is subtracted from each one's own classes; what
+// is left is that button's variant token(s). A button sharing a variant token with Auto-allocate
+// is exactly a button that is also filled. Cancel is the reason this discriminates rather than
+// vacuously passing: if it (correctly) does not share Auto-allocate's token, the shared "base"
+// subtracted out above cannot have silently absorbed the primary token too — which is what would
+// happen, and what would wrongly report "fine", the moment *every* other button on screen were
+// filled to match Auto-allocate.
+function assertOnlyAutoAllocateIsFilled(): void {
+  const autoAllocate = screen.getByRole('button', { name: 'Auto-allocate' })
+  const others = [
+    ...screen.queryAllByRole('button', { name: /^Clear allocation/ }),
+    ...screen.queryAllByRole('button', { name: 'Cancel' }),
+  ]
+  expect(others.length).toBeGreaterThan(0)
+
+  const all = [autoAllocate, ...others]
+  const classSets = all.map((el) => new Set(Array.from(el.classList)))
+  const shared = classSets.reduce(
+    (common, tokens) => new Set([...common].filter((token) => tokens.has(token))),
+    classSets[0]!,
+  )
+  expect(shared.size).toBeGreaterThan(0) // sanity: there is a real base class to subtract at all
+
+  const autoAllocateOwn = new Set([...classSets[0]!].filter((token) => !shared.has(token)))
+  expect(autoAllocateOwn.size).toBeGreaterThan(0) // sanity: Auto-allocate does carry a variant token
+
+  others.forEach((other, index) => {
+    const otherOwn = new Set([...classSets[index + 1]!].filter((token) => !shared.has(token)))
+    const sharedWithAutoAllocate = [...autoAllocateOwn].filter((token) => otherOwn.has(token))
+    expect(sharedWithAutoAllocate, `"${other.textContent}" shares a variant token with Auto-allocate`).toEqual([])
+  })
 }
 
 // Copied from scenarioImport.test.tsx's own convention (AC9, the import defect, needs a real
@@ -379,7 +422,7 @@ describe('AC4 — both confirm prompts guard the action: opening one, or cancell
   })
 })
 
-describe('AC5 — Auto-allocate remains the screen\'s only primary control, including while a prompt is open', () => {
+describe('AC5 — Auto-allocate remains the screen\'s only filled control, including while a prompt is open', () => {
   it('exactly one "Auto-allocate" button exists idle, with either prompt open, and after it closes', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(2))
@@ -398,6 +441,38 @@ describe('AC5 — Auto-allocate remains the screen\'s only primary control, incl
     await user.click(within(openPrompt()).getByRole('button', { name: 'Cancel' }))
 
     expect(screen.getAllByRole('button', { name: 'Auto-allocate' })).toHaveLength(1)
+  })
+
+  it('idle: neither trigger shares a variant token with Auto-allocate', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(2))
+    const user = userEvent.setup()
+    await renderAppOnPlanTab(user)
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    assertOnlyAutoAllocateIsFilled()
+  })
+
+  it('with the "Clear allocation" prompt open: neither trigger, its own confirm button, nor Cancel shares a variant token with Auto-allocate', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(2))
+    const user = userEvent.setup()
+    await renderAppOnPlanTab(user)
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    await user.click(screen.getByRole('button', { name: 'Clear allocation' }))
+    assertOnlyAutoAllocateIsFilled()
+  })
+
+  it('with the "Clear allocation and pins" prompt open: neither trigger, its own confirm button, nor Cancel shares a variant token with Auto-allocate', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(2))
+    const user = userEvent.setup()
+    await renderAppOnPlanTab(user)
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    await user.click(screen.getByRole('button', { name: 'Clear allocation and pins' }))
+    assertOnlyAutoAllocateIsFilled()
   })
 })
 
@@ -481,6 +556,99 @@ describe('AC8 — the pin figure in each prompt body carries the tabular class',
 
     await user.click(screen.getByRole('button', { name: 'Clear allocation and pins' }))
     expect(tabularTexts(openPrompt())).toContain('3')
+  })
+})
+
+// Not itself a numbered AC — a copy defect review found, with no existing test at any pin
+// count other than two or three. Every prompt test elsewhere in this file pins two or three
+// guests, which is exactly why the suite stayed green while the rendered copy read "Your 1
+// pinned guests stay where they are" and "releases all 1 pins". These six cases (zero, one,
+// two pins, times each of the two prompts) anchor on the grammatical shape a reader would see
+// rather than on one exact sentence, so a wording change that keeps the grammar right still
+// passes: singular "guest"/"pin" at one (a word — "the pin" — is an equally valid singular),
+// plural "guests"/"pins" at zero and two. Zero is asserted more narrowly for the pins sentence:
+// English "0 pins" is standard plural, so nothing here requires the sentence to name a count at
+// all, or forbids "0 pins" outright — what is asserted is that today's specific broken reading,
+// "all 0 pins", is gone, since "all" quantifying over nothing is what reads wrong, not the
+// plural noun itself. That is this file's own reading of an otherwise-unspecified case, chosen
+// because the ticket and KB-5 are both silent on zero-pins wording.
+//
+// Scoped to the open prompt's own text (`openPrompt()`, already used elsewhere in this file for
+// exactly this reason) rather than flattened `document.body.textContent` — the header's own
+// figures sit outside the prompt so cannot bleed in here regardless, but scoping still stands on
+// its own merits. Every regex below spells out the surrounding words rather than relying on
+// `\b` at the digit itself: `\b` does not fire between a digit and an adjacent letter (no space),
+// only between a `\w` and non-`\w` character, so a digit run straight into a word by a markup
+// change would silently defeat a bare `\b\d+\b` the way it did on TT-38 — requiring literal
+// whitespace (`\s+`) around the number sidesteps that rather than depending on it.
+describe('Copy grammar — the pinned-guest and pin-release sentences read naturally at zero, one and two pins', () => {
+  async function setUpWithPins(user: ReturnType<typeof userEvent.setup>, pinnedCount: 0 | 1 | 2): Promise<void> {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(4))
+    if (pinnedCount >= 1) useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    if (pinnedCount >= 2) useTopTableStore.getState().pinGuest('g-1', 'round-1')
+    await renderAppOnPlanTab(user)
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+  }
+
+  describe('"Clear allocation" — the sentence naming the pinned guests who stay', () => {
+    it('zero pinned: never claims a lone pinned guest stays', async () => {
+      const user = userEvent.setup()
+      await setUpWithPins(user, 0)
+      await user.click(screen.getByRole('button', { name: 'Clear allocation' }))
+
+      const text = openPrompt().textContent ?? ''
+      expect(text).not.toMatch(/\b0\s+pinned\s+guest\b(?!s)/i)
+    })
+
+    it('one pinned: reads as a single guest, never "1 pinned guests"', async () => {
+      const user = userEvent.setup()
+      await setUpWithPins(user, 1)
+      await user.click(screen.getByRole('button', { name: 'Clear allocation' }))
+
+      const text = openPrompt().textContent ?? ''
+      expect(text).not.toMatch(/\b1\s+pinned\s+guests\b/i)
+      expect(text).toMatch(/\bpinned\s+guest\b(?!s)/i)
+    })
+
+    it('two pinned: reads as plural guests', async () => {
+      const user = userEvent.setup()
+      await setUpWithPins(user, 2)
+      await user.click(screen.getByRole('button', { name: 'Clear allocation' }))
+
+      const text = openPrompt().textContent ?? ''
+      expect(text).toMatch(/\b2\s+pinned\s+guests\b/i)
+    })
+  })
+
+  describe('"Clear allocation and pins" — the sentence naming how many pins are released', () => {
+    it('zero pins: never reads "all 0 pins"', async () => {
+      const user = userEvent.setup()
+      await setUpWithPins(user, 0)
+      await user.click(screen.getByRole('button', { name: 'Clear allocation and pins' }))
+
+      const text = openPrompt().textContent ?? ''
+      expect(text).not.toMatch(/\ball\s+0\s+pins\b/i)
+    })
+
+    it('one pin: reads as a single pin, never "all 1 pins"', async () => {
+      const user = userEvent.setup()
+      await setUpWithPins(user, 1)
+      await user.click(screen.getByRole('button', { name: 'Clear allocation and pins' }))
+
+      const text = openPrompt().textContent ?? ''
+      expect(text).not.toMatch(/\ball\s+1\s+pins\b/i)
+      expect(text).toMatch(/\b(?:(?:all\s+)?1\s+pin\b(?!s)|the\s+pin\b(?!s))/i)
+    })
+
+    it('two pins: reads as plural pins', async () => {
+      const user = userEvent.setup()
+      await setUpWithPins(user, 2)
+      await user.click(screen.getByRole('button', { name: 'Clear allocation and pins' }))
+
+      const text = openPrompt().textContent ?? ''
+      expect(text).toMatch(/\b2\s+pins\b/i)
+    })
   })
 })
 

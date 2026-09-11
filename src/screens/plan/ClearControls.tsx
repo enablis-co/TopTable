@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Panel, tabularClass } from '../../ui'
 import styles from './ClearControls.module.css'
 
@@ -15,6 +15,50 @@ function Num({ value }: { value: number }) {
   return <span className={tabularClass}>{value}</span>
 }
 
+/** The pinned guests survive a plain "clear allocation". Grammar forks on the count: zero
+ * drops the sentence, one reads as a word rather than "1 pinned guests", two or more keep the
+ * figure. */
+function allocationBody(pinnedCount: number) {
+  if (pinnedCount === 0) {
+    return <>This returns the guests Auto-allocate seated to the unseated list. This cannot be undone.</>
+  }
+  if (pinnedCount === 1) {
+    return (
+      <>
+        This returns the guests Auto-allocate seated to the unseated list. Your pinned guest stays
+        where they are. This cannot be undone.
+      </>
+    )
+  }
+  return (
+    <>
+      This returns the guests Auto-allocate seated to the unseated list. Your{' '}
+      <Num value={pinnedCount} /> pinned guests stay where they are. This cannot be undone.
+    </>
+  )
+}
+
+/** "Clear allocation and pins" releases every pin. Same grammar fork as `allocationBody`. */
+function everythingBody(pinnedCount: number) {
+  if (pinnedCount === 0) {
+    return <>This returns every seated guest to the unseated list. This cannot be undone.</>
+  }
+  if (pinnedCount === 1) {
+    return (
+      <>
+        This returns every seated guest to the unseated list and releases the pin. This cannot be
+        undone.
+      </>
+    )
+  }
+  return (
+    <>
+      This returns every seated guest to the unseated list and releases all{' '}
+      <Num value={pinnedCount} /> pins. This cannot be undone.
+    </>
+  )
+}
+
 /**
  * TT-37, KB-6 "Plan". Two non-primary triggers — Clear allocation, Clear allocation and pins —
  * each behind its own confirm prompt. Owns its confirm flow and focus the way `ScenarioPicker`
@@ -27,6 +71,7 @@ export function ClearControls({ pinnedCount, onClearAllocation, onClearEverythin
   const [flow, setFlow] = useState<Flow>({ kind: 'idle' })
   const triggerRefs = useRef<Partial<Record<'allocation' | 'everything', HTMLButtonElement | null>>>({})
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null)
+  const descriptionId = useId()
 
   function handleConfirm(action: 'allocation' | 'everything') {
     if (action === 'allocation') {
@@ -49,6 +94,25 @@ export function ClearControls({ pinnedCount, onClearAllocation, onClearEverythin
   useEffect(() => {
     if (flow.kind === 'confirming') {
       confirmButtonRef.current?.focus()
+    }
+  }, [flow])
+
+  // Escape cancels the open prompt. Registered on the capture phase and stopped there so it
+  // runs, and can stop the key going any further, before it ever reaches PlanScreen's own
+  // document-level Escape handler, which clears a selected rail guest instead.
+  useEffect(() => {
+    if (flow.kind !== 'confirming') return
+    const action = flow.action
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      handleCancel(action)
+    }
+
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true)
     }
   }, [flow])
 
@@ -82,20 +146,14 @@ export function ClearControls({ pinnedCount, onClearAllocation, onClearEverythin
       {flow.kind === 'confirming' && flow.action === 'allocation' && (
         <Panel className={styles.confirm}>
           <p className={styles.confirmTitle}>Clear the allocation?</p>
-          <p className={styles.confirmBody}>
-            This returns the guests Auto-allocate seated to the unseated list.
-            {pinnedCount > 0 && (
-              <>
-                {' '}
-                Your <Num value={pinnedCount} /> pinned guests stay where they are.
-              </>
-            )}{' '}
-            This cannot be undone.
+          <p id={descriptionId} className={styles.confirmBody}>
+            {allocationBody(pinnedCount)}
           </p>
           <div className={styles.confirmActions}>
             <Button
               variant="secondary"
               ref={confirmButtonRef}
+              aria-describedby={descriptionId}
               onClick={() => {
                 handleConfirm('allocation')
               }}
@@ -117,14 +175,14 @@ export function ClearControls({ pinnedCount, onClearAllocation, onClearEverythin
       {flow.kind === 'confirming' && flow.action === 'everything' && (
         <Panel className={styles.confirm}>
           <p className={styles.confirmTitle}>Clear the allocation and the pins?</p>
-          <p className={styles.confirmBody}>
-            This returns every seated guest to the unseated list and releases all{' '}
-            <Num value={pinnedCount} /> pins. This cannot be undone.
+          <p id={descriptionId} className={styles.confirmBody}>
+            {everythingBody(pinnedCount)}
           </p>
           <div className={styles.confirmActions}>
             <Button
               variant="secondary"
               ref={confirmButtonRef}
+              aria-describedby={descriptionId}
               onClick={() => {
                 handleConfirm('everything')
               }}
