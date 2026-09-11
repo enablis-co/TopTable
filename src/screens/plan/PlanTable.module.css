@@ -258,6 +258,15 @@
   background: transparent;
 }
 
+/* The top table is the exception, and leaving it out of that rule was a bug: .top .face's slate
+   fill is only (0,2,0), so the transparent above won it on hover and the white --on-slate label
+   was left on the --surface floor, invisible. Equal specificity to that rule (0,4,0), so this
+   must stay below it. The top table has no ring to carry its material, which is why its fill
+   cannot simply drop on hover the way a round table's can. */
+.top .face:hover:not(:disabled) {
+  background: var(--slate);
+}
+
 /* .round clips an outline drawn outside the element (overflow: hidden, above) — so this ring is
    inset. floorplanStyles.test.ts asserts the negative offset; only the browser pass can confirm
    it is visible. */
