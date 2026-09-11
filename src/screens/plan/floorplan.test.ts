@@ -332,13 +332,49 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
     expect(occupants.pinnedCount).toBe(2)
   })
 
-  it('inViolation is false for every table, including one overfilled by a hand pin', () => {
+  it('a table named in the passed-in set reads inViolation: true (TT-14)', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 0 }
+    const guests = makeGuests(5)
+    const pins: Pin[] = guests.map((guest) => ({ guestId: guest.id, tableId: 'round-1' }))
+    const plan = seatPins(room, guests, pins)
+
+    const seating = seatingViewFrom(plan, new Set(['round-1']))
+
+    expect(occupantsAt(seating, 'round-1').inViolation).toBe(true)
+  })
+
+  it('a table not named in the passed-in set reads inViolation: false, even while another table is named (TT-14)', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 0 }
+    const guests = [makeGuest('g-1'), makeGuest('g-2')]
+    const pins: Pin[] = [
+      { guestId: 'g-1', tableId: 'round-1' },
+      { guestId: 'g-2', tableId: 'round-2' },
+    ]
+    const plan = seatPins(room, guests, pins)
+
+    const seating = seatingViewFrom(plan, new Set(['round-1']))
+
+    expect(occupantsAt(seating, 'round-2').inViolation).toBe(false)
+  })
+
+  it('called with no second argument, every table reads inViolation: false — "no rules registered" (TT-14)', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 0 }
     const guests = makeGuests(5)
     const pins: Pin[] = guests.map((guest) => ({ guestId: guest.id, tableId: 'round-1' }))
     const plan = seatPins(room, guests, pins)
 
     expect(occupantsAt(seatingViewFrom(plan), 'round-1').inViolation).toBe(false)
+  })
+
+  it('a table named in the set with nothing seated still gets its own entry, not the shared empty-table fallback (TT-14)', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 0 }
+    const plan = seatPins(room, [], [])
+
+    const seating = seatingViewFrom(plan, new Set(['round-1']))
+
+    expect(Object.keys(seating.byTableId)).toEqual(['round-1'])
+    expect(occupantsAt(seating, 'round-1')).toEqual({ guests: [], pinnedCount: 0, inViolation: true })
+    expect(occupantsAt(seating, 'round-2')).toEqual({ guests: [], pinnedCount: 0, inViolation: false })
   })
 
   it('pinnedCount sums correctly against a real seatPins-derived seating view, with two honoured pins', () => {
