@@ -758,8 +758,8 @@ describe('PlanScreen — Auto-allocate honours a pin that was already there', ()
   })
 })
 
-describe('PlanScreen — a pin to the top table with no protocol role is not honoured', () => {
-  it('after allocating, that guest is not at the top table, and the header drops the pinned count by one', async () => {
+describe('PlanScreen — a pin to the top table with no protocol role is honoured', () => {
+  it('after allocating, that guest is still at the top table and the header keeps the pinned count', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 6 })
     useTopTableStore.getState().setGuests(makeGuests(5))
     useTopTableStore.getState().pinGuest('g-0', 'top')
@@ -767,17 +767,19 @@ describe('PlanScreen — a pin to the top table with no protocol role is not hon
     const user = userEvent.setup()
     renderPlanScreen()
 
-    // Pre-click, seatPins alone does honour a non-protocol pin to the top table (TT-13's model).
     expect(document.body.textContent).toContain('2 pinned')
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
-    expect(document.body.textContent).toContain('1 pinned')
+    // Both pins survive the solver: allocate seats a top table pin rather than moving it, so the
+    // figure a hand placement produced is the figure Auto-allocate leaves behind.
+    expect(document.body.textContent).toContain('2 pinned')
     const [topTable] = tables()
     if (!topTable) {
       throw new Error('expected the top table to render first')
     }
-    expect(topTable.textContent).not.toContain('Guest g-0')
+    expect(topTable.textContent).toContain('Guest g-0')
+    expect(topTable.textContent).not.toContain('Guest g-1')
   })
 })
 

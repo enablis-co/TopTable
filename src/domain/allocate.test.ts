@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { allocate } from './allocate'
 import type { SeatCandidate, SeatGuard } from './allocate'
-import { seatOf, tablesInRoom } from './seating'
+import { seatOf, tablesInRoom, topTableRoleOrder } from './seating'
 import type { SeatedTable } from './seating'
 import { PROTOCOL_ROLES } from './types'
 import type { Guest, Pin, RoomConfig } from './types'
@@ -278,17 +278,19 @@ describe('allocate — a pin binds a guest to a table, not a seat (KB-4)', () =>
     expect(top?.seats[7]).toBeNull()
   })
 
-  it('an ordinary guest hand-pinned to the top table is not seated there — they are seated in the room instead, unpinned', () => {
+  it('an ordinary guest hand-pinned to the top table is seated there, not moved to the room (product-owner ruling)', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 8 }
     const plan = allocate(room, [makeGuest('g-1')], [{ guestId: 'g-1', tableId: 'top' }])
 
     const location = seatOf(plan, 'g-1')
-    if (!location || location.seatIndex === null) throw new Error('expected g-1 to hold a seat in the room')
-    expect(location.table.id).toBe('round-1')
-    expect(location.table.seats[location.seatIndex]?.pinned).toBe(false)
+    if (!location || location.seatIndex === null) throw new Error('expected g-1 to hold a seat at the top table')
+    expect(location.table.id).toBe('top')
+    expect(location.table.seats[location.seatIndex]?.pinned).toBe(true)
 
+    // No protocol role holder exists in this guest list, so every other seat stays empty —
+    // the pin does not conjure a role holder, it only claims a seat for itself.
     const top = plan.tables.find((table) => table.id === 'top')
-    expect(top?.seats.every((seat) => seat === null)).toBe(true)
+    expect(top?.seats.filter((seat) => seat !== null)).toHaveLength(1)
   })
 
   it('the groom pinned to top lands at seat 4 (index 3) of an eight-seat top table, pinned true', () => {
@@ -300,6 +302,89 @@ describe('allocate — a pin binds a guest to a table, not a seat (KB-4)', () =>
     expect(location.table.id).toBe('top')
     expect(location.seatIndex).toBe(3)
     expect(location.table.seats[3]?.pinned).toBe(true)
+  })
+})
+
+/**
+ * Product-owner ruling: "allocate should not ignore it, allocate should fill remaining seats."
+ * A guest hand-pinned to the top table without a protocol role is seated there, and the protocol
+ * order fills whatever seats the pins leave — computed for that smaller count, per
+ * `topTableRoleOrder`'s own documented behaviour for a smaller table, rather than the full-size
+ * order shifted down. KB-4 says nothing about where a pin sits among the physical seats; these
+ * tests fix that as the outermost seats, split evenly between the two ends, so the protocol block
+ * stays the same centred window `topTableRoleOrder` already produces on its own (verified above
+ * for the six-seat case) rather than being pushed to one side.
+ */
+describe('allocate — a guest hand-pinned to the top table without a role (product-owner ruling)', () => {
+  it('is seated at the top table, and the protocol order fills the seats left over, computed for that smaller count', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 6 }
+    const guests = [...otherProtocolGuests(), makeGuest('best-man', { role: BEST_MAN }), makeGuest('plain-1')]
+    const pins: Pin[] = [{ guestId: 'plain-1', tableId: 'top' }]
+
+    const plan = allocate(room, guests, pins)
+    const top = plan.tables.find((table) => table.id === 'top')
+    if (!top) throw new Error('expected a top table')
+
+    // One seat goes to the pin; the other five follow topTableRoleOrder(5), not (6) — the same
+    // contract `seating.test.ts` checks in isolation, exercised here through the solver.
+    expect(top.seats.slice(0, 5).map((seat) => seat?.guest.role)).toEqual(topTableRoleOrder(5))
+    expect(top.seats.map((seat) => seat?.guest.id)).toEqual([
+      'father-of-groom',
+      'mother-of-bride',
+      'groom',
+      'bride',
+      'father-of-bride',
+      'plain-1',
+    ])
+    expect(top.seats[5]?.pinned).toBe(true)
+
+    // Mother of groom held the sixth seat at a full six-seat top table (see the "Adding up"
+    // case above); the pin now claims it instead, so she joins chief bridesmaid and best man —
+    // the roles a six-seat table never had room for — seated together at the nearest round table.
+    expect(seatOf(plan, 'mother-of-groom')?.table.id).toBe('round-1')
+    expect(seatOf(plan, 'chief-bridesmaid')?.table.id).toBe('round-1')
+    expect(seatOf(plan, 'best-man')?.table.id).toBe('round-1')
+  })
+
+  it('pins exceeding the top table\'s capacity leave the extra guests in its overflow rather than dropping them (KB-2)', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 2 }
+    const guests = [makeGuest('plain-1'), makeGuest('plain-2'), makeGuest('plain-3')]
+    const pins: Pin[] = guests.map((guest) => ({ guestId: guest.id, tableId: 'top' }))
+
+    const plan = allocate(room, guests, pins)
+    const top = plan.tables.find((table) => table.id === 'top')
+    if (!top) throw new Error('expected a top table')
+
+    expect(top.seats.every((seat) => seat !== null)).toBe(true)
+    expect(top.seats.map((seat) => seat?.guest.id)).toEqual(['plain-1', 'plain-2'])
+    expect(top.overflow.map((seat) => seat.guest.id)).toEqual(['plain-3'])
+    expect(top.overflow.every((seat) => seat.pinned)).toBe(true)
+
+    // The hard violation (KB-2: a table seated above capacity) stays representable in the plan
+    // rather than the third guest silently vanishing into the ordinary unseated count.
+    expect(plan.unseated).toEqual([])
+  })
+})
+
+describe('allocate — a protocol role holder pinned to the top table regresses nothing', () => {
+  it('lands at the same canonical seat an unpinned holder would, only the pinned flag changes', () => {
+    const { meta, guests } = readScenario('adding-up')
+    const groom = guests.find((guest) => guest.role === GROOM)
+    if (!groom) throw new Error("expected Adding up to carry a groom")
+
+    const withoutPin = allocate(meta.tables, guests, [])
+    const withPin = allocate(meta.tables, guests, [{ guestId: groom.id, tableId: 'top' }])
+
+    const before = seatOf(withoutPin, groom.id)
+    const after = seatOf(withPin, groom.id)
+    if (!before || before.seatIndex === null || !after || after.seatIndex === null) {
+      throw new Error('expected the groom to hold a seat at the top table both times')
+    }
+
+    expect(after.table.id).toBe('top')
+    expect(after.seatIndex).toBe(before.seatIndex)
+    expect(before.table.seats[before.seatIndex]?.pinned).toBe(false)
+    expect(after.table.seats[after.seatIndex]?.pinned).toBe(true)
   })
 })
 
