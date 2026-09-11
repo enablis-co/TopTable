@@ -72,8 +72,19 @@ export function occupantsAt(seating: SeatingView, id: string): TableOccupants {
  * TT-13's domain plan projected onto this screen's render contract. A table with nothing
  * seated at it — no filled seat, no overflow — gets no entry at all, keeping the shared
  * `EMPTY_TABLE` value meaningful rather than allocating an equivalent object per empty table.
+ * The one exception is a table `hardViolationTableIds` names: it keeps its entry even when
+ * empty, or a violating-but-unseated table would fall back to `EMPTY_TABLE` and lose its mark.
+ * Neither of TT-14's two hard rules can implicate an empty table today, so this is latent rather
+ * than live, but TT-17 onward can.
+ *
+ * `hardViolationTableIds` is a `ReadonlySet<string>`, never the engine's `RuleReport` itself —
+ * this file has no way to classify severity of its own, so `src/domain/rules/engine.ts` stays
+ * the one place that decides which violations are hard (TT-14).
  */
-export function seatingViewFrom(plan: SeatingPlan): SeatingView {
+export function seatingViewFrom(
+  plan: SeatingPlan,
+  hardViolationTableIds: ReadonlySet<string> = new Set(),
+): SeatingView {
   const byTableId: Record<string, TableOccupants> = {}
 
   for (const table of plan.tables) {
@@ -93,9 +104,10 @@ export function seatingViewFrom(plan: SeatingPlan): SeatingView {
       if (seat.pinned) pinnedCount += 1
     }
 
-    if (seated.length === 0 && overflow.length === 0) continue
+    const inViolation = hardViolationTableIds.has(table.id)
+    if (seated.length === 0 && overflow.length === 0 && !inViolation) continue
 
-    byTableId[table.id] = { guests: [...seated, ...overflow], pinnedCount, inViolation: false }
+    byTableId[table.id] = { guests: [...seated, ...overflow], pinnedCount, inViolation }
   }
 
   return { byTableId }

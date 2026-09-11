@@ -1,15 +1,16 @@
-/* The rail-plus-floorplan pair below the header line (KB-6 "Plan"). minmax(0, 1fr), not bare
-   1fr: a 1fr track's automatic minimum is content width, which would stop the floorplan's own
-   overflow-x: auto scroll container (FloorplanGrid.module.css's .gridScroll) from ever
-   shrinking below the 27-table row's full width — the browser pass's two-column check at both
-   scenario sizes is what would catch this regressing silently.
+/* The rail, floorplan and violations panel below the header line (KB-6 "Plan"). minmax(0, 1fr),
+   not bare 1fr, on the middle track: a 1fr track's automatic minimum is content width, which
+   would stop the floorplan's own overflow-x: auto scroll container (FloorplanGrid.module.css's
+   .gridScroll) from ever shrinking below the 27-table row's full width — the browser pass's
+   column check at both scenario sizes is what would catch this regressing silently, and a
+   third track only adds to that pressure (TT-14).
 
    Below the breakpoint, one column: the same threshold SetupScreen.module.css's .withRail
    uses, so the app has one collapse point rather than two to keep in step. The rail (first in
-   source) stacks above the floorplan, which is what actually needs the width back (TT-11). */
+   source) stacks above the floorplan, which stacks above the violations panel. */
 .screen {
   display: grid;
-  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr) minmax(0, 240px);
   gap: var(--space-5);
   align-items: start;
   margin-top: var(--space-4);
@@ -17,7 +18,7 @@
 
 @media (max-width: 720px) {
   .screen {
-    /* minmax(0, 1fr), not bare 1fr, for the same reason as the two-column rule above. */
+    /* minmax(0, 1fr), not bare 1fr, for the same reason as the .screen rule above. */
     grid-template-columns: minmax(0, 1fr);
   }
 }

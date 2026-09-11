@@ -74,6 +74,19 @@ describe('PlanScreen.module.css — .actions right-aligns Auto-allocate above th
   })
 })
 
+describe('PlanScreen.module.css — .screen lays out three tracks: rail, floorplan, violations (TT-14)', () => {
+  it('declares grid-template-columns with three minmax(...) tracks, the middle one minmax(0, …) so the floorplan can still shrink', () => {
+    const rule = /\.screen\s*\{([^}]*)\}/.exec(stripComments(readCss()))
+    expect(rule, 'expected a .screen rule in PlanScreen.module.css').not.toBeNull()
+    const body = rule?.[1] ?? ''
+
+    expect(body).toMatch(/grid-template-columns\s*:/)
+    const tracks = body.match(/minmax\([^)]*\)/g) ?? []
+    expect(tracks).toHaveLength(3)
+    expect(tracks[1]).toMatch(/^minmax\(\s*0\s*,/)
+  })
+})
+
 describe('PlanScreen.module.css — below a breakpoint the rail and floorplan collapse to one column (TT-11 fix, D1)', () => {
   it('declares an @media (max-width) rule containing a .screen override to a single column', () => {
     const css = readCss()

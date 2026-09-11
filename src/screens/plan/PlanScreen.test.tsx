@@ -47,6 +47,12 @@ function tables(): HTMLElement[] {
   return Array.from(document.querySelectorAll('[data-occupancy]'))
 }
 
+// TT-14. Located by the same data attribute the panel itself renders, not by role or by a CSS
+// module class name, for the same reason `tables()` above reads `[data-occupancy]`.
+function violationEntries(): HTMLElement[] {
+  return Array.from(document.querySelectorAll('[data-severity]'))
+}
+
 // Once a room has a top table it renders first, so tables()[0] is no longer "the table under
 // test" — this locates one by its own rendered label instead of DOM position. Matched on a
 // leading ", " too, since a pinned or violating table appends that to the same heading text.
@@ -869,7 +875,7 @@ describe('PlanScreen — the announcement reports the figures this press produce
     expect(screen.getByRole('status').textContent).toBe('Allocated. 70 seated, 0 unseated.')
   })
 
-  it('reports a non-zero unseated figure when the room is too short to seat everyone', async () => {
+  it('reports a non-zero unseated figure when the room is too short to seat everyone, agreeing with the header (TT-14)', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(6))
     const user = userEvent.setup()
@@ -878,6 +884,10 @@ describe('PlanScreen — the announcement reports the figures this press produce
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
     expect(screen.getByRole('status').textContent).toBe('Allocated. 4 seated, 2 unseated.')
+    // The header's own figure comes from the memoised `plan`; the announcement above comes from
+    // handleAllocate's separate, throwaway run. Both have to run the same seat guard (TT-14), or
+    // these two independently-derived figures could disagree.
+    expect(document.body.textContent).toContain('2 unseated')
   })
 })
 
@@ -988,5 +998,77 @@ describe('PlanScreen — Celebrity scale still allocates fully', () => {
 
     expect(tables()).toHaveLength(27)
     expect(document.body.textContent).toContain('0 unseated')
+  })
+})
+
+/*
+ * TT-14. The violations panel, KB-6's third column. ViolationsPanel.test.tsx and
+ * violationsPanelStyles.test.ts cover the panel's own rendering in isolation; what belongs here
+ * is the panel wired into the real screen — beside the rail and the floorplan, reading a plan
+ * this screen actually derived, so a table's own dashed outline and the panel's own words about
+ * it can be checked against each other rather than against a fixture each was handed separately.
+ */
+
+describe('PlanScreen — the violations panel is the third column, beside the rail and the floorplan', () => {
+  it('renders a "Violations" heading alongside "Unseated" and the floorplan, and states how many rules are registered', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })
+    useTopTableStore.getState().setGuests(makeGuests(3))
+    renderPlanScreen()
+
+    expect(screen.getByRole('heading', { name: 'Violations' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Unseated' })).toBeInTheDocument()
+    expect(tables().length).toBeGreaterThan(0)
+    // Capacity, top table and partners adjacent.
+    expect(document.body.textContent).toContain('3 rules registered')
+  })
+
+  it('renders no violation entries and reads its clean-plan sentence in words, with nothing seated yet', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })
+    useTopTableStore.getState().setGuests(makeGuests(3))
+    renderPlanScreen()
+
+    expect(violationEntries()).toHaveLength(0)
+    expect(document.body.textContent).toMatch(/no violations/i)
+    expect(document.body.textContent).not.toMatch(/sorry/i)
+  })
+})
+
+describe('PlanScreen — a hard violation marks the table and lists in the panel, in agreeing figures (TT-14; KB-5; KB-6)', () => {
+  it('nine guests hand-pinned to an eight-seat table before Auto-allocate carry data-violation on the table, and the panel names it with the same seat count', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(9))
+    for (let index = 0; index < 9; index += 1) {
+      useTopTableStore.getState().pinGuest(`g-${index}`, 'round-1')
+    }
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    const table = tableLabelled('Table 1')
+    expect(table.getAttribute('data-violation')).toBe('true')
+    expect(table.textContent).toMatch(/9\s*of\s*8\s*seats/i)
+
+    const hardEntry = violationEntries().find((entry) => entry.getAttribute('data-severity') === 'hard')
+    expect(hardEntry, 'expected a hard violation entry in the panel').toBeDefined()
+    expect(hardEntry?.textContent).toContain('Table 1 over capacity')
+    expect(hardEntry?.textContent).toContain('Hard')
+    // The table's own face and the panel's capacity detail are computed in different layers
+    // from the same plan; this is the assertion that would catch them disagreeing.
+    expect(hardEntry?.textContent).toContain('9 of 8')
+  })
+
+  it('a table filled to exactly its capacity by Auto-allocate carries no data-violation and no entry appears in the panel', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(8))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
+
+    const table = tableLabelled('Table 1')
+    expect(table.textContent).toMatch(/8\s*of\s*8\s*seats/i)
+    expect(table.hasAttribute('data-violation')).toBe(false)
+    expect(violationEntries()).toHaveLength(0)
   })
 })
