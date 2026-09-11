@@ -6,8 +6,8 @@
   display: grid;
   grid-template-columns: 1fr;
   align-items: start;
-  column-gap: var(--space-6);
-  row-gap: var(--space-5);
+  column-gap: var(--s-8);
+  row-gap: var(--s-6);
 }
 
 .withRail {
@@ -27,7 +27,7 @@
 .main {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--s-6);
   min-width: 0;
 }
 
@@ -42,7 +42,7 @@
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--s-6);
   min-width: 0;
 }
 
@@ -57,7 +57,7 @@
    `isConfigured`, so .screen never gains .withRail — and the room form above then spans the
    full single column too. Without the scope this pulled in for a rail that wasn't there. */
 .withRail .readoutBounds {
-  max-width: calc(100% - var(--rail-width) - var(--space-6));
+  max-width: calc(100% - var(--rail-width) - var(--s-8));
 }
 
 .readoutBounds {
@@ -66,7 +66,7 @@
 
 .emptyCapacity {
   margin: 0;
-  font-size: var(--text-body);
+  font: var(--t-body);
   color: var(--ink);
 }
 
@@ -75,6 +75,6 @@
 .chipRow {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--s-3);
   min-width: 0;
 }

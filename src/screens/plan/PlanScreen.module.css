@@ -1,30 +1,74 @@
-/* The rail, floorplan and violations panel below the header line (KB-6 "Plan"). minmax(0, 1fr),
-   not bare 1fr, on the middle track: a 1fr track's automatic minimum is content width, which
-   would stop the floorplan's own overflow-x: auto scroll container (FloorplanGrid.module.css's
-   .gridScroll) from ever shrinking below the 27-table row's full width — the browser pass's
-   column check at both scenario sizes is what would catch this regressing silently, and a
-   third track only adds to that pressure (TT-14).
+/*
+ * TT-35, handoff "Plan" layout. Two parts: a canvas column (header, floorplan, unseated strip,
+ * stacked) that shrinks first, and a fixed-width violations column that does not. `.plan` and
+ * `.layout` exist so that chain has a definite height to flex against at all — AppShell's own
+ * <main> is `overflow: auto` with no explicit height of its own below `flex: 1`, and a `flex: 1`
+ * floorplan area needs a real ancestor chain of heights to fill, not just flow content.
+ */
+.plan {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
 
-   Below the breakpoint, one column: the same threshold SetupScreen.module.css's .withRail
-   uses, so the app has one collapse point rather than two to keep in step. The rail (first in
-   source) stacks above the floorplan, which stacks above the violations panel. */
-.screen {
-  display: grid;
-  grid-template-columns: minmax(0, 200px) minmax(0, 1fr) minmax(0, 240px);
-  gap: var(--space-5);
-  align-items: start;
-  margin-top: var(--space-4);
+.layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.canvas {
+  display: flex;
+  flex-direction: column;
+  /* minmax(0, 1fr) at heart: this column must be able to shrink narrower than its own content
+     (the floorplan's scroll container) rather than pushing the violations column off-screen. A
+     bare flex: 1 alone still leaves min-width at its automatic, content-based default. */
+  flex: 1;
+  min-width: 0;
+}
+
+/* Auto-allocate moves here from the old .actions row above the header (TT-13) to this row's
+   right edge (handoff rule 2, A13 in the plan): the primary action stays on the canvas rather
+   than the top bar, so the shell never has to know this screen's handlers. PlanHeader's own
+   root is flex: 1 so its internal space-between (capacity block vs stat pair) still has the
+   canvas's full width to work across, with this button as a third, non-growing item beside it —
+   a deliberate change from PlanHeader.module.css's plainly-stated flex: none, which describes
+   the header sitting alone in a column and does not anticipate a sibling in a row. */
+.canvasHeader {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-4);
+}
+
+.allocate {
+  flex: none;
+}
+
+.floorplanArea {
+  flex: 1;
+  min-height: 0;
+  padding: var(--s-5) var(--s-6);
+}
+
+.violations {
+  flex: none;
+  width: 300px;
+  background: var(--surface);
+  border-left: 1px solid var(--rule);
 }
 
 @media (max-width: 720px) {
-  .screen {
-    /* minmax(0, 1fr), not bare 1fr, for the same reason as the .screen rule above. */
-    grid-template-columns: minmax(0, 1fr);
+  /* Same breakpoint as SetupScreen.module.css's .withRail, so the app has one collapse point
+     rather than two to keep in step. */
+  .layout {
+    flex-direction: column;
   }
-}
 
-/* Auto-allocate, right-aligned above the header line (KB-6 "Plan", TT-13). */
-.actions {
-  display: flex;
-  justify-content: flex-end;
+  .violations {
+    width: auto;
+    border-left: none;
+    border-top: 1px solid var(--rule);
+  }
 }

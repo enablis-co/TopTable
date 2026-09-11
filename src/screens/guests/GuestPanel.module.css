@@ -1,20 +1,20 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--s-6);
 }
 
 .group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 /* Smaller and more subdued than the panel's own h2 title (SlideOver.module.css sizes that
    down to Heading already), so the group headings read as a second tier under it. */
 .heading {
   margin: 0;
-  font-size: var(--text-body);
+  font: var(--t-body);
   font-weight: var(--weight-medium);
   color: var(--ink-muted);
 }
@@ -27,7 +27,7 @@
 .row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 /* Verified against the real running app, not just the stylesheet (a browser check no test
@@ -50,8 +50,8 @@
    no background wash, just the token plus the border. */
 .error {
   margin: 0;
-  font-size: var(--text-caption);
+  font: var(--t-caption);
   color: var(--hard-deep);
-  padding-left: var(--space-2);
+  padding-left: var(--s-2);
   border-left: 2px solid var(--hard);
 }

@@ -1,7 +1,6 @@
 .button {
-  font: inherit;
-  font-size: var(--text-data);
-  padding: 7px 15px;
+  font: var(--t-body);
+  padding: 7px 13px;
   border-radius: var(--r-control);
   border: 1px solid transparent;
   cursor: pointer;
@@ -15,6 +14,7 @@
 .primary {
   background: var(--slate);
   color: var(--on-slate);
+  padding: 8px 15px;
 }
 
 .primary:hover:not(:disabled) {

@@ -271,17 +271,17 @@ describe('empty state (C30)', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    const header = screen.getByRole('banner')
-    await user.click(within(header).getByRole('button', { name: 'Guests' }))
+    const nav = screen.getByRole('navigation', { name: 'Sections' })
+    await user.click(within(nav).getByRole('button', { name: 'Guests' }))
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
 
-    // Scoped to <main>: the header's own "Setup" tab also matches /scenario|setup/i, and is a
+    // Scoped to <main>: the rail's own "Setup" row also matches /scenario|setup/i, and is a
     // different, legitimate control from the one this criterion is about.
     const main = screen.getByRole('main')
     await user.click(within(main).getByRole('button', { name: /scenario|setup/i }))
 
-    const guestsControl = within(header).getByRole('button', { name: 'Guests' })
-    const setupControl = within(header).getByRole('button', { name: 'Setup' })
+    const guestsControl = within(nav).getByRole('button', { name: 'Guests' })
+    const setupControl = within(nav).getByRole('button', { name: 'Setup' })
     expect(isMarkedCurrent(setupControl)).toBe(true)
     expect(isMarkedCurrent(guestsControl)).toBe(false)
   })

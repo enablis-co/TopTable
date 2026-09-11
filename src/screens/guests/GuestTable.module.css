@@ -12,20 +12,20 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--text-data);
+  font: var(--t-body);
 }
 
 .table th {
   text-align: left;
-  font-weight: var(--weight-medium);
   color: var(--ink-muted);
-  font-size: var(--text-caption);
-  padding: var(--space-3) var(--space-3) var(--space-2);
+  font: var(--t-caption);
+  font-weight: var(--weight-medium);
+  padding: var(--s-3) var(--s-3) var(--s-2);
   border-bottom: 1px solid var(--rule);
 }
 
 .table td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--s-2) var(--s-3);
   border-bottom: 1px solid var(--rule);
   vertical-align: middle;
   color: var(--ink);
@@ -64,7 +64,7 @@
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: var(--s-1);
 }
 
 /* The row menu's own trailing cell — no header labels it (see the component comment). Narrow

@@ -1,0 +1,70 @@
+.rail {
+  width: 192px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-4) 10px;
+  gap: 2px;
+  background: var(--chrome);
+}
+
+.label {
+  font: var(--t-label);
+  color: var(--chrome-ink-faint);
+  padding: 4px 10px 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 11px;
+  border-radius: var(--r-nav);
+  border: none;
+  background: transparent;
+  font: var(--t-body);
+  color: var(--chrome-ink-dim);
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--chrome-raised);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--chrome-focus);
+  outline-offset: 2px;
+}
+
+/* Colour is never the only signal (KB-5): the active row also gets the dot below and a
+   heavier weight, so the rail still reads with every colour stripped out. */
+.rowCurrent {
+  background: var(--chrome-active);
+  color: var(--chrome-ink);
+  font-weight: var(--weight-medium);
+}
+
+.rowCurrent:hover {
+  background: var(--chrome-active);
+}
+
+.rowLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--chrome-ink);
+}
+
+.count {
+  font: var(--t-figure);
+  color: var(--chrome-ink-faint);
+}

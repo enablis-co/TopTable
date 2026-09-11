@@ -1,96 +1,65 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
 import { AppHeader } from './AppHeader'
-import { NavigationContext, TABS, type Tab } from './navigation'
+import { useTopTableStore } from '../store/store'
 
-function Harness({ initialTab = 'setup' }: { initialTab?: Tab }) {
-  const [tab, setTab] = useState<Tab>(initialTab)
-  return (
-    <NavigationContext.Provider value={{ tab, goTo: setTab }}>
-      <AppHeader />
-    </NavigationContext.Provider>
-  )
-}
+/**
+ * TT-35 narrowed this to identity only: the mark, the wordmark, the event name and the
+ * scenario pill. The three section controls moved out to NavRail.test.tsx along with their
+ * own assertions.
+ */
 
-// aria-current is not a plain boolean attribute: a control can be marked not
-// current either by omitting it or by setting it to the literal "false".
-// Checking both keeps this test from assuming which convention is used.
-function isMarkedCurrent(element: HTMLElement): boolean {
-  const value = element.getAttribute('aria-current')
-  return value !== null && value !== 'false'
-}
+beforeEach(() => {
+  useTopTableStore.getState().reset()
+})
 
 describe('AppHeader', () => {
-  it('shows the product name "Top Table" exactly once', () => {
-    render(<Harness />)
+  it('renders a banner landmark showing the mark and the wordmark "Top Table" exactly once', () => {
+    const { container } = render(<AppHeader />)
+    expect(screen.getByRole('banner')).toBeInTheDocument()
     expect(screen.getAllByText('Top Table')).toHaveLength(1)
+    expect(container.querySelector('svg')).toBeInTheDocument()
   })
 
-  it('offers three controls named Setup, Guests and Plan, in that order', () => {
-    render(<Harness />)
-    const controls = screen.getAllByRole('button')
-    expect(controls.map((control) => control.textContent?.trim())).toEqual([
-      'Setup',
-      'Guests',
-      'Plan',
-    ])
+  it('carries no section control and no other navigation', () => {
+    render(<AppHeader />)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
 
-  it('marks Setup as current on first render, and Guests and Plan as not current', () => {
-    render(<Harness />)
-    expect(isMarkedCurrent(screen.getByRole('button', { name: 'Setup' }))).toBe(true)
-    expect(isMarkedCurrent(screen.getByRole('button', { name: 'Guests' }))).toBe(false)
-    expect(isMarkedCurrent(screen.getByRole('button', { name: 'Plan' }))).toBe(false)
+  it('shows the event name from the store', () => {
+    useTopTableStore.getState().setEventName("Priya & Tom's wedding")
+    render(<AppHeader />)
+    expect(screen.getByText("Priya & Tom's wedding")).toBeInTheDocument()
   })
 
-  it('makes Guests current and Setup not current when Guests is activated', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Guests' }))
-    expect(isMarkedCurrent(screen.getByRole('button', { name: 'Guests' }))).toBe(true)
-    expect(isMarkedCurrent(screen.getByRole('button', { name: 'Setup' }))).toBe(false)
-    expect(isMarkedCurrent(screen.getByRole('button', { name: 'Plan' }))).toBe(false)
-  })
-
-  it('makes Plan current and the others not current when Plan is activated', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.click(screen.getByRole('button', { name: 'Plan' }))
-    expect(isMarkedCurrent(screen.getByRole('button', { name: 'Plan' }))).toBe(true)
-    expect(isMarkedCurrent(screen.getByRole('button', { name: 'Setup' }))).toBe(false)
-    expect(isMarkedCurrent(screen.getByRole('button', { name: 'Guests' }))).toBe(false)
-  })
-
-  it('renders the header in full regardless of which section is current', () => {
-    for (const tab of TABS) {
-      const { unmount } = render(<Harness initialTab={tab} />)
-      expect(screen.getByText('Top Table')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Setup' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Guests' })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Plan' })).toBeInTheDocument()
-      unmount()
+  it('shows no event name and no scenario pill before anything is set up', () => {
+    render(<AppHeader />)
+    for (const text of ['Small and cosy', 'Adding up', 'Celebrity scale', 'Custom']) {
+      expect(screen.queryByText(text)).not.toBeInTheDocument()
     }
   })
 
-  it('offers no control named export, print, share or sign in', () => {
-    render(<Harness />)
-    for (const name of ['export', 'print', 'share', 'sign in']) {
-      const pattern = new RegExp(name, 'i')
-      expect(screen.queryByRole('button', { name: pattern })).not.toBeInTheDocument()
-      expect(screen.queryByRole('link', { name: pattern })).not.toBeInTheDocument()
-    }
+  it('shows the loaded scenario name in the pill, in sentence case', () => {
+    useTopTableStore.getState().importScenario('adding-up', [])
+    render(<AppHeader />)
+    expect(screen.getByText('Adding up')).toBeInTheDocument()
   })
 
-  it('reaches all three section controls in a keyboard tab sweep', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.tab()
-    expect(screen.getByRole('button', { name: 'Setup' })).toHaveFocus()
-    await user.tab()
-    expect(screen.getByRole('button', { name: 'Guests' })).toHaveFocus()
-    await user.tab()
-    expect(screen.getByRole('button', { name: 'Plan' })).toHaveFocus()
+  it('shows "Custom" once the room is edited after an import', () => {
+    useTopTableStore.getState().importScenario('adding-up', [])
+    useTopTableStore.getState().setRoom({ roundTables: 10 })
+    render(<AppHeader />)
+    expect(screen.getByText('Custom')).toBeInTheDocument()
+    expect(screen.queryByText('Adding up')).not.toBeInTheDocument()
+  })
+
+  it('renders in full regardless of the event name or scenario being set', () => {
+    useTopTableStore.getState().setEventName('Okonjo & Whitaker')
+    useTopTableStore.getState().importScenario('celebrity-scale', [])
+    render(<AppHeader />)
+    expect(screen.getByText('Top Table')).toBeInTheDocument()
+    expect(screen.getByText('Okonjo & Whitaker')).toBeInTheDocument()
+    expect(screen.getByText('Celebrity scale')).toBeInTheDocument()
   })
 })

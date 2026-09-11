@@ -1,7 +1,19 @@
+/*
+ * TT-35, handoff "Floorplan". This is the white floor: PlanScreen.module.css gives the
+ * surrounding canvas area its flex:1/min-height:0 and 18px/22px breathing room (the handoff's
+ * "Container"); this class is what the handoff calls the panel inside it — a full-height
+ * --surface card the SVG/grid content sits on, 10px padding per the handoff (off the spacing
+ * scale, and authoritative for it regardless — see the plan's A3).
+ */
 .floorplan {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: var(--r-card);
+  padding: 10px;
 }
 
 /* A one-item list: a bare <li> outside any list container does not carry the "listitem" role. */
@@ -38,8 +50,8 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  max-width: calc(var(--floorplan-columns, 1) * 200px + (var(--floorplan-columns, 1) - 1) * var(--space-4));
-  gap: var(--space-4);
+  max-width: calc(var(--floorplan-columns, 1) * 200px + (var(--floorplan-columns, 1) - 1) * var(--s-4));
+  gap: var(--s-4);
   /* `safe center`, not plain `center`: centres the row while it fits, but falls back to start
      alignment once it overflows its own box, so the first table stays reachable rather than
      being centred off-screen along with the rest of the overflow. */

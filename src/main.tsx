@@ -5,6 +5,8 @@ import App from './App'
 // is the one thing that can fail on a venue's wifi and take the whole brand down with it.
 import '@fontsource/ibm-plex-sans/400.css'
 import '@fontsource/ibm-plex-sans/500.css'
+import '@fontsource/ibm-plex-mono/400.css'
+import '@fontsource/ibm-plex-mono/500.css'
 import './index.css'
 
 const container = document.getElementById('root')

@@ -1,5 +1,107 @@
-.line {
+/*
+ * TT-35, handoff "Canvas header". `.figure` and `.statValue` carry a `--t-figure-*` `font:`
+ * shorthand, but neither carries `tabularClass` itself — each wraps a nested `.tt-num` span
+ * instead, so the shorthand's reset of font-family lands on the ancestor, not the tabular span,
+ * which keeps its own mono family by a rule applied directly to it (base.css's .tt-num).
+ * src/ui/tokens.test.ts guards this pattern generally; PlanTable.module.css's long comment on
+ * the same trap explains why an inherited value always loses to one set on the element itself.
+ */
+
+/*
+ * flex: 1, not none: PlanScreen.tsx now renders this beside the Auto-allocate button in one
+ * row (the plan's own PlanHeader.module.css bullet says flex: none, which is correct for this
+ * header sitting alone in a column but does not anticipate that sibling). flex: 1 is what lets
+ * the space-between below keep working across the canvas's full width with a second item in
+ * the row; min-width: 0 is what lets it shrink rather than forcing the button off screen.
+ * PlanScreen.module.css's own .canvasHeader comment records the same reasoning from that side.
+ */
+/*
+ * Browser-pass finding (TT-35): a plain min-width: 0 here let .header shrink all the way toward
+ * zero once PlanScreen.module.css's .canvasHeader put the Auto-allocate button beside it — that
+ * button never yields (flex: none) and neither does .stats below, so every bit of any squeeze
+ * landed on the headline, wrapping "78 seats for 70 guests" one token per line. Worse, because
+ * .canvasHeader decides whether to wrap the button to its own line from *this* min-width alone,
+ * a value of 0 told it this box was happy at any width down to nothing, so it never wrapped —
+ * .capacity's own children then overflowed this box's too-small claimed size instead.
+ * min-width: 240px is the real floor (roughly what "78 seats for 70 guests" needs on one line at
+ * --t-figure-xl), so .canvasHeader now wraps the button below once the canvas cannot offer both;
+ * flex-wrap below is the release valve for whatever still doesn't fit inside that floor — .stats
+ * moves to its own line rather than crushing the headline further.
+ */
+.header {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-6);
+  padding: var(--s-6) var(--s-7) var(--s-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.capacity {
+  min-width: 220px;
+}
+
+.scenario {
+  margin: 0 0 var(--s-1);
+  font: var(--t-label);
+  color: var(--ink-muted);
+}
+
+/* Plain inline flow, not flex — see the comment on PlanHeader.tsx's own .headline paragraph.
+   Baseline alignment and wrapping both come from ordinary inline layout for free. */
+.headline {
   margin: 0;
-  font-size: var(--text-data);
+}
+
+.figure {
+  font: var(--t-figure-xl);
+  letter-spacing: var(--tracking-figure-xl);
   color: var(--ink);
+}
+
+.word {
+  font: 400 16px/1.2 var(--font-sans);
+  color: var(--ink);
+}
+
+.qualifier {
+  margin: var(--s-2) 0 0;
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+
+/* Short is a warning, not an error — it stays --soft-deep, never --hard, and blocks nothing
+   (KB-6 "Short is a warning, and it blocks nothing"). */
+.qualifier[data-state='short'] {
+  color: var(--soft-deep);
+}
+
+.stats {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-7);
+  padding-bottom: var(--s-1);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s-1);
+}
+
+.statValue {
+  margin: 0;
+  font: var(--t-figure-lg);
+  color: var(--ink);
+}
+
+.statLabel {
+  margin: 0;
+  font: var(--t-label);
+  color: var(--ink-muted);
 }

@@ -57,9 +57,19 @@ describe('UnseatedRail.module.css — the selected row is marked with a shape, n
     expect(rule.body).toMatch(/border-color\s*:\s*var\(--[\w-]+\)/i)
   })
 
-  it('the base row rule sets a transparent border-color, so the box appears only once a guest is selected', () => {
+  it('the base row rule (TT-35: a chip) always carries a visible border, in the rule-strong token — the pressed state changes its colour rather than adding a border where none existed', () => {
     const rule = requireRule(readCss(), ROW_BASE, 'the base rail row')
-    expect(rule.body).toMatch(/border-color\s*:\s*transparent/i)
+    expect(rule.body).toMatch(/border-color\s*:\s*var\(--rule-strong\)/i)
+  })
+
+  it('the pressed border-colour differs from the base one — a real change, not a same-value no-op', () => {
+    const base = requireRule(readCss(), ROW_BASE, 'the base rail row')
+    const pressed = requireRule(readCss(), ROW_PRESSED, "the rail row's pressed state")
+    const baseColour = /border-color\s*:\s*(var\(--[\w-]+\))/i.exec(base.body)?.[1]
+    const pressedColour = /border-color\s*:\s*(var\(--[\w-]+\))/i.exec(pressed.body)?.[1]
+    expect(baseColour).toBeTruthy()
+    expect(pressedColour).toBeTruthy()
+    expect(pressedColour).not.toBe(baseColour)
   })
 
   it('neither rule reaches for the hard or soft token — a selection is not a warning', () => {

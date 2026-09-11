@@ -2,7 +2,7 @@
    anything" (its own doc comment) — this chip signals which scenario is loaded. */
 .chip {
   display: inline-block;
-  font-size: var(--text-caption);
+  font: var(--t-caption);
   padding: 2px 10px;
   border-radius: var(--r-pill);
   background: var(--sunken);

@@ -1,27 +1,26 @@
 .panel {
   background: var(--surface);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--surface-edge);
   border-radius: var(--r-card);
-  padding: 18px 20px;
+  padding: var(--s-5) 20px;
 }
 
 .header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
+  gap: var(--s-4);
+  margin-bottom: var(--s-4);
 }
 
 /* Overrides the global h2 (Title step) down to Heading: a card title, not a page title. */
 .title {
-  font-size: var(--text-heading);
-  line-height: 1.3;
+  font: var(--t-heading);
   letter-spacing: -0.2px;
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }

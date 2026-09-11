@@ -85,18 +85,32 @@ async function renderAppOnPlanTab(user: ReturnType<typeof userEvent.setup>) {
 }
 
 /**
- * The header line's four figures, in the order TT-11 fixes them: guests, seats, pinned,
- * unseated. Anchored on all four in strict sequence so the status region's own "Allocated. N
- * seated, M unseated." (which also contains a bare "M unseated") can never be mistaken for this
- * line — that phrase has no preceding "guests" or "pinned" for the pattern to latch onto.
+ * The header's four figures (TT-35: the capacity headline "N seats for M guests", then the
+ * stat pair pinned/unseated). Each is matched by its own pattern, in the shape the redesigned
+ * header actually renders it, rather than one sequence-anchored regex — the headline now puts
+ * seats before guests, and the stat pair renders its value and label as separate elements that
+ * meet with no space (PlanHeader.module.css's .statValue/.statLabel), so "11Unseated" (no
+ * space, digit first) is what the header itself produces. That shape is also what keeps this
+ * from matching the status region's own "Allocated. N seated, M unseated." — that phrase has a
+ * space before "unseated" and no digit immediately after it, and it is lower-case where the
+ * header's own label is not.
  */
 function readHeaderFigures(text: string): { guests: number; seats: number; pinned: number; unseated: number } {
-  const match = /(\d+)\s*guests?[^\d]*(\d+)\s*seats?[^\d]*(\d+)\s*pinned[^\d]*(\d+)\s*unseated/i.exec(text)
-  if (!match) {
+  const headline = /(\d+)\s*seats\s*for\s*(\d+)\s*guests/i.exec(text)
+  const pinned = /(\d+)Pinned/.exec(text)
+  const unseated = /(\d+)Unseated/.exec(text)
+  if (!headline || !pinned || !unseated) {
     throw new Error(`expected the header's four figures in the rendered text; got: ${JSON.stringify(text)}`)
   }
-  const [, guestsText, seatsText, pinnedText, unseatedText] = match
-  if (guestsText === undefined || seatsText === undefined || pinnedText === undefined || unseatedText === undefined) {
+  const [, seatsText, guestsText] = headline
+  const [, pinnedText] = pinned
+  const [, unseatedText] = unseated
+  if (
+    guestsText === undefined ||
+    seatsText === undefined ||
+    pinnedText === undefined ||
+    unseatedText === undefined
+  ) {
     throw new Error('regex matched without all four capture groups')
   }
   return {

@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AppHeader } from './AppHeader'
+import { NavRail } from './NavRail'
 import { NavigationContext, type Tab } from './navigation'
 import styles from './AppShell.module.css'
 
 /**
- * The app frame: provides section navigation, renders the header on every section, and
- * hands the current section's screen to `<main>`. Setup is current on first render.
+ * The app frame: provides section navigation, renders the top bar and the left rail on
+ * every section, and hands the current section's screen to `<main>`. Setup is current on
+ * first render.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<Tab>('setup')
@@ -21,7 +23,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     <NavigationContext.Provider value={navigation}>
       <div className={styles.shell}>
         <AppHeader />
-        <main className={styles.main}>{children}</main>
+        <div className={styles.row}>
+          <NavRail />
+          <main className={styles.main}>{children}</main>
+        </div>
       </div>
     </NavigationContext.Provider>
   )
