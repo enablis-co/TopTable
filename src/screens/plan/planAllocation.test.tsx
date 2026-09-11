@@ -182,7 +182,7 @@ describe('KB-1 (the journey moves past Plan and back) — an allocated plan surv
   })
 
   it('does not survive a full store reload — a fresh store reading the same storage still computes an unallocated plan (docs/state.md)', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(8))
     const user = userEvent.setup()
     render(<App />)
@@ -201,7 +201,7 @@ describe('KB-1 (the journey moves past Plan and back) — an allocated plan surv
     const { useTopTableStore: reloadedStore } = await import('../../store/store')
     const reloaded = reloadedStore.getState()
 
-    expect(reloaded.room).toEqual({ roundTables: 2, seatsEach: 4, topTableSeats: 0 })
+    expect(reloaded.room).toEqual({ roundTables: 2, seatsEach: 4, topTableSeats: 2 })
     expect(reloaded.guests).toHaveLength(8)
     expect(reloaded.pins).toEqual([])
 
