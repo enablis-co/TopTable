@@ -14,12 +14,13 @@
 
 .ring {
   stroke: var(--ring-stroke);
-  /* TT-15: --ring-stroke-width is set only by .table[data-selected='true'] (PlanTable.module.css);
-     every other table falls back to the same 7px the seat-dash geometry (ringGeometry.ts) already
-     assumes, so an unselected table's ring is unchanged. A CSS property here beats the <circle>'s
-     own strokeWidth SVG attribute regardless of specificity — presentation attributes always lose
-     to an author stylesheet — which is what makes 7 → 9 possible without touching the SVG itself. */
-  stroke-width: var(--ring-stroke-width, 7px);
+  /* TT-15, review: --ring-stroke-width is declared once, on PlanTable.module.css's base .table
+     rule (7px — the seat-dash geometry in ringGeometry.ts already assumes this), and again, at
+     a higher specificity, on .table[data-selected='true'] (9px) — no fallback here, because a
+     fallback and a base declaration are the same value kept in two places, and only the CSS ever
+     rendered: the <circle>'s own strokeWidth attribute this used to fall back past is gone too
+     (TableRing.tsx), so the custom property is the only place this number lives now. */
+  stroke-width: var(--ring-stroke-width);
 }
 
 .body {

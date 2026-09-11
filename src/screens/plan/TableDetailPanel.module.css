@@ -105,6 +105,26 @@
   padding: var(--s-3);
   border-radius: var(--r-nav);
   background: var(--sunken);
+}
+
+/* Review, TT-15 (C7, KB-2): one row per category (allergy, dietary) rather than one flat run —
+   an allergy is a safety matter, a dietary preference a catering count, and KB-2 says they "must
+   not be handled the same way". Two rows, not two columns, keeps the words-only sentence below
+   (both categories empty) a drop-in third case rather than a layout special-case. */
+.needsRow {
+  margin: 0;
   font: var(--t-body);
   color: var(--ink);
+}
+
+.needsRow + .needsRow {
+  margin-top: var(--s-1);
+}
+
+/* --t-label (11px/400) is the same weight the handoff gives this block's own "Needs at this
+   table" label — the word itself, not a colour, is what tells an allergy row from a dietary one
+   (KB-5: colour never carries meaning alone), so this only changes size and muting, never hue. */
+.needsLabel {
+  font: var(--t-label);
+  color: var(--ink-muted);
 }

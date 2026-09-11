@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlanTable } from './PlanTable'
 import type { SeatedGuest, TableOccupants } from './floorplan'
@@ -357,6 +357,32 @@ describe('PlanTable — with a guest selected, the face becomes one placing butt
     expect(onPlace).toHaveBeenCalledTimes(1)
     expect(onSelect).not.toHaveBeenCalled()
   })
+
+  /**
+   * Review, TT-15. Documented deliberately, not left as a surprise: while a guest is selected on
+   * the rail, a table carrying a pinned guest is exactly as unreachable via click as an empty
+   * one — `placing` wins regardless of the table's own state, so its release control (which now
+   * lives only in `TableDetailPanel`, opened by `onSelect`) cannot be reached this way either.
+   * Kept rather than reversed: C15 requires placing-by-click to stay unchanged, and reversing the
+   * priority would make the same click sometimes place and sometimes select, depending on a
+   * table's selectedness. The gap is temporary — `PlanScreen.tsx`'s Escape handler, or clicking
+   * the selected guest's own row again, clears the rail selection and hands the click straight
+   * back to `onSelect` — see the header comment above for the fuller account.
+   */
+  it('still takes priority even when the table already carries a pinned guest — its release control (now in the table detail panel) is unreachable via click until the rail selection ends', async () => {
+    const user = userEvent.setup()
+    const onPlace = vi.fn()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(roundSlot(), makeOccupants({ pinnedCount: 1 }), {
+      placing: { guestName: 'Priya Shah', onPlace },
+      onSelect,
+    })
+
+    await user.click(table.querySelector('button') as HTMLButtonElement)
+
+    expect(onPlace).toHaveBeenCalledTimes(1)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
 })
 
 describe('PlanTable — selecting a table for the detail panel (TT-15)', () => {
@@ -382,5 +408,28 @@ describe('PlanTable — selecting a table for the detail panel (TT-15)', () => {
   it('carries data-selected="true" when selected', () => {
     const table = renderTableWithProps(roundSlot(), makeOccupants(), { selected: true })
     expect(table.getAttribute('data-selected')).toBe('true')
+  })
+
+  /**
+   * Review, TT-15: `data-selected` and a stroke width alone give a screen reader nothing —
+   * `UnseatedRail.tsx`'s own row button already sets this repo's precedent for "many items, one
+   * selected" (`aria-pressed`), and `PlanScreen.test.tsx` asserts it there. The face button below
+   * carries the same fact the same way.
+   */
+  it('the face button carries aria-pressed="true" when selected', () => {
+    const table = renderTableWithProps(roundSlot(), makeOccupants(), { selected: true })
+    const button = table.querySelector('button')
+    expect(button?.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('the face button carries aria-pressed="false" when not selected', () => {
+    const table = renderTableWithProps(roundSlot(), makeOccupants(), { selected: false })
+    const button = table.querySelector('button')
+    expect(button?.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('is queryable as a pressed toggle button by role, not only by attribute', () => {
+    const table = renderTableWithProps(roundSlot(), makeOccupants(), { selected: true })
+    expect(within(table).getByRole('button', { pressed: true })).toBeInTheDocument()
   })
 })

@@ -28,7 +28,13 @@
  * panel (`.table[data-selected]` below), not only while a guest is selected on the rail.
  */
 
-/* Base. Specificity 0,1,0. */
+/* Base. Specificity 0,1,0. --ring-stroke-width's default (7px, the handoff's published weight
+   and what ringGeometry.ts's own seat-dash arithmetic assumes) lives here, not as a var()
+   fallback in TableRing.module.css (review, TT-15: a fallback and a base declaration are the
+   same value kept in two places, and a JS copy that drove nothing — TableRing.tsx's old
+   strokeWidth presentation attribute — made a third). .table[data-selected='true'] below
+   overrides it to 9px at a higher specificity (0,2,0 beats this rule's 0,1,0), same as every
+   other --ring-* property that state sets. */
 .table {
   position: relative;
   container-type: inline-size;
@@ -42,6 +48,7 @@
   background: transparent;
   color: var(--ink);
   text-align: center;
+  --ring-stroke-width: 7px;
 }
 
 /* Shape. Also 0,1,0 — written after .table so the pair above resolves correctly. The ring and
@@ -243,6 +250,10 @@
   top: 64.9%;
   transform: translateY(-50%);
   font-size: 10px;
+  /* Review, TT-15: the handoff's "Fill count — 10px mono" names the whole fill count as mono,
+     not just the digits — .heading two rules above already sets this, this rule did not, so
+     "of"/"seats" were rendering in Plex Sans while the digits went mono via .tt-num. */
+  font-family: var(--font-mono);
   color: var(--table-count-ink);
 }
 

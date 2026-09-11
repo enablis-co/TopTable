@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '../../App'
 import { STORAGE_KEY, useTopTableStore } from '../../store/store'
@@ -96,6 +96,24 @@ async function selectTable(user: ReturnType<typeof userEvent.setup>, label: stri
   await user.click(button)
 }
 
+// TT-15 (review), matching PlanScreen.test.tsx's own helper of the same name. The rail can
+// show a guest's name too — anyone left unseated renders there — so a check against
+// document.body would still pass with a guest left unseated instead of at this table. This
+// finds the open panel by climbing from its own heading to the nearest ancestor that also
+// contains its "Close table detail" control: both are rendered by the same shared Panel, so
+// that ancestor holds exactly this table's content, never the rail's.
+function tableDetailPanel(tableLabel: string): HTMLElement {
+  const dismiss = screen.getByRole('button', { name: 'Close table detail' })
+  let node: HTMLElement | null = screen.getByRole('heading', { name: tableLabel })
+  while (node && (!node.contains(dismiss) || !node.querySelector('ol, ul, [role="list"]'))) {
+    node = node.parentElement
+  }
+  if (!node) {
+    throw new Error(`could not locate the table detail panel for "${tableLabel}"`)
+  }
+  return node
+}
+
 /**
  * The header's four figures (TT-35: the capacity headline "N seats for M guests", then the
  * stat pair pinned/unseated). Each is matched by its own pattern, in the shape the redesigned
@@ -168,10 +186,13 @@ describe('TT-12 ("Clicking a pinned guest releases the pin") — the release con
     await selectTable(user, 'Table 1')
 
     // Sanity: the pinned and the solver-seated guest really did land at the same table — read
-    // from the table detail panel, since TT-15 moves guest names off the floorplan tile itself.
-    expect(screen.getByRole('heading', { name: 'Table 1' })).toBeInTheDocument()
-    expect(document.body.textContent).toContain('Auto Guest One')
-    expect(document.body.textContent).toContain('Pinned Guest')
+    // from that table's own detail panel list, since TT-15 moves guest names off the floorplan
+    // tile itself. Scoped to the panel rather than document.body: this fixture leaves Auto
+    // Guest Two unseated (see setUpSharedTable's own comment), so it renders on the rail too —
+    // a body-wide check couldn't tell "seated at Table 1" from "somewhere on screen".
+    const table1List = within(tableDetailPanel('Table 1')).getByRole('list')
+    expect(table1List.textContent).toContain('Auto Guest One')
+    expect(table1List.textContent).toContain('Pinned Guest')
 
     expect(screen.queryByRole('button', { name: /^Release Auto Guest One from/ })).not.toBeInTheDocument()
     const anyButtonNamingAutoGuestOne = screen

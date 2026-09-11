@@ -312,6 +312,17 @@ describe('PlanTable.module.css — .round .face lays the number and fill count i
     expect(heading.body).toMatch(/color\s*:\s*var\(--table-number-ink\)/i)
     expect(occupancy.body).toMatch(/color\s*:\s*var\(--table-count-ink\)/i)
   })
+
+  /* Review, TT-15: the handoff's "Fill count — 10px mono" names the whole fill count as mono,
+     not only its digits. .round .heading already declared this; .round .occupancy did not, so
+     the digits went mono via .tt-num while the words "of"/"seats" rendered in Plex Sans. */
+  it('.round .heading and .round .occupancy both set font-family to --font-mono — every changing figure is monospace, words included, not only the digits (KB-5)', () => {
+    const css = readCss()
+    const heading = requireRule(css, ROUND_HEADING, '.round .heading')
+    const occupancy = requireRule(css, ROUND_OCCUPANCY, '.round .occupancy')
+    expect(heading.body).toMatch(/font-family\s*:\s*var\(--font-mono\)/i)
+    expect(occupancy.body).toMatch(/font-family\s*:\s*var\(--font-mono\)/i)
+  })
 })
 
 describe('PlanTable.module.css — --table-number-ink/--table-count-ink, one distinct pair per state (TT-15)', () => {

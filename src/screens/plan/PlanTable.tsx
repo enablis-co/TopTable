@@ -20,16 +20,31 @@ type PlanTableProps = {
  * `data-violation` and `data-selected` are four independent marks — a table can be full, pinned,
  * in violation and selected all at once. Each is `undefined`, never `false`, when the state does
  * not hold: React stringifies `false` to the literal text `"false"`, which a bare
- * `[data-pinned]`-style selector would still match.
+ * `[data-pinned]`-style selector would still match. `data-selected` drives the ring's own stroke
+ * width (PlanTable.module.css); `aria-pressed` on the face button below is the same fact read by
+ * anything that isn't looking at pixels — `UnseatedRail.tsx`'s own row button sets this repo's
+ * precedent for exactly this "many items, one selected" shape.
  *
  * A `<li>`, not a button itself — `src/ui/brand.test.ts` forbids a raw one outside the
  * shared-component module or the shell. The face inside it is always a `Button`: TT-15 makes a
  * table clickable at rest (to select it for the table detail panel), not only while a guest is
  * selected on the rail (to place them) — `placing`, when present, takes priority over `onSelect`
- * for the very same click, so the two purposes never compete for one gesture. Guest names and the
- * pin-release control that used to live in this file's own `.guests` list (TT-35's documented
- * deviation) now live in `TableDetailPanel` instead (TT-15) — this file renders no guest content
- * at all any more.
+ * for the very same click, so the two purposes never compete for one gesture.
+ *
+ * Review, TT-15: that priority means no table can be *selected* — and so its detail panel, and
+ * the release control that panel is now the only home for, cannot be *opened* — while a guest is
+ * selected on the rail. Kept rather than reversed: C15 requires placing-by-click to keep working
+ * unchanged, and reversing the priority would make the common "guest selected, click a table"
+ * gesture sometimes open a panel instead of placing the guest, depending on whether that table
+ * happens to already be selected. It is not a dead end — Escape, or clicking the selected guest's
+ * own row again, clears the rail selection and hands the click back to `onSelect`
+ * (`PlanScreen.tsx`'s Escape handler and `handleSelect`'s own toggle) — but it is a real, if
+ * temporary, gap, and `PlanTable.test.tsx` documents it deliberately rather than leaving the next
+ * reader to rediscover it.
+ *
+ * Guest names and the pin-release control that used to live in this file's own `.guests` list
+ * (TT-35's documented deviation) now live in `TableDetailPanel` instead (TT-15) — this file
+ * renders no guest content at all any more.
  *
  * The bare visible number gets a `tt-visually-hidden` "Table " prefix, not an `aria-label`,
  * which would displace the visible text as the accessible name (WCAG 2.5.3). While `placing`,
@@ -88,6 +103,7 @@ export function PlanTable({ slot, occupants, placing, onSelect, selected }: Plan
       <Button
         variant="quiet"
         className={styles.face}
+        aria-pressed={selected}
         onClick={placing ? placing.onPlace : onSelect}
       >
         {placing && (

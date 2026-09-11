@@ -90,7 +90,12 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   // the fallback rather than a crash.
   const selectedTable = plan.tables.find((table) => table.id === selectedTableId) ?? null
 
-  // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern.
+  // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern. Also
+  // doubles as the escape hatch for PlanTable's own placing-over-selecting priority (review,
+  // TT-15): while a guest is selected, clicking a table places rather than selects it, so this
+  // is how a user reaches a table's detail panel (and the release control that lives only there)
+  // without first placing the selected guest — the same way `handleSelect`'s own toggle below
+  // does, by clicking the selected guest's row again.
   useEffect(() => {
     if (selectedGuestId === null) return
 

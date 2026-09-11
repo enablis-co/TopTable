@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { describe, expect, it, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlanScreen } from './PlanScreen'
 import { useTopTableStore } from '../../store/store'
@@ -77,6 +77,23 @@ async function selectTable(user: ReturnType<typeof userEvent.setup>, label: stri
     throw new Error(`expected a select button on the table labelled "${label}"`)
   }
   await user.click(button)
+}
+
+// TT-15 (review). The rail can show a guest's name too — anyone not yet seated renders there —
+// so a check against document.body would still pass with a guest left unseated instead of at
+// this table. This finds the open panel by climbing from its own heading to the nearest
+// ancestor that also contains its "Close table detail" control: both are rendered by the same
+// shared Panel, so that ancestor holds exactly this table's content, never the rail's.
+function tableDetailPanel(tableLabel: string): HTMLElement {
+  const dismiss = screen.getByRole('button', { name: 'Close table detail' })
+  let node: HTMLElement | null = screen.getByRole('heading', { name: tableLabel })
+  while (node && (!node.contains(dismiss) || !node.querySelector('ol, ul, [role="list"]'))) {
+    node = node.parentElement
+  }
+  if (!node) {
+    throw new Error(`could not locate the table detail panel for "${tableLabel}"`)
+  }
+  return node
 }
 
 // TT-35: the header's stat pair renders its value and its label ("Pinned"/"Unseated") as two
@@ -662,6 +679,50 @@ describe('PlanScreen — releasing a pinned guest', () => {
   })
 })
 
+describe('PlanScreen — a hand pin that pushes a guest past capacity is released through a control that says so (TT-15, review)', () => {
+  it('the release control for the guest over capacity carries a spoken "over capacity" suffix, and using it still releases their pin', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(9))
+    for (let index = 0; index < 9; index += 1) {
+      useTopTableStore.getState().pinGuest(`g-${index}`, 'round-1')
+    }
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await selectTable(user, 'Table 1')
+
+    // Exactly one of the nine pinned guests is the one a hand pin pushed past this table's
+    // eight seats — the criterion is that their release control speaks that extra fact, not
+    // which particular guest it turns out to be, so this is found rather than assumed.
+    const overCapacityButtons = screen.getAllByRole('button', {
+      name: /^Release .+ from Table 1, over capacity$/,
+    })
+    expect(overCapacityButtons).toHaveLength(1)
+    const [releaseButton] = overCapacityButtons
+    if (!releaseButton) {
+      throw new Error('expected an over-capacity release control')
+    }
+
+    // The other eight, seated within capacity, carry no such suffix on their own controls.
+    expect(screen.getAllByRole('button', { name: /^Release .+ from Table 1$/ })).toHaveLength(8)
+
+    const nameMatch = /^Release (.+) from Table 1, over capacity$/.exec(releaseButton.textContent ?? '')
+    if (!nameMatch?.[1]) {
+      throw new Error('could not read the guest name from the over-capacity release control')
+    }
+    const guestName = nameMatch[1]
+    const pinsBefore = useTopTableStore.getState().pins.length
+
+    await user.click(releaseButton)
+
+    expect(useTopTableStore.getState().pins).toHaveLength(pinsBefore - 1)
+    expect(screen.queryByRole('button', { name: /, over capacity$/ })).not.toBeInTheDocument()
+    // The released guest has nowhere else to go — the table they left is now exactly full and
+    // the top table needs a protocol role — so they land back on the unseated rail.
+    expect(screen.getByRole('button', { name: guestName })).toBeInTheDocument()
+  })
+})
+
 describe('PlanScreen — Escape clears the selection', () => {
   it('selecting a guest then pressing Escape leaves no guest pressed, offers no table to place at, and writes no pin', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
@@ -892,13 +953,17 @@ describe('PlanScreen — after allocating, the top table holds exactly the proto
     expect(topTable.textContent).toMatch(/8\s*of\s*8\s*seats/i)
 
     // Guest names no longer render on the floorplan tile itself (TT-15) — read them from the
-    // table detail panel instead.
+    // table detail panel's own seat list, scoped there rather than the whole body: with
+    // nobody left unseated in this fixture the rail is empty, but scoping stays correct
+    // however that changes, and it is what actually proves "at this table" rather than
+    // "somewhere on screen".
     await selectTable(user, 'Top table')
+    const topTableList = within(tableDetailPanel('Top table')).getByRole('list')
     for (const guest of roleGuests) {
-      expect(document.body.textContent).toContain(guest.name)
+      expect(topTableList.textContent).toContain(guest.name)
     }
-    expect(document.body.textContent).not.toContain('Extra One')
-    expect(document.body.textContent).not.toContain('Extra Two')
+    expect(topTableList.textContent).not.toContain('Extra One')
+    expect(topTableList.textContent).not.toContain('Extra Two')
   })
 })
 
@@ -917,13 +982,16 @@ describe('PlanScreen — Auto-allocate honours a pin that was already there', ()
     expect(readsStat(3, 'Pinned')).toBe(true)
 
     // Guest names no longer render on the floorplan tile itself (TT-15) — read them from each
-    // table's own detail panel instead.
+    // table's own detail panel, scoped to that panel's list rather than the whole body, so a
+    // guest pinned at the other table (or left on the rail) couldn't satisfy this by accident.
     await selectTable(user, 'Table 1')
-    expect(document.body.textContent).toContain('Guest g-0')
-    expect(document.body.textContent).toContain('Guest g-1')
+    const table1List = within(tableDetailPanel('Table 1')).getByRole('list')
+    expect(table1List.textContent).toContain('Guest g-0')
+    expect(table1List.textContent).toContain('Guest g-1')
 
     await selectTable(user, 'Table 2')
-    expect(document.body.textContent).toContain('Guest g-2')
+    const table2List = within(tableDetailPanel('Table 2')).getByRole('list')
+    expect(table2List.textContent).toContain('Guest g-2')
   })
 })
 
@@ -945,10 +1013,13 @@ describe('PlanScreen — a pin to the top table with no protocol role is honoure
     expect(readsStat(2, 'Pinned')).toBe(true)
 
     // Guest names no longer render on the floorplan tile itself (TT-15) — read them from the
-    // table detail panel instead.
+    // table detail panel's own list, scoped there rather than the whole body: Guest g-1 is
+    // pinned at a different table, and only a scoped check can tell "not at this table" from
+    // "not anywhere".
     await selectTable(user, 'Top table')
-    expect(document.body.textContent).toContain('Guest g-0')
-    expect(document.body.textContent).not.toContain('Guest g-1')
+    const topTableList = within(tableDetailPanel('Top table')).getByRole('list')
+    expect(topTableList.textContent).toContain('Guest g-0')
+    expect(topTableList.textContent).not.toContain('Guest g-1')
   })
 })
 

@@ -255,8 +255,27 @@ describe('pinned and unpinned occupants are distinguishable to a screen reader, 
   })
 })
 
-describe("the table's needs are read as two separate counts, never merged (C7, KB-3)", () => {
-  it('reads "Nuts × 1 · Vegan × 2" for one nut allergy and two vegans', () => {
+/**
+ * Review, TT-15 (C7, KB-2): "never merged" means a reader can tell a safety fact (an allergy)
+ * from a catering fact (a dietary preference) without already knowing which term was which —
+ * KB-2's own "Allergies are not dietary preferences" is explicit that the two "must not be
+ * handled the same way". A single flattened run ("Dairy × 1 · Shellfish × 1 · Halal × 1 ·
+ * Vegetarian × 1") fails that: the sort order happens to keep every allergy ahead of every
+ * dietary term (allergies are concatenated first), but nothing in the rendered text itself marks
+ * where one category ends and the other begins — the previous version of this file asserted
+ * exactly that concatenated string and called it "two separate counts, never merged", which
+ * pinned the sort order, not the thing C7 actually asks for. Every case below instead asserts
+ * the two runs as two separate rows, each carrying its own "Allergies" or "Dietary" label.
+ */
+describe("the table's needs are two separate, labelled rows — an allergy is never handled the same way as a dietary preference (C7, KB-2)", () => {
+  /** Each needs row is its own `<p>`; querying by tag rather than by text avoids the ambiguity
+   * `findExact`'s exact-text match would otherwise hit when a row is its container's only child
+   * (container and row would then share the same `.textContent`, matching both). */
+  function needsRowTexts(container: HTMLElement): string[] {
+    return Array.from(container.querySelectorAll('p')).map((row) => textOf(row))
+  }
+
+  it('labels the allergy run "Allergies" and the dietary run "Dietary", each its own row', () => {
     const table = roundTable({
       seats: [
         seat(makeGuest({ name: 'A', allergies: ['nuts'] }), false),
@@ -266,15 +285,15 @@ describe("the table's needs are read as two separate counts, never merged (C7, K
       ],
     })
     const { container } = render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
-    expect(findExact(container, 'Nuts × 1 · Vegan × 2')).toBeInTheDocument()
+
+    const rows = needsRowTexts(container)
+    expect(rows).toContain('Allergies Nuts × 1')
+    expect(rows).toContain('Dietary Vegan × 2')
+    // The defect this replaces: one flat run with no word telling the two apart.
+    expect(rows).not.toContain('Nuts × 1 · Vegan × 2')
   })
 
-  it('keeps allergy terms ahead of dietary terms even where merging them would sort otherwise', () => {
-    // A merged, alphabetically-sorted list would read "Dairy, Halal, Shellfish" (H before S).
-    // Two counts read separately — allergies, then dietary, each internally alphabetical —
-    // read "Dairy × 1 · Shellfish × 1 · Halal × 1" instead. This is the case that tells the
-    // two readings apart; the nuts/vegan example above cannot, because it only has one term
-    // per category.
+  it('keeps every allergy term ahead of every dietary term within its own row — a merged, alphabetical list would read "Dairy, Halal, Shellfish" (H before S)', () => {
     const table = roundTable({
       seats: [
         seat(makeGuest({ name: 'A', allergies: ['shellfish'] }), false),
@@ -284,15 +303,44 @@ describe("the table's needs are read as two separate counts, never merged (C7, K
       ],
     })
     const { container } = render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
-    expect(findExact(container, 'Dairy × 1 · Shellfish × 1 · Halal × 1')).toBeInTheDocument()
+
+    const rows = needsRowTexts(container)
+    expect(rows).toContain('Allergies Dairy × 1 · Shellfish × 1')
+    expect(rows).toContain('Dietary Halal × 1')
   })
 
-  it('says so in words when the table has no allergies and no dietary needs', () => {
+  it('omits the "Dietary" row entirely for a table with allergies but no dietary needs — a label never sits over an empty list', () => {
+    const table = roundTable({
+      seats: [seat(makeGuest({ name: 'A', allergies: ['nuts'] }), false), ...new Array<Seat | null>(7).fill(null)],
+    })
+    render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
+
+    expect(screen.getByText('Allergies')).toBeInTheDocument()
+    expect(screen.queryByText('Dietary')).not.toBeInTheDocument()
+  })
+
+  it('omits the "Allergies" row entirely for a table with dietary needs but no allergies', () => {
+    const table = roundTable({
+      seats: [
+        seat(makeGuest({ name: 'A', dietaryPreferences: ['vegan'] }), false),
+        ...new Array<Seat | null>(7).fill(null),
+      ],
+    })
+    render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
+
+    expect(screen.getByText('Dietary')).toBeInTheDocument()
+    expect(screen.queryByText('Allergies')).not.toBeInTheDocument()
+  })
+
+  it('says so in words when the table has no allergies and no dietary needs — unchanged from before this fix', () => {
     const table = roundTable({
       seats: [seat(makeGuest({ name: 'A' }), false), ...new Array<Seat | null>(7).fill(null)],
     })
     const { container } = render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
-    expect(findExact(container, 'No allergies or dietary needs')).toBeInTheDocument()
+
+    expect(needsRowTexts(container)).toContain('No allergies or dietary needs')
+    expect(screen.queryByText('Allergies')).not.toBeInTheDocument()
+    expect(screen.queryByText('Dietary')).not.toBeInTheDocument()
   })
 })
 
@@ -356,10 +404,13 @@ describe('every changing figure carries the tabular class (C13)', () => {
         ...new Array<Seat | null>(5).fill(null),
       ],
     })
-    const { container } = render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
+    render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
 
-    const needsLine = findExact(container, 'Nuts × 1 · Vegan × 2')
-    const tabularText = Array.from(needsLine.querySelectorAll(`.${tabularClass}`))
+    // The allergy and dietary counts now render as two separate rows (C7, KB-2) rather than one
+    // merged line, so both are gathered here rather than located by their old combined text.
+    const allergiesRow = screen.getByText('Allergies').closest('p') as HTMLElement
+    const dietaryRow = screen.getByText('Dietary').closest('p') as HTMLElement
+    const tabularText = [...allergiesRow.querySelectorAll(`.${tabularClass}`), ...dietaryRow.querySelectorAll(`.${tabularClass}`)]
       .map((el) => el.textContent?.trim())
       .join('|')
     expect(tabularText).toContain('1')

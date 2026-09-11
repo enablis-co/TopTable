@@ -58,21 +58,55 @@ function DismissButton({ onDismiss, dismissButtonRef }: { onDismiss: () => void;
   )
 }
 
-/** "Nuts × 1 · Vegan × 2" (KB-6) — allergy counts, then dietary counts, middot-separated. */
-function NeedsLine({ needs }: { needs: NeedCount[] }) {
-  if (needs.length === 0) {
-    return <p className={styles.needs}>No allergies or dietary needs</p>
-  }
-
+/** "Nuts × 1 · Vegan × 2" (KB-6) — the terms within one category, middot-separated. */
+function NeedsRun({ counts }: { counts: NeedCount[] }) {
   return (
-    <p className={styles.needs}>
-      {needs.map((need, index) => (
-        <span key={`${index}-${need.term}`}>
+    <>
+      {counts.map((need, index) => (
+        <span key={need.term}>
           {index > 0 ? ' · ' : null}
           {need.term} × <span className={tabularClass}>{need.count}</span>
         </span>
       ))}
-    </p>
+    </>
+  )
+}
+
+/**
+ * Review, TT-15 (C7, KB-2): an allergy and a dietary preference are recorded in separate fields
+ * and, per KB-2's own "Allergies are not dietary preferences", "must not be handled the same
+ * way" — one is a safety matter that flags the table for a kitchen brief, the other a catering
+ * count that is "not a violation of anything". The original render (`[...allergyCounts(guests),
+ * ...dietaryCounts(guests)]` into one flat run) handled them identically: a reader could not tell
+ * a nut allergy from a vegan preference without already knowing which term was which. Two
+ * labelled runs — "Allergies" and "Dietary", each 11px `--ink-muted`, the same weight the
+ * handoff's own Needs block gives its label — make the distinction a word, so it survives
+ * `grayscale(1)` (KB-5: colour never carries meaning alone) rather than relying on position or
+ * shade. A category with nothing to report renders no row at all, rather than a label over an
+ * empty run; both empty keeps the plan's existing words-only sentence.
+ */
+function NeedsBlock({ allergies, dietary }: { allergies: NeedCount[]; dietary: NeedCount[] }) {
+  if (allergies.length === 0 && dietary.length === 0) {
+    return (
+      <div className={styles.needs}>
+        <p className={styles.needsRow}>No allergies or dietary needs</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.needs}>
+      {allergies.length > 0 && (
+        <p className={styles.needsRow}>
+          <span className={styles.needsLabel}>Allergies</span> <NeedsRun counts={allergies} />
+        </p>
+      )}
+      {dietary.length > 0 && (
+        <p className={styles.needsRow}>
+          <span className={styles.needsLabel}>Dietary</span> <NeedsRun counts={dietary} />
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -135,7 +169,8 @@ export function TableDetailPanel({ table, onRelease, onDismiss, dismissButtonRef
   const rows = rowsFor(table)
   const occupantCount = table.seats.filter((seat) => seat !== null).length + table.overflow.length
   const guests = guestsAt(table)
-  const needs = [...allergyCounts(guests), ...dietaryCounts(guests)]
+  const allergies = allergyCounts(guests)
+  const dietary = dietaryCounts(guests)
 
   return (
     <Panel title={table.label} actions={<DismissButton onDismiss={onDismiss} dismissButtonRef={dismissButtonRef} />}>
@@ -148,7 +183,7 @@ export function TableDetailPanel({ table, onRelease, onDismiss, dismissButtonRef
           <SeatRow key={row.key} row={row} tableLabel={table.label} onRelease={onRelease} />
         ))}
       </ol>
-      <NeedsLine needs={needs} />
+      <NeedsBlock allergies={allergies} dietary={dietary} />
     </Panel>
   )
 }

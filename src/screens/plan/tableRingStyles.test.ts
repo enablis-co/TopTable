@@ -4,22 +4,27 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * TT-35. The `--ring-*` custom properties are a contract split across two files: every
- * occupancy/violation state in PlanTable.module.css sets them, and TableRing.module.css only
- * ever reads them — with a fallback, on at least the stroke-width and dasharray pair. A
- * reference carrying a fallback is exactly what src/ui/tokens.test.ts's own undefined-token
- * guard is built to skip, so nothing else in the suite notices the two files drifting apart:
- * renaming a property on either side alone still renders (the fallback quietly takes over),
- * with the rest of the gate green. That is not a cosmetic gap — the dashed outline this
- * contract carries is the *shape* half of a violating table's material (KB-5 "colour never
- * carries meaning alone"), and it is the only thing left once the colour half is stripped out
- * (e.g. on a projector, or for anyone who can't rely on colour).
+ * TT-35. The `--ring-*` custom properties are a contract split across two files:
+ * PlanTable.module.css declares them somewhere in its own rules — which rule declares which
+ * property is this file's business to leave open, not to pin down; nothing here requires every
+ * occupancy, violation or selection rule to set every property, or even to be a per-state rule
+ * at all — and TableRing.module.css only ever reads them, carrying a fallback on the dasharray.
+ * (Stroke-width carried one too until its default moved onto the base .table rule, where the
+ * other --ring-* defaults live; one fallback is enough for this guard to be worth having.)
+ * A reference carrying a fallback is exactly what src/ui/tokens.test.ts's
+ * own undefined-token guard is built to skip, so nothing else in the suite notices the two
+ * files drifting apart: renaming a property on either side alone still renders (the fallback
+ * quietly takes over), with the rest of the gate green. That is not a cosmetic gap — the
+ * dashed outline this contract carries is the *shape* half of a violating table's material
+ * (KB-5 "colour never carries meaning alone"), and it is the only thing left once the colour
+ * half is stripped out (e.g. on a projector, or for anyone who can't rely on colour).
  *
  * This is that guard: every --ring-* name each file's own rules read must be a name the other
- * file's own rules declare, and vice versa. It is a plain set-equality over the two files' own
- * source text, the same technique tokens.test.ts already uses for the token scale generally —
- * this file exists because that general guard is the one place designed to look away from a
- * property that carries a fallback, and this pair is exactly that case.
+ * file's own rules declare, and vice versa — a plain set-equality over the two files' own
+ * source text, not a claim about which particular rule sets which particular property. It is
+ * the same technique tokens.test.ts already uses for the token scale generally — this file
+ * exists because that general guard is the one place designed to look away from a property
+ * that carries a fallback, and this pair is exactly that case.
  */
 
 const PLAN_DIR = dirname(fileURLToPath(import.meta.url))
