@@ -16,3 +16,6 @@ coverage
 # Build plans: the planner's report, saved for the rest of the pipeline to work from.
 # A working artefact for one ticket, not a second home for a requirement.
 .claude/plans/
+
+# Agent worktrees. Nested inside the repo, so lint and git both have to be told.
+.claude/worktrees/
