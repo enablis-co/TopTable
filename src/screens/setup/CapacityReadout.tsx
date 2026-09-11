@@ -1,6 +1,7 @@
 import { capacityFor } from '../../domain/capacity'
 import type { RoomConfig } from '../../domain/types'
 import { tabularClass } from '../../ui'
+import { MIN_TOP_TABLE_SEATS, isTopTableIncomplete } from './roomCompleteness'
 import styles from './CapacityReadout.module.css'
 
 type CapacityReadoutProps = {
@@ -23,8 +24,25 @@ function Num({ value }: { value: number }) {
  * The short state's left border is the shape half of KB-5's "colour never carries meaning
  * alone" — the `data-state` attribute is the other half, so the state is checkable without
  * reading colour at all.
+ *
+ * `isTopTableIncomplete` is checked first and, when true, replaces the whole readout: a room
+ * without a valid top table has no seats-vs-guests sentence worth making yet (fix to TT-3).
+ * That check does not need a guest count, so `SetupScreen` mounts this component for that case
+ * even with zero guests, widening the `hasGuests`-only gate TT-3 shipped with — see
+ * `roomCompleteness.test.ts` and the "no guests, but the room is incomplete" cases in
+ * `SetupScreen.test.tsx` for the behaviour this depends on.
  */
 export function CapacityReadout({ room, guestCount }: CapacityReadoutProps) {
+  if (isTopTableIncomplete(room)) {
+    return (
+      <div className={styles.readout} data-state="incomplete">
+        <p className={styles.line}>
+          Add a top table of at least <Num value={MIN_TOP_TABLE_SEATS} /> seats.
+        </p>
+      </div>
+    )
+  }
+
   const capacity = capacityFor(room, guestCount)
   const { totalSeats, state, spare, shortfall } = capacity
 

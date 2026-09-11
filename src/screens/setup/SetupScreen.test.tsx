@@ -229,6 +229,83 @@ describe('editing fields and the live readout (A1, A2, A3, A4, A5, A9, A13, A16)
   })
 })
 
+describe('a top table is always required, at a minimum of 2 seats (fix to TT-3, product-owner ruling)', () => {
+  it('shows "Add a top table of at least 2 seats." for a 9/8/0 room, even with no guests loaded', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    const { container } = renderSetupScreen()
+
+    expect(container.textContent).toContain('Add a top table of at least 2 seats.')
+    expect(container.textContent).not.toContain('No guests yet, so nothing to work out')
+  })
+
+  it('exposes the incomplete state as data-state="incomplete", not colour alone', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    const { container } = renderSetupScreen()
+
+    expect(container.querySelector('[data-state="incomplete"]')).not.toBeNull()
+  })
+
+  it('is also incomplete at exactly one top-table seat, not only at zero', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 1 })
+    const { container } = renderSetupScreen()
+
+    expect(container.textContent).toContain('Add a top table of at least 2 seats.')
+  })
+
+  it('leaves the true first-visit, all-zero room exactly as it was: no readout, still the "no guests yet" line', () => {
+    // reset() in beforeEach already leaves the room at {0,0,0} — the blank room KB-6 draws,
+    // not an incomplete one, per the ruling's explicit carve-out.
+    const { container } = renderSetupScreen()
+
+    expect(container.textContent).toContain('No guests yet, so nothing to work out')
+    expect(container.textContent).not.toContain('Add a top table')
+  })
+
+  it('is not incomplete once the top table reaches 2, and reads the ordinary capacity sentence instead', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 2 })
+    const { container } = renderSetupScreen()
+
+    expect(container.textContent).not.toContain('Add a top table')
+    expect(container.textContent).toContain('No guests yet, so nothing to work out')
+  })
+
+  it('takes over the readout instead of the ordinary sentence once guests are loaded too, and suppresses the suggestion line', () => {
+    useTopTableStore.getState().setGuests(makeGuests(70))
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    const { container } = renderSetupScreen()
+
+    expect(container.textContent).toContain('Add a top table of at least 2 seats.')
+    expect(container.textContent).not.toMatch(/seats for \d+ guests/i)
+    expect(container.textContent).not.toMatch(/Drop to|Go up to/)
+  })
+
+  it('stays inside the one polite live region, mounted from first paint, with no alert or status role', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    const { container } = renderSetupScreen()
+
+    const liveRegions = Array.from(container.querySelectorAll('[aria-live]'))
+    expect(liveRegions).toHaveLength(1)
+    expect(liveRegions[0]?.getAttribute('aria-live')).toBe('polite')
+    expect(liveRegions[0]?.textContent ?? '').toContain('Add a top table of at least 2 seats.')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('disables no control — a warning, not an error, per KB-5', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    const { container } = renderSetupScreen()
+
+    expect(container.querySelectorAll('[disabled]')).toHaveLength(0)
+  })
+
+  it('never flags a room built from a top-table-only field either, at the same minimum', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 0, seatsEach: 0, topTableSeats: 1 })
+    const { container } = renderSetupScreen()
+
+    expect(container.textContent).toContain('Add a top table of at least 2 seats.')
+  })
+})
+
 describe('status strip (A6, A8)', () => {
   it('reads "70 loaded", "78 configured" and "Not generated" with guests loaded', () => {
     seedAddingUp()

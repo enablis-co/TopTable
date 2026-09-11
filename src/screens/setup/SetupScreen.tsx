@@ -9,6 +9,7 @@ import { RoomForm } from './RoomForm'
 import { CapacityReadout } from './CapacityReadout'
 import { StatusStrip } from './StatusStrip'
 import { SuggestionLine } from './SuggestionLine'
+import { hasTypedRoom, isTopTableIncomplete } from './roomCompleteness'
 import { ScenarioChip } from './ScenarioChip'
 import { ScenarioPicker } from './ScenarioPicker'
 import styles from './SetupScreen.module.css'
@@ -18,11 +19,15 @@ import styles from './SetupScreen.module.css'
  * StatusStrip and SuggestionLine are all presentational, so this is the only file here that
  * touches `useTopTableStore` or `useNavigation`.
  *
- * Two conditions govern the screen, and they are not the same condition:
+ * Three conditions govern the screen, and they are not the same condition:
  *
- * - `hasGuests` gates the capacity readout and the suggestion line alone. Both compare seats
- *   to a guest list, and with no guests there is nothing to compare — TT-3's acceptance
- *   criteria are explicit about the readout, and the suggestion follows the same logic.
+ * - `hasGuests || roomIncomplete` gates the capacity readout. Guests give it seats to compare
+ *   against; a room short of the top-table minimum (fix to TT-3, product-owner ruling) has
+ *   nothing to compare either way, so that state shows regardless of guest count — KB-1's
+ *   manual-setup journey checks the room before a guest list necessarily exists.
+ * - `hasGuests && !roomIncomplete` gates the suggestion line alone. It proposes a round-table
+ *   count for today's guest count, which is meaningless with no guests to aim at, and equally
+ *   meaningless advice while the top table itself is still invalid.
  * - `hasGuests || isConfigured` gates the rail (the status strip, and the grid column it
  *   sits in). The rail's "Seats — {n} configured" figure is not a comparison, it is what the
  *   user just typed, so KB-1's "or set the room up by hand" journey step has something to
@@ -30,7 +35,8 @@ import styles from './SetupScreen.module.css'
  *
  * True first visit is `!hasGuests && !isConfigured`: no rail at all, and the aria-live region
  * (below) carries only its one line of empty-state text — KB-6's first-visit wireframe, still
- * matched exactly.
+ * matched exactly. A room that has been started but is short of the top-table minimum is a
+ * different state again, and is never silent about it.
  */
 export function SetupScreen({ allocated = false }: { allocated?: boolean }) {
   const event = useTopTableStore((s) => s.event)
@@ -47,14 +53,17 @@ export function SetupScreen({ allocated = false }: { allocated?: boolean }) {
   const hasGuests = guestCount > 0
   const isConfigured = totalSeats(room) > 0
   const showRail = hasGuests || isConfigured
+  // Fix to TT-3: a top table is always required, at a minimum of 2 seats, once the room has
+  // been started — see src/screens/setup/roomCompleteness.ts for what "started" means and why
+  // this is not a src/domain/ concern.
+  const roomIncomplete = isTopTableIncomplete(room)
   // TT-4's "importing over existing data asks first" asks a different question from
   // isConfigured, which needs a non-zero seat *total* to decide whether the rail has
   // anything worth showing. A half-typed room — {5, 0, 0} while the other two fields are
   // still empty — totals zero seats and is still a number the user typed, so an import
   // would destroy it. Reusing isConfigured here skipped the prompt for exactly that case.
-  const hasTypedRoom = room.roundTables > 0 || room.seatsEach > 0 || room.topTableSeats > 0
   // Both are things a scenario import overwrites; the event name is not, so it does not count.
-  const hasExistingData = hasGuests || hasTypedRoom
+  const hasExistingData = hasGuests || hasTypedRoom(room)
 
   // TT-4: the picker collapses behind a chip once a scenario is loaded, and "Change
   // scenario" brings it back. Derived rather than stored — showCards is view state, not
@@ -145,15 +154,17 @@ export function SetupScreen({ allocated = false }: { allocated?: boolean }) {
         .readoutBounds pulls the box's own width back down to match the room form above it.
       */}
       <div aria-live="polite" className={styles.liveRegion}>
-        {hasGuests ? (
+        {hasGuests || roomIncomplete ? (
           <>
             <div className={styles.readoutBounds}>
               <CapacityReadout room={room} guestCount={guestCount} />
             </div>
-            <SuggestionLine
-              suggestion={suggestExactRoom(room, guestCount)}
-              guestCount={guestCount}
-            />
+            {hasGuests && !roomIncomplete && (
+              <SuggestionLine
+                suggestion={suggestExactRoom(room, guestCount)}
+                guestCount={guestCount}
+              />
+            )}
           </>
         ) : (
           <p className={styles.emptyCapacity}>No guests yet, so nothing to work out</p>

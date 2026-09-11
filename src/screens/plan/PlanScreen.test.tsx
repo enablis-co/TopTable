@@ -203,6 +203,82 @@ describe('PlanScreen — first visit reads as an invitation, not an empty grid',
   })
 })
 
+describe('PlanScreen — a top table below the minimum is routed to the empty state (fix to TT-3)', () => {
+  it('renders no tables for nine tables of eight with no top table, the shape that used to force-seat every protocol role at Table 1', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    useTopTableStore.getState().setGuests(makeGuests(70))
+    renderPlanScreen()
+
+    expect(tables()).toHaveLength(0)
+  })
+
+  it('reads the specific, actionable copy rather than the generic "start from a scenario" invitation', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    renderPlanScreen()
+
+    expect(document.body.textContent).toContain('Add a top table of at least 2 seats. Set it on Setup.')
+    expect(document.body.textContent).not.toContain('Start from a scenario, or set the room up')
+    expect(document.body.textContent).not.toMatch(/sorry/i)
+  })
+
+  it('is also routed here at exactly one top-table seat, not only at zero', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 1 })
+    renderPlanScreen()
+
+    expect(tables()).toHaveLength(0)
+    expect(document.body.textContent).toContain('Add a top table of at least 2 seats. Set it on Setup.')
+  })
+
+  it('offers an "Add the top table" control, and activating it asks the app to go to Setup', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    let requestedTab: string | null = null
+    const user = userEvent.setup()
+    renderPlanScreen((tab) => {
+      requestedTab = tab
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Add the top table' }))
+
+    expect(requestedTab).toBe('setup')
+  })
+
+  it('renders the floorplan once the top table reaches the minimum of 2, all else unchanged', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(70))
+    renderPlanScreen()
+
+    expect(tables()).toHaveLength(10)
+    expect(screen.queryByText(/add a top table/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps the true first-visit, all-zero room on the generic invitation rather than the top-table copy', () => {
+    // reset() in beforeEach already leaves the room at {0,0,0} — nothing typed at all, so this
+    // is "empty", not "incomplete" (the product-owner ruling exempts it explicitly).
+    renderPlanScreen()
+
+    expect(document.body.textContent).toContain('Start from a scenario, or set the room up')
+    expect(document.body.textContent).not.toContain('Add a top table')
+  })
+
+  it('renders the floorplan for each of the three shipped scenarios, none of which is affected (8, 6 and 8 top-table seats)', () => {
+    const scenarioRooms = [
+      { roundTables: 4, seatsEach: 8, topTableSeats: 8 }, // Small and cosy
+      { roundTables: 9, seatsEach: 8, topTableSeats: 6 }, // Adding up
+      { roundTables: 26, seatsEach: 8, topTableSeats: 8 }, // Celebrity scale
+    ]
+
+    for (const room of scenarioRooms) {
+      useTopTableStore.getState().reset()
+      useTopTableStore.getState().setRoom(room)
+      const { unmount } = renderPlanScreen()
+
+      expect(screen.queryByText(/add a top table/i)).not.toBeInTheDocument()
+      expect(tables().length).toBeGreaterThan(0)
+      unmount()
+    }
+  })
+})
+
 describe('PlanScreen — the gate agrees with the generator on an un-normalised room (regression, TT-11 review)', () => {
   it('a hand-edited room with a negative roundTables still shows the floorplan once it normalises to real seats', () => {
     // Raw totalSeats on this room is -1 * 8 + 8 = 0, but it normalises to { 0, 8, 8 } — a real
@@ -318,11 +394,9 @@ describe('PlanScreen — one live region announces placing and releasing', () =>
     renderPlanScreen()
 
     await user.click(screen.getByRole('button', { name: 'Guest g-0' }))
-    const [placingButton] = screen.getAllByRole('button', { name: /^Place Guest g-0 at/ })
-    if (!placingButton) {
-      throw new Error('expected a placing button once a guest is selected')
-    }
-    await user.click(placingButton)
+    // Anchored to "Table 1", not left to match either table: a top table always exists
+    // alongside it now (fix to TT-3), and this test's own name is about a round table.
+    await user.click(screen.getByRole('button', { name: /^Place Guest g-0 at Table 1/ }))
 
     expect(screen.getByRole('status').textContent).toMatch(/Guest g-0/)
     expect(screen.getByRole('status').textContent).toMatch(/placed/i)
