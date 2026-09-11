@@ -1,7 +1,7 @@
 import type { Guest, Pin, ProtocolRole, RoomConfig } from './types'
 import { PROTOCOL_ROLES } from './types'
 import type { Seat, SeatingPlan, TableSlot } from './seating'
-import { TOP_TABLE_ID, tablesInRoom, topTableRoleOrder } from './seating'
+import { TOP_TABLE_ID, resolveHonouredPins, tableFor, tablesInRoom, topTableRoleOrder } from './seating'
 
 /**
  * The solver: seats the top table by protocol, then fills the room. In its own file,
@@ -33,32 +33,6 @@ type BuildingTable = TableSlot & {
 
 function emptyBuildingTable(slot: TableSlot): BuildingTable {
   return { ...slot, seats: new Array<Seat | null>(slot.capacity).fill(null), overflow: [] }
-}
-
-/** `tables` always has an entry for every id drawn from `slots`; this documents that rather than asserting past it. */
-function tableFor(tables: ReadonlyMap<string, BuildingTable>, id: string): BuildingTable {
-  const table = tables.get(id)
-  if (!table) {
-    throw new Error(`allocate: no table built for ${id}`)
-  }
-  return table
-}
-
-/** guestId -> tableId, for pins naming both a real slot and a real guest — never a seat (KB-1). */
-function resolveHonouredPins(
-  slots: readonly TableSlot[],
-  guests: readonly Guest[],
-  pins: readonly Pin[],
-): Map<string, string> {
-  const slotIds = new Set(slots.map((slot) => slot.id))
-  const guestIds = new Set(guests.map((guest) => guest.id))
-  const byGuestId = new Map<string, string>()
-  for (const pin of pins) {
-    if (slotIds.has(pin.tableId) && guestIds.has(pin.guestId)) {
-      byGuestId.set(pin.guestId, pin.tableId)
-    }
-  }
-  return byGuestId
 }
 
 function seatAtTableOrOverflow(table: BuildingTable, guest: Guest, pinned: boolean): void {
