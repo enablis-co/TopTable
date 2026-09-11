@@ -66,6 +66,11 @@ describe('PlanScreen.module.css — the two-part layout: a canvas column and a f
     expect(body).toMatch(/min-width\s*:\s*0\b/)
   })
 
+  it('review fix (TT-35): .canvas also declares min-height: 0, the same trick on the vertical axis — without it, .canvas will not shrink below its own content height (header + floorplan + rail), and the overflow escapes to AppShell\'s .main instead of staying inside the floorplan', () => {
+    const body = ruleBody(readCss(), '.canvas')
+    expect(body).toMatch(/min-height\s*:\s*0\b/)
+  })
+
   it('.violations is a fixed, non-growing 300px column', () => {
     const body = ruleBody(readCss(), '.violations')
     expect(body).toMatch(/flex\s*:\s*none/)

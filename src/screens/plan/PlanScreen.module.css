@@ -22,9 +22,17 @@
   flex-direction: column;
   /* minmax(0, 1fr) at heart: this column must be able to shrink narrower than its own content
      (the floorplan's scroll container) rather than pushing the violations column off-screen. A
-     bare flex: 1 alone still leaves min-width at its automatic, content-based default. */
+     bare flex: 1 alone still leaves min-width at its automatic, content-based default.
+
+     Review fix (TT-35): min-height: 0 is the same trick on the other axis. Without it, .canvas's
+     own automatic minimum height is its content's height — .canvasHeader plus the floorplan
+     plus the unseated rail, which at 27 tables is taller than .layout ever hands it — so .canvas
+     refused to shrink and the overflow escaped past .plan to AppShell's .main, which scrolls the
+     whole screen one row at a time instead of leaving .floorplanArea (below) the internal scroll
+     region it is set up to be. */
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 /* Auto-allocate moves here from the old .actions row above the header (TT-13) to this row's

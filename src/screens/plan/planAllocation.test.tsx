@@ -88,17 +88,24 @@ async function renderAppOnPlanTab(user: ReturnType<typeof userEvent.setup>) {
  * The header's four figures (TT-35: the capacity headline "N seats for M guests", then the
  * stat pair pinned/unseated). Each is matched by its own pattern, in the shape the redesigned
  * header actually renders it, rather than one sequence-anchored regex — the headline now puts
- * seats before guests, and the stat pair renders its value and label as separate elements that
- * meet with no space (PlanHeader.module.css's .statValue/.statLabel), so "11Unseated" (no
- * space, digit first) is what the header itself produces. That shape is also what keeps this
- * from matching the status region's own "Allocated. N seated, M unseated." — that phrase has a
- * space before "unseated" and no digit immediately after it, and it is lower-case where the
- * header's own label is not.
+ * seats before guests.
+ *
+ * Whitespace- and case-tolerant, matching PlanScreen.test.tsx's own `readsStat` helper: the
+ * criterion is that a "3 Pinned"-shaped figure renders, not that PlanHeader.module.css's
+ * .statValue/.statLabel happen to produce no space between them today. A test that required
+ * "3Pinned" literally would pass a bug (the same gap PlanTable.tsx's own deliberate `{' '}`
+ * comments exist to avoid) as happily as the real thing.
+ *
+ * This runs against the whole Plan-tab body, not a scoped header element, so the digit-before-
+ * label shape still matters: the Setup screen's own "Allocated. N seated, M unseated." status
+ * line reads label-then-no-digit ("unseated" with a space before it and no digit stuck to it),
+ * so it never collides with this pattern even case-insensitively — and in any case that line
+ * only ever mounts on the Setup screen, never alongside this header on Plan.
  */
 function readHeaderFigures(text: string): { guests: number; seats: number; pinned: number; unseated: number } {
   const headline = /(\d+)\s*seats\s*for\s*(\d+)\s*guests/i.exec(text)
-  const pinned = /(\d+)Pinned/.exec(text)
-  const unseated = /(\d+)Unseated/.exec(text)
+  const pinned = /(\d+)\s*Pinned/i.exec(text)
+  const unseated = /(\d+)\s*Unseated/i.exec(text)
   if (!headline || !pinned || !unseated) {
     throw new Error(`expected the header's four figures in the rendered text; got: ${JSON.stringify(text)}`)
   }

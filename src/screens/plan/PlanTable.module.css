@@ -77,6 +77,11 @@
    the text below it stays an ordinary ink colour in every state, legible on the --surface floor
    regardless. (The top table's face is a different case — see .top .face — because it has no
    ring to carry a material and, per the handoff, needs none: it never varies at all.) */
+/* --ink-faint here is 2.95:1 on --surface — below WCAG AA, and knowingly kept anyway (review,
+   TT-35): the faintness is load-bearing. It is what separates an empty table's number from a
+   filling one's at a glance, per the handoff's four-materials table (AC14). Raising it to
+   --ink-muted would still read correctly but would make empty and partial harder to tell apart
+   at speed — a design question for KB-5, not an oversight to quietly fix in passing. */
 .table[data-occupancy='empty'] {
   color: var(--ink-faint);
   --ring-stroke: var(--rule-strong);

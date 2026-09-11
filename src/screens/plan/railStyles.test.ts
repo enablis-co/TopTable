@@ -72,6 +72,16 @@ describe('UnseatedRail.module.css — the selected row is marked with a shape, n
     expect(pressedColour).not.toBe(baseColour)
   })
 
+  it('review fix: selection also changes the border-width, not just its colour — a shape signal that survives with every colour stripped out (KB-5)', () => {
+    const base = requireRule(readCss(), ROW_BASE, 'the base rail row')
+    const pressed = requireRule(readCss(), ROW_PRESSED, "the rail row's pressed state")
+    const baseWidth = /border-width\s*:\s*([\d.]+px)/i.exec(base.body)?.[1]
+    const pressedWidth = /border-width\s*:\s*([\d.]+px)/i.exec(pressed.body)?.[1]
+    expect(baseWidth, 'expected the base row to declare an explicit border-width').toBeTruthy()
+    expect(pressedWidth, 'expected the pressed row to declare an explicit border-width').toBeTruthy()
+    expect(pressedWidth).not.toBe(baseWidth)
+  })
+
   it('neither rule reaches for the hard or soft token — a selection is not a warning', () => {
     const base = requireRule(readCss(), ROW_BASE, 'the base rail row')
     const pressed = requireRule(readCss(), ROW_PRESSED, "the rail row's pressed state")

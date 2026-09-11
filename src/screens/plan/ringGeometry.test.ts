@@ -60,8 +60,13 @@ describe('RING — shared geometry constants the SVG and its stylesheet both rea
   })
 
   it('places the pin inside the body radius, not straddling its edge', () => {
-    // The handoff: an offset of magnitude 34 or more straddles the r = 34 body edge.
-    expect(RING.pinOffset).toBeLessThan(RING.bodyRadius)
+    // The pin is offset by pinOffset on both x and y from centre (TT-35's SVG places it at
+    // (cx + pinOffset, cy − pinOffset)), so its centre sits pinOffset × √2 from the table's
+    // centre along the diagonal — a plain `pinOffset < bodyRadius` only checks one axis and
+    // would pass a pinOffset that straddles the edge badly once the diagonal is accounted
+    // for. The whole pin, not just its centre, has to clear the body edge.
+    const diagonalOffset = RING.pinOffset * Math.SQRT2
+    expect(diagonalOffset + RING.pinRadius).toBeLessThan(RING.bodyRadius)
     expect(RING.pinRadius).toBe(3.6)
   })
 })

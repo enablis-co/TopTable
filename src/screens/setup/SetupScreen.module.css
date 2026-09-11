@@ -1,6 +1,12 @@
 /* Single column by default. .withRail is added once there is something for the rail to show —
    guests loaded or a room configured by hand (SetupScreen decides which) — which is also the
-   only time the aria-live row below gets a second column to span across. */
+   only time the aria-live row below gets a second column to span across.
+
+   Review fix (TT-35): AppShell.module.css's `.main` dropped its own padding so Plan could run
+   its floorplan to the edge (A14) — that was meant to move onto each screen instead, and this
+   file was token-renamed only, so it landed with none. `var(--s-6) var(--s-7)` matches
+   PlanHeader.module.css's canvas header (top and left/right), so Setup, Guests and Plan all sit
+   the same distance off the rail. */
 .screen {
   --rail-width: 220px;
   display: grid;
@@ -8,6 +14,7 @@
   align-items: start;
   column-gap: var(--s-8);
   row-gap: var(--s-6);
+  padding: var(--s-6) var(--s-7);
 }
 
 .withRail {

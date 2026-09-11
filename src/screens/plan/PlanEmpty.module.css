@@ -3,7 +3,11 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--s-3);
-  padding: var(--s-6) 0;
+  /* Review fix (TT-35): the old 32px spacing step was mapped to the wrong new step here (it
+     landed on the 22px one instead) — GuestsEmpty.module.css's parallel rule got the right one.
+     Both empty states are named on KB-6 as states that must look intentional, and they need to
+     match. */
+  padding: var(--s-8) 0;
 }
 
 .message {

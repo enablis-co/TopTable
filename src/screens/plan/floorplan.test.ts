@@ -227,10 +227,15 @@ describe('FloorplanGrid.module.css — .grid wraps by width (auto-fit), capped b
 /*
  * Regression, TT-11 review: without `overflow-x: auto`, the round-table grid's own overflow
  * escaped into the document and scrolled the whole page sideways. This guards that
- * `.gridScroll` declares it (not the default `visible`) and does not also trap vertical
- * scrolling, which belongs to the document — only a browser pass can confirm the geometry itself.
+ * `.gridScroll` declares it (not the default `visible`) and does not also pin vertical overflow
+ * to hidden or scroll — only a browser pass can confirm the geometry itself.
+ *
+ * Updated, TT-35 review: the fixed-viewport canvas means vertical overflow now belongs to this
+ * box too, not the document — `overflow-y: auto` plus `flex: 1; min-height: 0` (so the box has a
+ * real, shrinkable height to hand that overflow into) are what let a tall plan (27 tables) scroll
+ * inside the floorplan floor rather than pushing AppShell's .main to scroll the whole screen.
  */
-describe('FloorplanGrid.module.css — .gridScroll absorbs the grid\'s horizontal overflow, not the document (TT-11 review)', () => {
+describe('FloorplanGrid.module.css — .gridScroll absorbs the grid\'s overflow, not the document (TT-11, TT-35 review)', () => {
   function readFloorplanGridCss(): string {
     const dir = dirname(fileURLToPath(import.meta.url))
     return readFileSync(join(dir, 'FloorplanGrid.module.css'), 'utf8')
@@ -251,13 +256,23 @@ describe('FloorplanGrid.module.css — .gridScroll absorbs the grid\'s horizonta
     expect(body).not.toMatch(/overflow-x\s*:\s*visible\b/i)
   })
 
-  it('.gridScroll does not also pin overflow-y to hidden or scroll — vertical overflow stays with the document', () => {
+  it('.gridScroll does not pin overflow-y to hidden or scroll — either would break the fixed-viewport canvas (permanently clipping a tall plan, or showing a bar even when everything fits)', () => {
     const css = stripComments(readFloorplanGridCss())
     const rule = /\.gridScroll\s*\{([^}]*)\}/.exec(css)
     const body = rule?.[1] ?? ''
 
     expect(body).not.toMatch(/overflow-y\s*:\s*(hidden|scroll)\b/i)
     expect(body).not.toMatch(/overflow\s*:\s*(hidden|scroll|auto)\b/i)
+  })
+
+  it('review fix (TT-35): .gridScroll declares overflow-y: auto and has a real, shrinkable height to scroll within — flex: 1 and min-height: 0 — so a tall plan scrolls here instead of the whole screen', () => {
+    const css = stripComments(readFloorplanGridCss())
+    const rule = /\.gridScroll\s*\{([^}]*)\}/.exec(css)
+    const body = rule?.[1] ?? ''
+
+    expect(body).toMatch(/overflow-y\s*:\s*auto\b/i)
+    expect(body).toMatch(/flex\s*:\s*1\b/)
+    expect(body).toMatch(/min-height\s*:\s*0\b/)
   })
 })
 

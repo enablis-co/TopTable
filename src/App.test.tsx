@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
+import { useTopTableStore } from './store/store'
 
 // AppHeader.test.tsx and NavRail.test.tsx build their own NavigationContext.Provider
 // harnesses, which is exactly the wiring A4/A5/E1 are about — every one of those tests
@@ -92,5 +93,30 @@ describe('App', () => {
     expect(isMarkedCurrent(guests)).toBe(false)
 
     expect(container.textContent).not.toBe(initialContent)
+  })
+})
+
+describe('App — no control for a feature this app does not build (KB-1\'s deferred list; TT-31 print, TT-34 share)', () => {
+  // This guarded AppHeader alone before TT-35 split the header into AppHeader (identity
+  // only) and NavRail (the section rows); a control named export, print, share or sign in
+  // could now land in either one, or on a screen itself, and the guarantee this test names
+  // was never about one component — it is that nothing in the whole chrome offers a feature
+  // this app does not build. Rendering the real App and sweeping every section is what keeps
+  // that true regardless of which file a future control is added to.
+  it('offers no control named export, print, share or sign in, on any section', async () => {
+    useTopTableStore.getState().reset()
+    const user = userEvent.setup()
+    render(<App />)
+
+    const nav = screen.getByRole('navigation', { name: 'Sections' })
+    const { setup, guests, plan } = getNavControls(nav)
+
+    for (const tab of [setup, guests, plan]) {
+      await user.click(tab)
+      for (const name of [/export/i, /print/i, /share/i, /sign in/i]) {
+        expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
+      }
+    }
   })
 })
