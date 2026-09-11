@@ -32,7 +32,7 @@ import styles from './SetupScreen.module.css'
  * (below) carries only its one line of empty-state text — KB-6's first-visit wireframe, still
  * matched exactly.
  */
-export function SetupScreen() {
+export function SetupScreen({ allocated = false }: { allocated?: boolean }) {
   const event = useTopTableStore((s) => s.event)
   const room = useTopTableStore((s) => s.room)
   const guests = useTopTableStore((s) => s.guests)
@@ -125,6 +125,7 @@ export function SetupScreen() {
         <StatusStrip
           guestCount={guestCount}
           totalSeats={totalSeats(room)}
+          allocated={allocated}
           onGoToGuests={() => {
             goTo('guests')
           }}
