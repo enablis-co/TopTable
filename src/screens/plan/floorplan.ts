@@ -52,13 +52,14 @@ export function floorplanFromRoom(room: RoomConfig): TableSlot[] {
   return slots
 }
 
-/** How many `minmax(112px, 200px)` tracks fit across this app's content width at the 112px floor. */
+/** How many 112px-floor round-table columns this app's content width can hold at most. */
 export const MAX_ROUND_TABLE_COLUMNS = 11
 
 /**
- * The column count is a function of table count, not `auto-fit`/`auto-fill`: those respond
- * only to container width, so every real track keeps growing back to the same fixed ceiling
- * regardless of how many tables exist.
+ * Caps the table count at MAX_ROUND_TABLE_COLUMNS. FloorplanGrid.module.css feeds this into a
+ * `max-width` on the grid, not a literal column count — `auto-fit` computes the live column
+ * count from the container's actual width and wraps, so this only stops fewer-than-the-cap
+ * tables growing past the per-table ceiling on a wide screen (TT-11 fix).
  */
 export function roundTableColumns(roundTableCount: number): number {
   return Math.max(1, Math.min(roundTableCount, MAX_ROUND_TABLE_COLUMNS))
