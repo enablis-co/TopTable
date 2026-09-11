@@ -6,6 +6,7 @@ import { totalSeats } from '../../domain/capacity'
 import { pinnedTableFor } from '../../domain/pins'
 import { normaliseRoom, seatPins, tablesInRoom } from '../../domain/seating'
 import { allocate } from '../../domain/allocate'
+import { isTopTableIncomplete } from '../setup/roomCompleteness'
 import { seatingViewFrom } from './floorplan'
 import { PlanHeader } from './PlanHeader'
 import { FloorplanGrid } from './FloorplanGrid'
@@ -26,6 +27,11 @@ import styles from './PlanScreen.module.css'
  * and survives it; re-allocating is deterministic, so remounting and recomputing from the same
  * room, guests and pins reproduces the same plan. Two columns, not three: KB-6's third column,
  * the violations panel, is TT-14's, and the numbered seats in its table detail are TT-15's.
+ *
+ * `showFloorplan` is `hasSeats && !topTableIncomplete` (fix to TT-3): a room short of the
+ * top-table minimum renders `PlanEmpty` the same as an unconfigured one, just with different
+ * copy — `hasSeats` alone used to be the whole gate, and nine tables of eight with no top
+ * table rendered a floorplan.
  */
 type PlanScreenProps = {
   allocated: boolean
@@ -48,7 +54,13 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
 
   // Normalised first, matching FloorplanGrid's own generator — see normaliseRoom in ../../domain/seating.
-  const hasSeats = totalSeats(normaliseRoom(room)) > 0
+  const normalisedRoom = normaliseRoom(room)
+  const hasSeats = totalSeats(normalisedRoom) > 0
+  // Checked on the normalised room for the same reason hasSeats is: a hand-edited or pre-rule
+  // persisted room can carry a negative or fractional field, and this gate has to agree with
+  // the table generator. See src/screens/setup/roomCompleteness.ts.
+  const topTableIncomplete = isTopTableIncomplete(normalisedRoom)
+  const showFloorplan = hasSeats && !topTableIncomplete
   const slots = tablesInRoom(room)
   const plan = useMemo(
     () => (allocated ? allocate(room, guests, pins) : seatPins(room, guests, pins)),
@@ -133,7 +145,7 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   return (
     <div>
       <h1 className="tt-visually-hidden">Plan</h1>
-      {hasSeats ? (
+      {showFloorplan ? (
         <>
           <div className={styles.actions}>
             <Button variant="primary" onClick={handleAllocate}>
@@ -170,7 +182,8 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
         </>
       ) : (
         <PlanEmpty
-          onGoToScenarios={() => {
+          reason={hasSeats ? 'topTableIncomplete' : 'unconfigured'}
+          onGoToSetup={() => {
             goTo('setup')
           }}
         />

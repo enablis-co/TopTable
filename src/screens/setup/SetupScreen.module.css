@@ -19,7 +19,7 @@
     grid-template-columns: 1fr;
   }
 
-  .readoutBounds {
+  .withRail .readoutBounds {
     max-width: none;
   }
 }
@@ -50,9 +50,17 @@
    importing" wireframe has the box's right edge line up with the fields, not the rail. Only
    the suggestion line below it, and the "No guests yet" line that replaces both when there
    are none, reach the rail's edge. Reads --rail-width and the column-gap back from .screen
-   so the two stay in step. */
-.readoutBounds {
+   so the two stay in step.
+
+   Scoped to .withRail (fix to TT-3): an incomplete top table can show this box with no rail
+   at all — a half-typed, zero-seat room with no guests is `roomIncomplete` but not
+   `isConfigured`, so .screen never gains .withRail — and the room form above then spans the
+   full single column too. Without the scope this pulled in for a rail that wasn't there. */
+.withRail .readoutBounds {
   max-width: calc(100% - var(--rail-width) - var(--space-6));
+}
+
+.readoutBounds {
   min-width: 0;
 }
 
