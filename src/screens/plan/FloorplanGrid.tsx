@@ -11,7 +11,10 @@ type FloorplanGridProps = {
   /** The selected guest's name (TT-12) — present only together with `onPlace`. */
   placingGuestName?: string
   onPlace?: (tableId: string) => void
-  onRelease?: (guestId: string) => void
+  /** TT-15. Selects a table for the table detail panel; PlanTable itself gives this priority
+   * under `placing` for the same click, never both at once. */
+  onSelect?: (tableId: string) => void
+  selectedTableId?: string | null
 }
 
 type GridStyle = CSSProperties & { '--floorplan-columns': number }
@@ -32,7 +35,14 @@ function placingFor(
  * sibling would span every generated track and stop the round grid shrinking below the full
  * column count.
  */
-export function FloorplanGrid({ room, seating, placingGuestName, onPlace, onRelease }: FloorplanGridProps) {
+export function FloorplanGrid({
+  room,
+  seating,
+  placingGuestName,
+  onPlace,
+  onSelect,
+  selectedTableId,
+}: FloorplanGridProps) {
   const slots = tablesInRoom(room)
   const topSlot = slots.find((slot) => slot.kind === 'top')
   const roundSlots = slots.filter((slot) => slot.kind === 'round')
@@ -47,7 +57,8 @@ export function FloorplanGrid({ room, seating, placingGuestName, onPlace, onRele
             slot={topSlot}
             occupants={occupantsAt(seating, topSlot.id)}
             placing={placingFor(topSlot.id, placingGuestName, onPlace)}
-            onRelease={onRelease}
+            onSelect={() => onSelect?.(topSlot.id)}
+            selected={topSlot.id === selectedTableId}
           />
         </ul>
       )}
@@ -63,7 +74,8 @@ export function FloorplanGrid({ room, seating, placingGuestName, onPlace, onRele
                 slot={slot}
                 occupants={occupantsAt(seating, slot.id)}
                 placing={placingFor(slot.id, placingGuestName, onPlace)}
-                onRelease={onRelease}
+                onSelect={() => onSelect?.(slot.id)}
+                selected={slot.id === selectedTableId}
               />
             ))}
           </ul>

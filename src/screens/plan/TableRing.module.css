@@ -1,8 +1,9 @@
 /*
- * TT-35. Geometry-neutral: this file draws nothing of its own and sets no literal colour, size
- * or dash pattern — every value that can differ by state comes from a `--ring-*` custom property
- * that PlanTable.module.css sets per data-occupancy/data-violation state on the table `<li>` this
- * SVG renders inside. This file only has to know which part of the drawing reads which property.
+ * TT-35, TT-15. Geometry-neutral: this file draws nothing of its own and sets no literal colour,
+ * size or dash pattern — every value that can differ by state comes from a `--ring-*` custom
+ * property that PlanTable.module.css sets per data-occupancy/data-violation/data-selected state
+ * on the table `<li>` this SVG renders inside. This file only has to know which part of the
+ * drawing reads which property.
  */
 
 .svg {
@@ -13,6 +14,13 @@
 
 .ring {
   stroke: var(--ring-stroke);
+  /* TT-15, review: --ring-stroke-width is declared once, on PlanTable.module.css's base .table
+     rule (7px — the seat-dash geometry in ringGeometry.ts already assumes this), and again, at
+     a higher specificity, on .table[data-selected='true'] (9px) — no fallback here, because a
+     fallback and a base declaration are the same value kept in two places, and only the CSS ever
+     rendered: the <circle>'s own strokeWidth attribute this used to fall back past is gone too
+     (TableRing.tsx), so the custom property is the only place this number lives now. */
+  stroke-width: var(--ring-stroke-width);
 }
 
 .body {

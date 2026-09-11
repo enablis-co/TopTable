@@ -33,7 +33,6 @@ export function TableRing({ seats, pinned }: TableRingProps) {
         cy={RING.centre}
         r={RING.ringRadius}
         fill="none"
-        strokeWidth={RING.strokeWidth}
         strokeDasharray={`${dash} ${gap}`}
       />
       <circle className={styles.body} cx={RING.centre} cy={RING.centre} r={RING.bodyRadius} />

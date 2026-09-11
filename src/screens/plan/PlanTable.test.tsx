@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlanTable } from './PlanTable'
 import type { SeatedGuest, TableOccupants } from './floorplan'
@@ -7,14 +7,15 @@ import type { Guest } from '../../domain/types'
 import type { TableSlot } from '../../domain/seating'
 
 /**
- * TT-11, "Render the floorplan from config", extended by TT-12, "Place a guest by clicking".
- * Written from the acceptance criteria and KB-5, without opening PlanTable.tsx or
- * PlanTable.module.css.
+ * TT-11, "Render the floorplan from config", extended by TT-12, "Place a guest by clicking",
+ * and TT-15, "Table detail panel". Written from the acceptance criteria and KB-5, without
+ * opening PlanTable.tsx or PlanTable.module.css.
  *
  * Every render wraps `<PlanTable>` in a plain `<ul>`, since a bare `<li>` on its own can fail
  * role queries for reasons that have nothing to do with this ticket — and it's the real context
  * PlanTable renders in. The table root is located via `[data-occupancy]` rather than by role,
- * since a seated table's nested guest names are themselves `<li>` elements.
+ * since the table's own face is a button, and a `getByRole('listitem')` on a table would collide
+ * with the button contained inside it.
  *
  * Every Guest fixture sets `age` to an AgeBand, never a number.
  */
@@ -77,13 +78,14 @@ function tabularTexts(table: HTMLElement): string[] {
 
 type PlacingProps = {
   placing?: { guestName: string; onPlace: () => void }
-  onRelease?: (guestId: string) => void
+  onSelect?: () => void
+  selected?: boolean
 }
 
 /**
- * Mirrors renderTable above but forwards the two new, optional TT-12 props. A separate helper
- * rather than widening renderTable itself, so the nineteen existing calls above are untouched —
- * their still passing is itself evidence that PlanTable's render change is additive.
+ * Mirrors renderTable above but forwards the TT-12/TT-15 props. A separate helper rather than
+ * widening renderTable itself, so the calls above are untouched — their still passing is itself
+ * evidence that PlanTable's render change is additive.
  */
 function renderTableWithProps(slot: TableSlot, occupants: TableOccupants, extra: PlacingProps = {}): HTMLElement {
   const { container } = render(
@@ -164,22 +166,34 @@ describe('PlanTable — the composition: full, pinned and in violation all at on
   })
 })
 
-describe('PlanTable — content', () => {
-  it('the guest names are in the DOM, whether or not the container query would currently reveal them', () => {
+describe('PlanTable — no guest content renders here any more (TT-15 moves it to the table detail panel)', () => {
+  it('a seated table\'s own text never names a guest, whatever their name is', () => {
     const table = renderTable(
       roundSlot(),
       makeOccupants({
-        guests: seatedGuests([makeGuest('g-1', { name: 'Danny Whitaker' }), makeGuest('g-2', { name: 'Maureen Shah' })]),
+        guests: seatedGuests([
+          makeGuest('g-1', { name: 'Danny Whitaker' }),
+          makeGuest('g-2', { name: 'Maureen Shah' }),
+        ]),
       }),
     )
 
-    expect(table.textContent).toContain('Danny Whitaker')
-    expect(table.textContent).toContain('Maureen Shah')
+    expect(table.textContent).not.toContain('Danny Whitaker')
+    expect(table.textContent).not.toContain('Maureen Shah')
   })
 
-  it('an empty table still renders its (empty) guest list, not nothing', () => {
-    // "the names of the guests at it" — an empty table has none, but the number and the
-    // occupancy pair must still be there.
+  it('a table with a pinned guest still names neither the guest nor any release control', () => {
+    const table = renderTable(
+      roundSlot(),
+      makeOccupants({ guests: seatedGuests([makeGuest('g-1', { name: 'Danny Whitaker' })], true), pinnedCount: 1 }),
+    )
+
+    expect(table.textContent).not.toContain('Danny Whitaker')
+    expect(table.querySelectorAll('button')).toHaveLength(1)
+    expect(table.querySelector('button')?.textContent).not.toMatch(/release/i)
+  })
+
+  it('an empty table still renders the number and the occupancy pair, not nothing', () => {
     const table = renderTable(roundSlot({ number: 4, label: 'Table 4' }), makeOccupants())
     expect(table.textContent).toContain('4')
     expect(table.textContent).toMatch(/0\s*of\s*8\s*seats/i)
@@ -215,6 +229,18 @@ describe('PlanTable — the top table is distinct from a round table', () => {
     expect(round.className).not.toBe('')
     expect(top.className).not.toBe(round.className)
   })
+
+  it('the top table carries a decorative, aria-hidden middot between its label and its occupancy pair — a round table carries none', () => {
+    const top = renderTable(topSlot(), makeOccupants())
+    const topSeparator = top.querySelector('[aria-hidden="true"]')
+    expect(topSeparator?.textContent).toBe('·')
+
+    const round = renderTable(roundSlot(), makeOccupants())
+    const roundSeparators = Array.from(round.querySelectorAll('[aria-hidden="true"]')).filter(
+      (el) => el.textContent === '·',
+    )
+    expect(roundSeparators).toHaveLength(0)
+  })
 })
 
 describe('PlanTable — accessible content', () => {
@@ -244,10 +270,20 @@ describe('PlanTable — accessible content', () => {
   })
 })
 
-describe('PlanTable — at rest, with no guest selected, the floorplan is inert (TT-12)', () => {
-  it('renders no button at all when the placing prop is absent', () => {
+describe('PlanTable — at rest, with no guest selected, the face offers a select control, not a placing one (TT-12; TT-15 supersedes "no button at all")', () => {
+  it('renders exactly one button — a select button, not a placing one', () => {
     const table = renderTable(roundSlot(), makeOccupants({ guests: seatedGuests(makeGuests(2)) }))
-    expect(table.querySelectorAll('button')).toHaveLength(0)
+    const buttons = table.querySelectorAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]?.textContent).not.toMatch(/^Place /)
+  })
+
+  it('renders exactly one button even with no onSelect handler at all — clicking it does nothing, and does not throw', async () => {
+    const user = userEvent.setup()
+    const table = renderTable(roundSlot(), makeOccupants())
+    const buttons = table.querySelectorAll('button')
+    expect(buttons).toHaveLength(1)
+    await user.click(buttons[0] as HTMLButtonElement)
   })
 })
 
@@ -306,51 +342,94 @@ describe('PlanTable — with a guest selected, the face becomes one placing butt
     expect(placingButton.textContent).toContain('Top table')
     expect(placingButton.textContent).not.toContain('null')
   })
-})
 
-describe('PlanTable — with a pinned guest, their name becomes a release button (TT-12)', () => {
-  it('two seated guests each become their own release button, naming the guest and the table; activating one calls onRelease with that guest\'s id', async () => {
+  it('placing takes priority over onSelect for the same click — onSelect is never called', async () => {
     const user = userEvent.setup()
-    const onRelease = vi.fn()
-    const table = renderTableWithProps(
-      roundSlot({ number: 3, label: 'Table 3', capacity: 8 }),
-      makeOccupants({
-        guests: seatedGuests(
-          [makeGuest('g-1', { name: 'Danny Whitaker' }), makeGuest('g-2', { name: 'Maureen Shah' })],
-          true,
-        ),
-        pinnedCount: 2,
-      }),
-      { onRelease },
-    )
+    const onPlace = vi.fn()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(roundSlot(), makeOccupants(), {
+      placing: { guestName: 'Priya Shah', onPlace },
+      onSelect,
+    })
 
-    const releaseButtons = Array.from(table.querySelectorAll('button'))
-    expect(releaseButtons).toHaveLength(2)
+    await user.click(table.querySelector('button') as HTMLButtonElement)
 
-    const dannyButton = releaseButtons.find((button) => /Danny Whitaker/.test(button.textContent ?? ''))
-    if (!dannyButton) {
-      throw new Error('expected a release button naming Danny Whitaker')
-    }
-    expect(dannyButton.textContent).toMatch(/Release\s+Danny Whitaker\s+from\s+Table\s+3/i)
-
-    const maureenButton = releaseButtons.find((button) => /Maureen Shah/.test(button.textContent ?? ''))
-    if (!maureenButton) {
-      throw new Error('expected a release button naming Maureen Shah')
-    }
-    expect(maureenButton.textContent).toMatch(/Release\s+Maureen Shah\s+from\s+Table\s+3/i)
-
-    await user.click(dannyButton)
-    expect(onRelease).toHaveBeenCalledTimes(1)
-    expect(onRelease).toHaveBeenCalledWith('g-1')
+    expect(onPlace).toHaveBeenCalledTimes(1)
+    expect(onSelect).not.toHaveBeenCalled()
   })
 
-  it('with onRelease absent, guest names render as plain text and are not buttons', () => {
-    const table = renderTable(
-      roundSlot(),
-      makeOccupants({ guests: seatedGuests([makeGuest('g-1', { name: 'Danny Whitaker' })], true), pinnedCount: 1 }),
-    )
+  /**
+   * Review, TT-15. Documented deliberately, not left as a surprise: while a guest is selected on
+   * the rail, a table carrying a pinned guest is exactly as unreachable via click as an empty
+   * one — `placing` wins regardless of the table's own state, so its release control (which now
+   * lives only in `TableDetailPanel`, opened by `onSelect`) cannot be reached this way either.
+   * Kept rather than reversed: C15 requires placing-by-click to stay unchanged, and reversing the
+   * priority would make the same click sometimes place and sometimes select, depending on a
+   * table's selectedness. The gap is temporary — `PlanScreen.tsx`'s Escape handler, or clicking
+   * the selected guest's own row again, clears the rail selection and hands the click straight
+   * back to `onSelect` — see the header comment above for the fuller account.
+   */
+  it('still takes priority even when the table already carries a pinned guest — its release control (now in the table detail panel) is unreachable via click until the rail selection ends', async () => {
+    const user = userEvent.setup()
+    const onPlace = vi.fn()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(roundSlot(), makeOccupants({ pinnedCount: 1 }), {
+      placing: { guestName: 'Priya Shah', onPlace },
+      onSelect,
+    })
 
-    expect(table.textContent).toContain('Danny Whitaker')
-    expect(table.querySelectorAll('button')).toHaveLength(0)
+    await user.click(table.querySelector('button') as HTMLButtonElement)
+
+    expect(onPlace).toHaveBeenCalledTimes(1)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+})
+
+describe('PlanTable — selecting a table for the detail panel (TT-15)', () => {
+  it('with no guest selected, clicking the face calls onSelect once', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(roundSlot(), makeOccupants(), { onSelect })
+
+    await user.click(table.querySelector('button') as HTMLButtonElement)
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it('carries no data-selected attribute at all when selected is absent or false — not the string "false"', () => {
+    const table = renderTableWithProps(roundSlot(), makeOccupants())
+    expect(table.hasAttribute('data-selected')).toBe(false)
+
+    const tableFalse = renderTableWithProps(roundSlot(), makeOccupants(), { selected: false })
+    expect(tableFalse.hasAttribute('data-selected')).toBe(false)
+    expect(tableFalse.getAttribute('data-selected')).not.toBe('false')
+  })
+
+  it('carries data-selected="true" when selected', () => {
+    const table = renderTableWithProps(roundSlot(), makeOccupants(), { selected: true })
+    expect(table.getAttribute('data-selected')).toBe('true')
+  })
+
+  /**
+   * Review, TT-15: `data-selected` and a stroke width alone give a screen reader nothing —
+   * `UnseatedRail.tsx`'s own row button already sets this repo's precedent for "many items, one
+   * selected" (`aria-pressed`), and `PlanScreen.test.tsx` asserts it there. The face button below
+   * carries the same fact the same way.
+   */
+  it('the face button carries aria-pressed="true" when selected', () => {
+    const table = renderTableWithProps(roundSlot(), makeOccupants(), { selected: true })
+    const button = table.querySelector('button')
+    expect(button?.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('the face button carries aria-pressed="false" when not selected', () => {
+    const table = renderTableWithProps(roundSlot(), makeOccupants(), { selected: false })
+    const button = table.querySelector('button')
+    expect(button?.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('is queryable as a pressed toggle button by role, not only by attribute', () => {
+    const table = renderTableWithProps(roundSlot(), makeOccupants(), { selected: true })
+    expect(within(table).getByRole('button', { pressed: true })).toBeInTheDocument()
   })
 })

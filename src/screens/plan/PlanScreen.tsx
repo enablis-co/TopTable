@@ -15,6 +15,7 @@ import { FloorplanGrid } from './FloorplanGrid'
 import { PlanEmpty } from './PlanEmpty'
 import { UnseatedRail } from './UnseatedRail'
 import { ViolationsPanel } from './ViolationsPanel'
+import { TableDetailPanel } from './TableDetailPanel'
 import { Button } from '../../ui'
 import styles from './PlanScreen.module.css'
 
@@ -29,7 +30,11 @@ import styles from './PlanScreen.module.css'
  * moment someone left for Guests and came back. The flag now lives in `App`, above that unmount,
  * and survives it; re-allocating is deterministic, so remounting and recomputing from the same
  * room, guests and pins reproduces the same plan. KB-6's three columns — rail, floorplan,
- * violations — all render now (TT-14); only the table detail's numbered seats are still TT-15's.
+ * violations — all render now (TT-14), and the third column swaps to a selected table's own
+ * detail (TT-15) rather than always showing the violations panel.
+ *
+ * `selectedTableId` is local view state, unlike `allocated`: nothing requires a table selection
+ * to survive a tab switch, so it resets on every remount rather than being hoisted to `App`.
  *
  * `showFloorplan` is `hasSeats && !topTableIncomplete` (fix to TT-3): a room short of the
  * top-table minimum renders `PlanEmpty` the same as an unconfigured one, just with different
@@ -51,10 +56,14 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const { goTo } = useNavigation()
 
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
 
   const railRef = useRef<HTMLDivElement>(null)
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
+  // TT-15's fallback focus target: set only when a release leaves no rail row to land on
+  // (the solver immediately re-seats the guest elsewhere rather than leaving them unseated).
+  const dismissButtonRef = useRef<HTMLButtonElement>(null)
 
   // Normalised first, matching FloorplanGrid's own generator — see normaliseRoom in ../../domain/seating.
   const normalisedRoom = normaliseRoom(room)
@@ -77,8 +86,16 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const violatingTableIds = useMemo(() => tablesWithHardViolation(report), [report])
   const seating = useMemo(() => seatingViewFrom(plan, violatingTableIds), [plan, violatingTableIds])
   const selectedGuest = guests.find((guest) => guest.id === selectedGuestId) ?? null
+  // `?? null` guards a table that stopped existing after a room edit — the violations panel is
+  // the fallback rather than a crash.
+  const selectedTable = plan.tables.find((table) => table.id === selectedTableId) ?? null
 
-  // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern.
+  // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern. Also
+  // doubles as the escape hatch for PlanTable's own placing-over-selecting priority (review,
+  // TT-15): while a guest is selected, clicking a table places rather than selects it, so this
+  // is how a user reaches a table's detail panel (and the release control that lives only there)
+  // without first placing the selected guest — the same way `handleSelect`'s own toggle below
+  // does, by clicking the selected guest's row again.
   useEffect(() => {
     if (selectedGuestId === null) return
 
@@ -104,6 +121,12 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
 
   function handleSelect(guestId: string) {
     setSelectedGuestId((current) => (current === guestId ? null : guestId))
+  }
+
+  // TT-15. Clicking the already-selected table again dismisses its detail panel, matching
+  // handleSelect's own toggle above.
+  function handleSelectTable(tableId: string) {
+    setSelectedTableId((current) => (current === tableId ? null : tableId))
   }
 
   function handlePlace(tableId: string) {
@@ -136,7 +159,15 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
       setAnnouncement(`${guest?.name ?? 'Guest'} released from ${tableLabel ?? 'their table'}`)
     })
     const reappeared = railButtons().find((button) => button.dataset.guestId === guestId)
-    reappeared?.focus()
+    if (reappeared) {
+      reappeared.focus()
+    } else {
+      // `allocated` re-seats the just-unpinned guest immediately rather than leaving them on
+      // the rail, so there is no row for them to land on — the table detail panel they were
+      // released from is still open (releasing never changes `selectedTableId`), so its own
+      // dismiss control is the nearest visible, focusable thing.
+      dismissButtonRef.current?.focus()
+    }
   }
 
   function handleAllocate() {
@@ -180,7 +211,8 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 seating={seating}
                 placingGuestName={selectedGuest?.name}
                 onPlace={handlePlace}
-                onRelease={handleRelease}
+                onSelect={handleSelectTable}
+                selectedTableId={selectedTableId}
               />
             </div>
             <div ref={railRef}>
@@ -193,7 +225,18 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
             </div>
           </div>
           <div className={styles.violations}>
-            <ViolationsPanel report={report} />
+            {selectedTable ? (
+              <TableDetailPanel
+                table={selectedTable}
+                onRelease={handleRelease}
+                onDismiss={() => {
+                  setSelectedTableId(null)
+                }}
+                dismissButtonRef={dismissButtonRef}
+              />
+            ) : (
+              <ViolationsPanel report={report} />
+            )}
           </div>
           <p role="status" className="tt-visually-hidden">
             {announcement}
