@@ -33,6 +33,7 @@ const TOP_SHAPE = /\.top\s*\{/
 // specificity rather than on source order.
 const FACE_BASE = /\.table\s+\.face\s*\{/
 const TOP_FACE = /\.top\s+\.face\s*\{/
+const TOP_FACE_HOVER = /\.top\s+\.face:hover:not\(:disabled\)\s*\{/
 const FACE_FOCUS_VISIBLE = /\.table\s+\.face:focus-visible\s*\{/
 // (0,4,0): .table, .face, :hover and :not(:disabled) each count, beating Button.module.css's
 // .quiet:hover:not(:disabled) at (0,3,0) regardless of source order.
@@ -298,6 +299,23 @@ describe('PlanTable.module.css — the top table is a constant slate bar, not a 
   it('the pinned mark drawn over that face is on-slate, not the slate it would otherwise vanish into', () => {
     const rule = requireRule(readCss(), PINNED_AFTER, 'top[data-pinned]::after')
     expect(rule.body).toMatch(/background\s*:\s*var\(--on-slate\)/i)
+  })
+
+  // A round table may drop its face background on hover because its ring carries the material.
+  // The top table has no ring, so the same rule left its white label on the white floor.
+  it('keeps its slate fill on hover, so the on-slate label never sits on the surface floor', () => {
+    const rule = requireRule(readCss(), TOP_FACE_HOVER, '.top .face:hover:not(:disabled)')
+    expect(rule.body).toMatch(/background\s*:\s*var\(--slate\)/i)
+    expect(rule.body).not.toMatch(/background\s*:\s*transparent/i)
+  })
+
+  it('declares that hover rule after the shared one, which it ties with at 0,4,0 — source order is the only thing deciding it', () => {
+    const css = stripComments(readCss())
+    const sharedIndex = css.search(FACE_HOVER)
+    const topIndex = css.search(TOP_FACE_HOVER)
+    expect(sharedIndex, 'expected a .table .face:hover rule').toBeGreaterThanOrEqual(0)
+    expect(topIndex, 'expected a .top .face:hover rule').toBeGreaterThanOrEqual(0)
+    expect(topIndex).toBeGreaterThan(sharedIndex)
   })
 })
 
