@@ -185,8 +185,12 @@ export function seatOf(plan: SeatingPlan, guestId: string): SeatLocation | null 
   return null
 }
 
-/** guestId -> tableId, for pins naming both a real slot and a real guest — never a seat (KB-1). */
-function resolveHonouredPins(
+/**
+ * guestId -> tableId, for pins naming both a real slot and a real guest — never a seat (KB-1).
+ * Exported so `allocate.ts` shares this one definition rather than keeping its own — two readings
+ * of which pins are honoured is how the pre-allocate view and the solver end up disagreeing.
+ */
+export function resolveHonouredPins(
   slots: readonly TableSlot[],
   guests: readonly Guest[],
   pins: readonly Pin[],
@@ -202,11 +206,15 @@ function resolveHonouredPins(
   return byGuestId
 }
 
-/** `tables` always has an entry for every id drawn from `slots`; this documents that rather than asserting past it. */
-function tableFor(tables: ReadonlyMap<string, SeatedTable>, id: string): SeatedTable {
+/**
+ * `tables` always has an entry for every id drawn from `slots`; this documents that rather than
+ * asserting past it. Generic and exported so `allocate.ts`'s mutable `BuildingTable` map and this
+ * file's `SeatedTable` one share the one lookup.
+ */
+export function tableFor<T>(tables: ReadonlyMap<string, T>, id: string): T {
   const table = tables.get(id)
   if (!table) {
-    throw new Error(`seatPins: no table built for ${id}`)
+    throw new Error(`no table built for ${id}`)
   }
   return table
 }
