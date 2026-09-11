@@ -4,6 +4,7 @@ import { useTopTableStore } from '../../store/store'
 import { useNavigation } from '../../shell/navigation'
 import { totalSeats } from '../../domain/capacity'
 import { pinnedTableFor } from '../../domain/pins'
+import { isTopTableIncomplete } from '../setup/roomCompleteness'
 import { floorplanFromRoom, normaliseRoom, seatingFromPins, unseatedGuests } from './floorplan'
 import { PlanHeader } from './PlanHeader'
 import { FloorplanGrid } from './FloorplanGrid'
@@ -17,6 +18,11 @@ import styles from './PlanScreen.module.css'
  * Placing pins a guest at a table — the seating model beyond one pin per guest is still
  * TT-13's, and violations are still TT-14's. Two columns, not three: KB-6's third, the
  * violations panel, belongs to TT-14.
+ *
+ * `showFloorplan` is `hasSeats && !topTableIncomplete` (fix to TT-3): a room short of the
+ * top-table minimum renders `PlanEmpty` the same as an unconfigured one, just with different
+ * copy — `hasSeats` alone used to be the whole gate, and nine tables of eight with no top
+ * table rendered a floorplan.
  */
 export function PlanScreen() {
   const room = useTopTableStore((s) => s.room)
@@ -34,7 +40,14 @@ export function PlanScreen() {
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
 
   // Normalised first, matching FloorplanGrid's own generator — see normaliseRoom in ./floorplan.
-  const hasSeats = totalSeats(normaliseRoom(room)) > 0
+  const normalisedRoom = normaliseRoom(room)
+  const hasSeats = totalSeats(normalisedRoom) > 0
+  // Fix to TT-3: a top table below the minimum routes here too, same as an unconfigured room —
+  // see src/screens/setup/roomCompleteness.ts. Checked on the normalised room for the same
+  // reason hasSeats is: a hand-edited or pre-rule persisted room can carry a negative or
+  // fractional field, and the gate must agree with floorplanFromRoom's own generator.
+  const topTableIncomplete = isTopTableIncomplete(normalisedRoom)
+  const showFloorplan = hasSeats && !topTableIncomplete
   const slots = floorplanFromRoom(room)
   const seating = seatingFromPins(slots, guests, pins)
   const unseated = unseatedGuests(guests, seating)
@@ -104,7 +117,7 @@ export function PlanScreen() {
   return (
     <div>
       <h1 className="tt-visually-hidden">Plan</h1>
-      {hasSeats ? (
+      {showFloorplan ? (
         <>
           <PlanHeader scenario={scenario} room={room} guests={guests} seating={seating} />
           <div className={styles.screen}>
@@ -130,7 +143,8 @@ export function PlanScreen() {
         </>
       ) : (
         <PlanEmpty
-          onGoToScenarios={() => {
+          reason={hasSeats ? 'topTableIncomplete' : 'unconfigured'}
+          onGoToSetup={() => {
             goTo('setup')
           }}
         />
