@@ -9,9 +9,17 @@ import { TOP_TABLE_ID, resolveHonouredPins, tableFor, tablesInRoom, topTableRole
  * `./seating` without also importing this.
  */
 
+/**
+ * What a guard is shown while the fill is still running: the tables built so far, in the same
+ * shape `allocate` returns. No `unseated` — the fill has not finished failing to seat anyone
+ * until it ends, so a running count would be fiction; read `SeatingPlan.unseated` from
+ * `allocate`'s own return value instead.
+ */
+export type PlanSoFar = Pick<SeatingPlan, 'tables'>
+
 export type SeatCandidate = {
   /** The plan as built so far. A guard reads it and must not mutate it. */
-  plan: SeatingPlan
+  plan: PlanSoFar
   tableId: string
   seatIndex: number
   guest: Guest
@@ -131,7 +139,7 @@ function seatIntoFirstAllowedSeat(
   roundSlotsInOrder: readonly TableSlot[],
   guest: Guest,
   allowSeat: SeatGuard,
-  planSoFar: SeatingPlan,
+  planSoFar: PlanSoFar,
 ): boolean {
   for (const slot of roundSlotsInOrder) {
     const table = tableFor(tables, slot.id)
@@ -153,7 +161,7 @@ function fillRemainingGuests(
   guests: readonly Guest[],
   seatedGuestIds: Set<string>,
   allowSeat: SeatGuard,
-  planSoFar: SeatingPlan,
+  planSoFar: PlanSoFar,
 ): Guest[] {
   const unseated: Guest[] = []
 
