@@ -456,10 +456,10 @@ describe('seatPins — the plan a hand pin alone describes (TT-12, relocated)', 
 
 /**
  * `topTableRoleOrder` and `adjacentSeats` are KB-4's placement matrix and the model's geometry.
- * Every expected role list below (other than the eight-seat case, which is deliberately a
- * hand-written transcription of KB-4's table) is built from PROTOCOL_ROLES rather than typed
- * out again, so a typo in that one source would surface as a mismatched seat here rather than
- * vanishing into a silently empty one.
+ * Every expected role list below (other than the eight-seat and six-seat cases, each deliberately
+ * a hand-written transcription of KB-4's own published table) is built from PROTOCOL_ROLES rather
+ * than typed out again, so a typo in that one source would surface as a mismatched seat here
+ * rather than vanishing into a silently empty one.
  */
 const [CHIEF_BRIDESMAID, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM] =
   PROTOCOL_ROLES
@@ -497,21 +497,21 @@ describe('topTableRoleOrder — nothing seats beyond the eighth role, however la
   })
 })
 
-describe("topTableRoleOrder — KB-4's own six-seat worked example (C6)", () => {
-  it("fills the couple and both sets of parents; the two attendants are what didn't fit", () => {
+describe("topTableRoleOrder — KB-4's own six-seat worked example", () => {
+  it("fills the couple and both sets of parents; the two attendants are what didn't fit — a literal list transcribed from KB-4, not read from PROTOCOL_ROLES", () => {
     // KB-4: "groom and bride first, then their parents" — exactly what a top table of six holds.
     expect(topTableRoleOrder(6)).toEqual([
-      FATHER_OF_GROOM,
-      MOTHER_OF_BRIDE,
-      GROOM,
-      BRIDE,
-      FATHER_OF_BRIDE,
-      MOTHER_OF_GROOM,
+      'father of the groom',
+      'mother of the bride',
+      'groom',
+      'bride',
+      'father of the bride',
+      'mother of the groom',
     ])
   })
 })
 
-describe('topTableRoleOrder — even sizes shrink symmetrically from the middle (C6)', () => {
+describe('topTableRoleOrder — even sizes shrink symmetrically from the middle', () => {
   it("four seats hold the couple and the bride's parents", () => {
     expect(topTableRoleOrder(4)).toEqual([MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE])
   })
