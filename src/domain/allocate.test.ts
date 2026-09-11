@@ -135,7 +135,7 @@ function readScenario(id: ScenarioId): ScenarioFixture {
   return JSON.parse(readFileSync(path, 'utf8')) as ScenarioFixture
 }
 
-describe('allocate — the top table seated by protocol, seat for seat (C5)', () => {
+describe('allocate — the top table seated by protocol, seat for seat', () => {
   it('with all eight roles present, seat i holds KB-4\'s role for seat i, and no ordinary guest reaches the top table', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 8 }
     const guests = [...otherProtocolGuests(), makeGuest('best-man', { role: BEST_MAN }), makeGuest('ordinary-1')]
@@ -158,7 +158,7 @@ describe('allocate — the top table seated by protocol, seat for seat (C5)', ()
   })
 })
 
-describe('allocate — seats beyond the eighth stay empty, however large the top table (C9)', () => {
+describe('allocate — seats beyond the eighth stay empty, however large the top table (KB-4)', () => {
   it('with ten top seats, roles fill the first eight, seats nine and ten stay empty, and the ordinary guest is seated in the room instead', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 1, topTableSeats: 10 }
     const guests = [...otherProtocolGuests(), makeGuest('best-man', { role: BEST_MAN }), makeGuest('ordinary-1')]
@@ -175,7 +175,7 @@ describe('allocate — seats beyond the eighth stay empty, however large the top
   })
 })
 
-describe('allocate — a protocol role nobody holds leaves its seat empty; nobody is promoted (C8)', () => {
+describe('allocate — a protocol role nobody holds leaves its seat empty; nobody is promoted', () => {
   it('with no best man in the guest list, the eighth seat is empty and the next guest is seated at a round table instead', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 8 }
     const guests = [...otherProtocolGuests(), makeGuest('next-guest')]
@@ -190,7 +190,7 @@ describe('allocate — a protocol role nobody holds leaves its seat empty; nobod
   })
 })
 
-describe('allocate — six top seats: the middle six by protocol, the outermost two together at the nearest round table (C6, C7)', () => {
+describe('allocate — six top seats: the middle six by protocol, the outermost two together at the nearest round table (KB-4)', () => {
   it("Adding up's top table holds the six middle roles in protocol order, and the chief bridesmaid and best man sit together at round-1", () => {
     const { meta, guests } = readScenario('adding-up')
 
@@ -216,7 +216,7 @@ describe('allocate — six top seats: the middle six by protocol, the outermost 
     expect(seatOf(plan, bestMan.id)?.table.id).toBe('round-1')
   })
 
-  it('when round-1 has only one free seat, the overflow pair moves together to the next round table with room for both (A7)', () => {
+  it('when round-1 has only one free seat, the overflow pair moves together to the next round table with room for both (TT-13)', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 8, topTableSeats: 6 }
     const fillers = Array.from({ length: 7 }, (_, i) => makeGuest(`filler-${i + 1}`))
     const guests = [...otherProtocolGuests(), makeGuest('best-man', { role: BEST_MAN }), ...fillers]
@@ -228,7 +228,7 @@ describe('allocate — six top seats: the middle six by protocol, the outermost 
     expect(seatOf(plan, 'best-man')?.table.id).toBe('round-2')
   })
 
-  it('when no round table has room for the whole pair, they fall through to the ordinary fill and are seated individually without error (A7)', () => {
+  it('when no round table has room for the whole pair, they fall through to the ordinary fill and are seated individually without error (TT-13)', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 8, topTableSeats: 6 }
     const round1Fillers = Array.from({ length: 7 }, (_, i) => makeGuest(`r1-filler-${i + 1}`))
     const round2Fillers = Array.from({ length: 7 }, (_, i) => makeGuest(`r2-filler-${i + 1}`))
@@ -256,7 +256,7 @@ describe('allocate — six top seats: the middle six by protocol, the outermost 
   })
 })
 
-describe('allocate — a pin binds a guest to a table, not a seat (C12, A2, A5)', () => {
+describe('allocate — a pin binds a guest to a table, not a seat (KB-4)', () => {
   it('an ordinary guest pinned to round-3 is seated there, pinned true', () => {
     const room: RoomConfig = { roundTables: 3, seatsEach: 8, topTableSeats: 0 }
     const plan = allocate(room, [makeGuest('g-1')], [{ guestId: 'g-1', tableId: 'round-3' }])
@@ -303,7 +303,7 @@ describe('allocate — a pin binds a guest to a table, not a seat (C12, A2, A5)'
   })
 })
 
-describe('allocate — two holders of the same protocol role (A10)', () => {
+describe('allocate — two holders of the same protocol role (TT-13)', () => {
   it('the first in guest-list order takes the seat; the other is seated in the room', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 8 }
     const guests = [
@@ -320,7 +320,7 @@ describe('allocate — two holders of the same protocol role (A10)', () => {
   })
 })
 
-describe('allocate — the three shipped scenarios, seated for real (C10)', () => {
+describe('allocate — the three shipped scenarios, seated for real', () => {
   it('Small and cosy seats everyone; no seat is spare', () => {
     const { meta, guests } = readScenario('small-and-cosy')
 
@@ -360,7 +360,7 @@ describe('allocate — the three shipped scenarios, seated for real (C10)', () =
   })
 })
 
-describe('allocate — a room too small for everyone (C13)', () => {
+describe('allocate — a room too small for everyone', () => {
   it('12 guests into a single round table of 4 with no top table: the first four in list order are seated, the rest unseated', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 0 }
     const guests = Array.from({ length: 12 }, (_, i) => makeGuest(`g-${i + 1}`))
@@ -382,7 +382,7 @@ describe('allocate — a room too small for everyone (C13)', () => {
   })
 })
 
-describe('allocate — determinism goes deeper than the base contract (C13)', () => {
+describe('allocate — determinism goes deeper than the base contract', () => {
   it('the same pins in a shuffled array produce a deeply equal plan', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 6 }
     const guests = [
@@ -413,7 +413,7 @@ describe('allocate — determinism goes deeper than the base contract (C13)', ()
   })
 })
 
-describe('allocate — the fill consults a caller-supplied guard (C11)', () => {
+describe('allocate — the fill consults a caller-supplied guard', () => {
   it('a guard refusing every seat at round-1 leaves it untouched; guests land at round-2 onward', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 0 }
     const guests = Array.from({ length: 4 }, (_, i) => makeGuest(`g-${i + 1}`))
@@ -502,7 +502,7 @@ describe('allocate — the fill consults a caller-supplied guard (C11)', () => {
   })
 })
 
-describe('allocate — capacity is enforced by the seat model, not a rule (C17)', () => {
+describe('allocate — capacity is enforced by the seat model, not a rule (KB-1)', () => {
   it('with no guard, 40 guests into four tables of 8 and no top table seats 32 and leaves 8 unseated', () => {
     const room: RoomConfig = { roundTables: 4, seatsEach: 8, topTableSeats: 0 }
     const guests = Array.from({ length: 40 }, (_, i) => makeGuest(`g-${i + 1}`))
@@ -535,7 +535,7 @@ describe('allocate — capacity is enforced by the seat model, not a rule (C17)'
   })
 })
 
-describe('allocate — no violation exists yet to detect (C18)', () => {
+describe('allocate — no violation exists yet to detect (TT-14)', () => {
   it('a plan carries no violation data at all — rules and violations belong to a later ticket', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 4 }
     const guests = [makeGuest('groom', { role: GROOM }), makeGuest('g-2')]
@@ -551,7 +551,7 @@ describe('allocate — no violation exists yet to detect (C18)', () => {
   })
 })
 
-describe('allocate — what a guard is handed (C11)', () => {
+describe('allocate — what a guard is handed', () => {
   it('leaves every table structurally valid when the guard only reads, however often it is asked', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 0 }
     const guests = Array.from({ length: 6 }, (_, i) => makeGuest(`g-${i + 1}`))

@@ -43,7 +43,7 @@ function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
   }
 }
 
-describe('tablesInRoom — table count is derived from config (C1, C7)', () => {
+describe('tablesInRoom — table count is derived from config', () => {
   it('renders 5 slots for Small and cosy: 4 round tables + the top table', () => {
     const room: RoomConfig = { roundTables: 4, seatsEach: 8, topTableSeats: 8 }
     expect(tablesInRoom(room)).toHaveLength(5)
@@ -60,7 +60,7 @@ describe('tablesInRoom — table count is derived from config (C1, C7)', () => {
   })
 })
 
-describe('tablesInRoom — the top table first, round tables numbered in order (C2, C3)', () => {
+describe('tablesInRoom — the top table first, round tables numbered in order', () => {
   it('puts the top table first, then every round table numbered 1..N with a stable id and label', () => {
     const room: RoomConfig = { roundTables: 3, seatsEach: 8, topTableSeats: 6 }
     const slots = tablesInRoom(room)
@@ -105,7 +105,7 @@ describe('tablesInRoom — the top table first, round tables numbered in order (
   })
 })
 
-describe('tablesInRoom — a table type can be entirely absent (C1)', () => {
+describe('tablesInRoom — a table type can be entirely absent', () => {
   it('topTableSeats: 0 renders no top slot, and the round tables still render', () => {
     const room: RoomConfig = { roundTables: 4, seatsEach: 8, topTableSeats: 0 }
     const slots = tablesInRoom(room)
@@ -474,7 +474,7 @@ function isSubsequenceOfProtocolRoles(roles: readonly ProtocolRole[]): boolean {
   return true
 }
 
-describe("topTableRoleOrder — KB-4's eight roles, seat for seat (C5)", () => {
+describe("topTableRoleOrder — KB-4's eight roles, seat for seat", () => {
   it('matches the protocol page exactly, left to right — a literal list transcribed from KB-4, not read from PROTOCOL_ROLES', () => {
     // KB-4, "Top table protocol": the printed order the venue and the photographer both work from.
     expect(topTableRoleOrder(8)).toEqual([
@@ -490,7 +490,7 @@ describe("topTableRoleOrder — KB-4's eight roles, seat for seat (C5)", () => {
   })
 })
 
-describe('topTableRoleOrder — nothing seats beyond the eighth role, however large the table (C5, C9)', () => {
+describe('topTableRoleOrder — nothing seats beyond the eighth role, however large the table (KB-4)', () => {
   it.each([9, 10, 11, 12])('size %i returns exactly the same eight roles as size 8', (n) => {
     expect(topTableRoleOrder(n)).toEqual(topTableRoleOrder(8))
     expect(topTableRoleOrder(n)).toHaveLength(8)
@@ -521,7 +521,7 @@ describe('topTableRoleOrder — even sizes shrink symmetrically from the middle'
   })
 })
 
-describe('topTableRoleOrder — an odd size drops the higher-numbered seat of whichever pair it lands on (C6, A6)', () => {
+describe('topTableRoleOrder — an odd size drops the higher-numbered seat of whichever pair it lands on (TT-13)', () => {
   it('seven seats omit only the best man, and fill all seven', () => {
     expect(topTableRoleOrder(7)).toEqual([
       CHIEF_BRIDESMAID,
@@ -547,14 +547,14 @@ describe('topTableRoleOrder — an odd size drops the higher-numbered seat of wh
   })
 })
 
-describe('topTableRoleOrder — the empty edge (C6)', () => {
+describe('topTableRoleOrder — the empty edge', () => {
   it('zero seats produces an empty order and does not throw', () => {
     expect(() => topTableRoleOrder(0)).not.toThrow()
     expect(topTableRoleOrder(0)).toEqual([])
   })
 })
 
-describe('topTableRoleOrder — the order is not negotiable, checked structurally across every size (C5, C6)', () => {
+describe('topTableRoleOrder — the order is not negotiable, checked structurally across every size', () => {
   it.each(Array.from({ length: 13 }, (_, n) => n))(
     'size %i is a subsequence of PROTOCOL_ROLES and never longer than eight',
     (n) => {
@@ -578,7 +578,7 @@ function makeSeatedTable(kind: TableKind, capacity: number): SeatedTable {
   }
 }
 
-describe('adjacentSeats — a round table is a ring (C2)', () => {
+describe('adjacentSeats — a round table is a ring', () => {
   it('an eight-seat ring: every seat has the seat before and the seat after it as neighbours, wrapping round', () => {
     const table = makeSeatedTable('round', 8)
     expect(adjacentSeats(table, 0)).toEqual([1, 7])
@@ -600,7 +600,7 @@ describe('adjacentSeats — a round table is a ring (C2)', () => {
   })
 })
 
-describe('adjacentSeats — the top table is a line (C3)', () => {
+describe('adjacentSeats — the top table is a line', () => {
   it('an eight-seat line: seat 0 and seat 7 are the two ends, and are not adjacent to one another', () => {
     const table = makeSeatedTable('top', 8)
     expect(adjacentSeats(table, 0)).toEqual([1])
@@ -621,7 +621,7 @@ describe('adjacentSeats — the top table is a line (C3)', () => {
   })
 })
 
-describe('adjacentSeats — out-of-range seats agree for both kinds of table (C2, C3)', () => {
+describe('adjacentSeats — out-of-range seats agree for both kinds of table', () => {
   it.each([
     ['round', -1],
     ['round', 8],
@@ -634,7 +634,7 @@ describe('adjacentSeats — out-of-range seats agree for both kinds of table (C2
   })
 })
 
-describe('seatOf — locating a guest within a plan (C1)', () => {
+describe('seatOf — locating a guest within a plan', () => {
   it('returns the table and the 0-based seat index for a seated guest', () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
     const guests = [makeGuest('g-1'), makeGuest('g-2')]
@@ -676,7 +676,7 @@ describe('seatOf — locating a guest within a plan (C1)', () => {
   })
 })
 
-describe('every table exposes exactly one seat entry per unit of capacity (C1)', () => {
+describe('every table exposes exactly one seat entry per unit of capacity', () => {
   it("Small and cosy's room: every table's seats length equals its capacity", () => {
     const room: RoomConfig = { roundTables: 4, seatsEach: 8, topTableSeats: 8 }
     const plan = seatPins(room, [], [])
