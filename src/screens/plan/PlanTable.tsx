@@ -1,5 +1,6 @@
 import { Button, cx, tabularClass } from '../../ui'
-import { occupancyOf, type TableOccupants, type TableSlot } from './floorplan'
+import type { TableSlot } from '../../domain/seating'
+import { occupancyOf, type TableOccupants } from './floorplan'
 import styles from './PlanTable.module.css'
 
 type PlanTableProps = {
@@ -72,8 +73,11 @@ export function PlanTable({ slot, occupants, placing, onRelease }: PlanTableProp
         <div className={styles.face}>{faceContent}</div>
       )}
       <ul className={styles.guests}>
-        {occupants.guests.map((guest) =>
-          onRelease ? (
+        {occupants.guests.map(({ guest, pinned }) =>
+          // Gated on this guest's own `pinned`, not the table's aggregate `pinnedCount` — a
+          // solver-filled table can hold a pinned guest beside unpinned ones, and only the
+          // pinned guest holds a pin for this control to release.
+          pinned && onRelease ? (
             <li key={guest.id}>
               <Button variant="quiet" className={styles.release} onClick={() => onRelease(guest.id)}>
                 <span className="tt-visually-hidden">Release</span> {guest.name}{' '}

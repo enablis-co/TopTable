@@ -3,7 +3,8 @@ import { totalSeats } from '../../domain/capacity'
 import type { Guest, RoomConfig } from '../../domain/types'
 import type { ScenarioState } from '../../store/store'
 import { tabularClass } from '../../ui'
-import { normaliseRoom, planTotals, type SeatingView } from './floorplan'
+import { normaliseRoom } from '../../domain/seating'
+import { planTotals, type SeatingView } from './floorplan'
 import styles from './PlanHeader.module.css'
 
 type PlanHeaderProps = {
@@ -11,6 +12,9 @@ type PlanHeaderProps = {
   room: RoomConfig
   guests: Guest[]
   seating: SeatingView
+  /** `plan.unseated.length` — the solver's own figure. Do not re-derive it from `seating`;
+   * that produced two counts that could disagree. */
+  unseatedCount: number
 }
 
 /**
@@ -29,9 +33,9 @@ function scenarioLabel(scenario: ScenarioState): string | null {
  * count, every figure tabular. Presentational — `PlanScreen` is the only file here that
  * touches the store.
  */
-export function PlanHeader({ scenario, room, guests, seating }: PlanHeaderProps) {
+export function PlanHeader({ scenario, room, guests, seating, unseatedCount }: PlanHeaderProps) {
   const label = scenarioLabel(scenario)
-  const { guestCount, pinnedCount, unseatedCount } = planTotals(guests, seating)
+  const { guestCount, pinnedCount } = planTotals(guests, seating)
   // Normalised, matching PlanScreen's gate and FloorplanGrid's own generator.
   const seats = totalSeats(normaliseRoom(room))
 

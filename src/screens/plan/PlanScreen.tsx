@@ -1,30 +1,44 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useTopTableStore } from '../../store/store'
 import { useNavigation } from '../../shell/navigation'
 import { totalSeats } from '../../domain/capacity'
 import { pinnedTableFor } from '../../domain/pins'
+import { normaliseRoom, seatPins, tablesInRoom } from '../../domain/seating'
+import { allocate } from '../../domain/allocate'
 import { isTopTableIncomplete } from '../setup/roomCompleteness'
-import { floorplanFromRoom, normaliseRoom, seatingFromPins, unseatedGuests } from './floorplan'
+import { seatingViewFrom } from './floorplan'
 import { PlanHeader } from './PlanHeader'
 import { FloorplanGrid } from './FloorplanGrid'
 import { PlanEmpty } from './PlanEmpty'
 import { UnseatedRail } from './UnseatedRail'
+import { Button } from '../../ui'
 import styles from './PlanScreen.module.css'
 
 /**
- * TT-11, TT-12, KB-6 "Plan". Owns every store read and write for this screen; PlanHeader,
- * FloorplanGrid, UnseatedRail and PlanEmpty are presentational and write nothing themselves.
- * Placing pins a guest at a table — the seating model beyond one pin per guest is still
- * TT-13's, and violations are still TT-14's. Two columns, not three: KB-6's third, the
- * violations panel, belongs to TT-14.
+ * TT-11, TT-12, TT-13, KB-6 "Plan". Owns every store read and write for this screen; PlanHeader,
+ * FloorplanGrid, UnseatedRail and PlanEmpty stay presentational. The plan itself is always
+ * derived — from the room, the guests and the pins, plus the solver once `allocated` is true —
+ * and never stored (docs/state.md).
+ *
+ * `allocated`/`setAllocated` arrive as props rather than local state: `App`'s `CurrentScreen`
+ * unmounts this component on every tab switch, so state kept here was losing the allocation the
+ * moment someone left for Guests and came back. The flag now lives in `App`, above that unmount,
+ * and survives it; re-allocating is deterministic, so remounting and recomputing from the same
+ * room, guests and pins reproduces the same plan. Two columns, not three: KB-6's third column,
+ * the violations panel, is TT-14's, and the numbered seats in its table detail are TT-15's.
  *
  * `showFloorplan` is `hasSeats && !topTableIncomplete` (fix to TT-3): a room short of the
  * top-table minimum renders `PlanEmpty` the same as an unconfigured one, just with different
  * copy — `hasSeats` alone used to be the whole gate, and nine tables of eight with no top
  * table rendered a floorplan.
  */
-export function PlanScreen() {
+type PlanScreenProps = {
+  allocated: boolean
+  setAllocated: (allocated: boolean) => void
+}
+
+export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const room = useTopTableStore((s) => s.room)
   const guests = useTopTableStore((s) => s.guests)
   const scenario = useTopTableStore((s) => s.scenario)
@@ -39,18 +53,20 @@ export function PlanScreen() {
   const railRef = useRef<HTMLDivElement>(null)
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
 
-  // Normalised first, matching FloorplanGrid's own generator — see normaliseRoom in ./floorplan.
+  // Normalised first, matching FloorplanGrid's own generator — see normaliseRoom in ../../domain/seating.
   const normalisedRoom = normaliseRoom(room)
   const hasSeats = totalSeats(normalisedRoom) > 0
-  // Fix to TT-3: a top table below the minimum routes here too, same as an unconfigured room —
-  // see src/screens/setup/roomCompleteness.ts. Checked on the normalised room for the same
-  // reason hasSeats is: a hand-edited or pre-rule persisted room can carry a negative or
-  // fractional field, and the gate must agree with floorplanFromRoom's own generator.
+  // Checked on the normalised room for the same reason hasSeats is: a hand-edited or pre-rule
+  // persisted room can carry a negative or fractional field, and this gate has to agree with
+  // the table generator. See src/screens/setup/roomCompleteness.ts.
   const topTableIncomplete = isTopTableIncomplete(normalisedRoom)
   const showFloorplan = hasSeats && !topTableIncomplete
-  const slots = floorplanFromRoom(room)
-  const seating = seatingFromPins(slots, guests, pins)
-  const unseated = unseatedGuests(guests, seating)
+  const slots = tablesInRoom(room)
+  const plan = useMemo(
+    () => (allocated ? allocate(room, guests, pins) : seatPins(room, guests, pins)),
+    [allocated, room, guests, pins],
+  )
+  const seating = useMemo(() => seatingViewFrom(plan), [plan])
   const selectedGuest = guests.find((guest) => guest.id === selectedGuestId) ?? null
 
   // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern.
@@ -114,16 +130,39 @@ export function PlanScreen() {
     reappeared?.focus()
   }
 
+  function handleAllocate() {
+    // setAllocated(true) leaves this render's own `plan` pointed at the pre-click seating —
+    // that closure doesn't update until the next render, and flushSync can't change that, only
+    // when the DOM catches up. A second, throwaway solver run is what the announcement can
+    // trust; see the PlanScreen test asserting the announced figures are the post-click ones.
+    const justAllocated = allocate(room, guests, pins)
+    const seatedCount = guests.length - justAllocated.unseated.length
+    setAllocated(true)
+    setSelectedGuestId(null)
+    setAnnouncement(`Allocated. ${seatedCount} seated, ${justAllocated.unseated.length} unseated.`)
+  }
+
   return (
     <div>
       <h1 className="tt-visually-hidden">Plan</h1>
       {showFloorplan ? (
         <>
-          <PlanHeader scenario={scenario} room={room} guests={guests} seating={seating} />
+          <div className={styles.actions}>
+            <Button variant="primary" onClick={handleAllocate}>
+              Auto-allocate
+            </Button>
+          </div>
+          <PlanHeader
+            scenario={scenario}
+            room={room}
+            guests={guests}
+            seating={seating}
+            unseatedCount={plan.unseated.length}
+          />
           <div className={styles.screen}>
             <div ref={railRef}>
               <UnseatedRail
-                guests={unseated}
+                guests={plan.unseated}
                 selectedGuestId={selectedGuestId}
                 onSelect={handleSelect}
                 headingRef={railHeadingRef}

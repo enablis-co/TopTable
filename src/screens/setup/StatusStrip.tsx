@@ -4,6 +4,7 @@ import styles from './StatusStrip.module.css'
 type StatusStripProps = {
   guestCount: number
   totalSeats: number
+  allocated: boolean
   onGoToGuests: () => void
 }
 
@@ -13,7 +14,7 @@ type StatusStripProps = {
  * control per view, and on this screen that is the import confirmation's Load button, not
  * this rail.
  */
-export function StatusStrip({ guestCount, totalSeats, onGoToGuests }: StatusStripProps) {
+export function StatusStrip({ guestCount, totalSeats, allocated, onGoToGuests }: StatusStripProps) {
   return (
     <div className={styles.strip}>
       <div className={styles.item}>
@@ -30,9 +31,7 @@ export function StatusStrip({ guestCount, totalSeats, onGoToGuests }: StatusStri
       </div>
       <div className={styles.item}>
         <span className={styles.label}>Plan</span>
-        {/* Literal until TT-12 first generates a plan; no prop or store field anticipates
-            that yet. */}
-        <span className={styles.value}>Not generated</span>
+        <span className={styles.value}>{allocated ? 'Allocated' : 'Not generated'}</span>
       </div>
       <Button variant="secondary" onClick={onGoToGuests}>
         Go to guests

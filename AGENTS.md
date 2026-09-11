@@ -205,8 +205,9 @@ goes stale.
 `src/ui/` (tokens, base styles, the shared components) and `src/shell/` (the header and the tab
 frame) exist now; TT-7 built them. The setup screen is TT-3 and has landed; TT-4 has added the
 scenario cards to it. Guests is TT-5 and TT-6 and has landed. The Plan screen's floorplan is TT-11
-and has landed; placing is TT-12 and has landed too. The seating model, the rules engine and the
-table detail are TT-13 to TT-15 and have not.
+and has landed; placing is TT-12 and has landed too. The seating model is TT-13 and has landed,
+in `src/domain/seating.ts` (the model and the table address) and `src/domain/allocate.ts` (the
+solver and the rule seam); the rules engine (TT-14) and the table detail (TT-15) have not.
 
 The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`,
 `addGuest`, `updateGuest`, `removeGuest`, `pinGuest` and `unpinGuest`. `addGuest`, `updateGuest`

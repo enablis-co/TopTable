@@ -53,6 +53,27 @@ describe('PlanScreen.module.css — a gap separates the header line from the rai
   })
 })
 
+describe('PlanScreen.module.css — .actions right-aligns Auto-allocate above the header line (TT-13)', () => {
+  function actionsBody(): string {
+    const rule = /\.actions\s*\{([^}]*)\}/.exec(stripComments(readCss()))
+    expect(rule, 'expected an .actions rule in PlanScreen.module.css').not.toBeNull()
+    return rule?.[1] ?? ''
+  }
+
+  it('declares a real flex/justify value, not left at the browser default', () => {
+    const body = actionsBody()
+    expect(body).toMatch(/display\s*:\s*flex/)
+    expect(body).toMatch(/justify-content\s*:\s*flex-end/)
+  })
+
+  it('reaches for no colour literal, no box-shadow and no text-transform', () => {
+    const body = actionsBody()
+    expect(body).not.toMatch(/#[0-9a-f]{3,8}\b/i)
+    expect(body).not.toMatch(/box-shadow\s*:/i)
+    expect(body).not.toMatch(/text-transform\s*:\s*uppercase/i)
+  })
+})
+
 describe('PlanScreen.module.css — below a breakpoint the rail and floorplan collapse to one column (TT-11 fix, D1)', () => {
   it('declares an @media (max-width) rule containing a .screen override to a single column', () => {
     const css = readCss()

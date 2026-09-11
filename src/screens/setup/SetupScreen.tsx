@@ -38,7 +38,7 @@ import styles from './SetupScreen.module.css'
  * matched exactly. A room that has been started but is short of the top-table minimum is a
  * different state again, and is never silent about it.
  */
-export function SetupScreen() {
+export function SetupScreen({ allocated = false }: { allocated?: boolean }) {
   const event = useTopTableStore((s) => s.event)
   const room = useTopTableStore((s) => s.room)
   const guests = useTopTableStore((s) => s.guests)
@@ -134,6 +134,7 @@ export function SetupScreen() {
         <StatusStrip
           guestCount={guestCount}
           totalSeats={totalSeats(room)}
+          allocated={allocated}
           onGoToGuests={() => {
             goTo('guests')
           }}

@@ -21,3 +21,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Auto-allocate, right-aligned above the header line (KB-6 "Plan", TT-13). */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}

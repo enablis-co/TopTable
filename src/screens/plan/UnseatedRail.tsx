@@ -4,7 +4,7 @@ import type { Guest } from '../../domain/types'
 import styles from './UnseatedRail.module.css'
 
 type UnseatedRailProps = {
-  guests: Guest[]
+  guests: readonly Guest[]
   selectedGuestId: string | null
   onSelect: (guestId: string) => void
   headingRef: Ref<HTMLHeadingElement>
