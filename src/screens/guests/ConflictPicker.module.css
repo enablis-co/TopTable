@@ -1,13 +1,13 @@
 .picker {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .selected {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: var(--s-1);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -36,7 +36,7 @@
 .results {
   list-style: none;
   margin: 0;
-  padding: var(--space-1);
+  padding: var(--s-1);
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--r-control);
@@ -54,8 +54,8 @@
 .result {
   display: block;
   width: 100%;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--s-1) var(--s-2);
   border-color: transparent;
   text-align: left;
-  font-size: var(--text-data);
+  font: var(--t-body);
 }

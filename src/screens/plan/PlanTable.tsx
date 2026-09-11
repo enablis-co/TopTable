@@ -1,6 +1,7 @@
 import { Button, cx, tabularClass } from '../../ui'
 import type { TableSlot } from '../../domain/seating'
 import { occupancyOf, type TableOccupants } from './floorplan'
+import { TableRing } from './TableRing'
 import styles from './PlanTable.module.css'
 
 type PlanTableProps = {
@@ -34,6 +35,10 @@ type PlanTableProps = {
  * a space sitting only at the boundary between two elements (rather than inside one of their
  * own text runs) is silently dropped — the face and release buttons below each carry an
  * explicit `{' '}` between such siblings for exactly that reason.
+ *
+ * TT-35: `TableRing` (round tables only) renders first inside the face, before `.heading`. It
+ * needs no `{' '}` boundary of its own — it is `aria-hidden` and carries no text, so it is
+ * invisible to name-from-content entirely, unlike every other sibling in this file.
  */
 export function PlanTable({ slot, occupants, placing, onRelease }: PlanTableProps) {
   const occupancy = occupancyOf(occupants.guests.length, slot.capacity)
@@ -42,6 +47,7 @@ export function PlanTable({ slot, occupants, placing, onRelease }: PlanTableProp
 
   const faceContent = (
     <>
+      {slot.kind === 'round' && <TableRing seats={slot.capacity} pinned={isPinned} />}
       <p className={styles.heading}>
         {slot.kind === 'round' && !placing && <span className="tt-visually-hidden">Table </span>}
         {slot.kind === 'top' ? slot.label : slot.number}

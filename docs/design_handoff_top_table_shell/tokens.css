@@ -1,0 +1,79 @@
+/* Top Table — design tokens, v2 ("Lit canvas")
+   Supersedes the v1 style guide. Changes from v1 are marked NEW or CHANGED.
+   Drop this in as-is; every value in the spec resolves to one of these. */
+
+:root {
+  /* ---- Canvas surfaces (the light half of the app) ---- */
+  --paper:        #F7F5F0;  /* main working area background */
+  --surface:      #FFFFFF;  /* cards, panels, floorplan, slide-over */
+  --sunken:       #EFECE4;  /* tag pills, inline code, disabled fills, filling tables */
+  --surface-edge: #E4E0D7;  /* NEW. border of a surface sitting on paper */
+
+  /* ---- Chrome surfaces (NEW: the dark half of the app) ---- */
+  --chrome:        #151D26;  /* top bar and left rail */
+  --chrome-edge:   #0D1319;  /* outer border of the app frame */
+  --chrome-rule:   #222D3A;  /* dividers inside chrome */
+  --chrome-line:   #2B3745;  /* vertical separators, pill borders */
+  --chrome-raised: #1E2833;  /* pill / input fill inside chrome */
+  --chrome-active: #22303E;  /* selected nav row */
+  --chrome-ink:        #FFFFFF;
+  --chrome-ink-muted:  #E4E1DA;
+  --chrome-ink-dim:    #A9B6C4;
+  --chrome-ink-faint:  #6E7D8C;
+  --chrome-border:     #34424F;  /* secondary button border on chrome */
+
+  /* ---- Ink (on light) ---- */
+  --ink:       #1C1B18;
+  --ink-muted: #6B6862;
+  --ink-faint: #9A968D;
+  --rule:        #DDD8CE;
+  --rule-strong: #C4BDB0;
+
+  /* ---- Accent and severity ---- */
+  --slate:       #23303F;  /* primary action on light, pins, full tables, the mark */
+  --slate-hover: #2F4055;
+  --hard:      #B3261E;  /* blocks publishing */
+  --hard-wash: #FBF0EF;
+  --hard-deep: #8C3B34;
+  --soft:      #B26A00;  /* reported, never blocks */
+  --soft-wash: #FBF5EA;
+  --soft-deep: #8A5A16;
+  /* There is no success colour. A clean plan says so in words. */
+
+  /* ---- Radius ---- */
+  --r-control: 5px;   /* CHANGED from 4px. buttons, fields */
+  --r-card:    8px;   /* panels, floorplan surface */
+  --r-nav:     6px;   /* NEW. nav rows, inline chips in chrome */
+  --r-frame:   14px;  /* NEW. outer app frame only */
+  --r-pill:    11px;  /* tags and scenario pills only */
+
+  /* ---- Spacing scale. No values off this scale. ---- */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  18px;
+  --s-6:  22px;
+  --s-7:  26px;
+  --s-8:  32px;
+  --s-9:  48px;
+
+  /* ---- Type ---- */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;  /* NEW: all figures */
+
+  --t-figure-xl: 500 38px/1 var(--font-mono);   /* NEW. capacity headline numbers */
+  --t-figure-lg: 500 20px/1 var(--font-mono);   /* stat block numbers */
+  --t-figure:    400 11px/1.4 var(--font-mono); /* inline counts, timestamps */
+  --t-title:     500 17px/1.3 var(--font-sans);
+  --t-heading:   500 15px/1.3 var(--font-sans);
+  --t-body:      400 13px/1.6 var(--font-sans);
+  --t-caption:   400 12px/1.5 var(--font-sans);
+  --t-label:     400 11px/1.4 var(--font-sans);
+  --tracking-figure-xl: -1.5px;
+  --tracking-wordmark:  -0.4px;
+
+  /* ---- Shape rules ---- */
+  --border: 1px;
+  /* Shadows: none, anywhere. Depth is value contrast between chrome and canvas. */
+}

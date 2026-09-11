@@ -3,17 +3,16 @@
 .wrapper {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--s-1);
 }
 
 .label {
   color: var(--ink-muted);
-  font-size: var(--text-caption);
+  font: var(--t-label);
 }
 
 .field {
-  font: inherit;
-  font-size: var(--text-data);
+  font: var(--t-body);
   width: 100%;
   padding: 7px 10px;
   border: 1px solid var(--rule-strong);
@@ -40,6 +39,6 @@
 
 .hint {
   color: var(--ink-muted);
-  font-size: var(--text-caption);
+  font: var(--t-caption);
   margin: 0;
 }

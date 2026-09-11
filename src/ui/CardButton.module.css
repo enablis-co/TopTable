@@ -6,9 +6,9 @@
   color: var(--ink);
   cursor: pointer;
   background: var(--surface);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--surface-edge);
   border-radius: var(--r-card);
-  padding: var(--space-4);
+  padding: var(--s-4);
 }
 
 .card:hover:not(:disabled) {

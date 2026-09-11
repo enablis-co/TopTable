@@ -67,6 +67,14 @@ function tableLabelled(label: string): HTMLElement {
   return match
 }
 
+// TT-35: the header's stat pair renders its value and its label ("Pinned"/"Unseated") as two
+// separate, stacked paragraphs (PlanHeader.module.css's .statValue/.statLabel), so a flattened
+// read of the body joins them with no space and the label's own sentence-case capital — this
+// checks the same fact the header used to state as one lowercase phrase, tolerant of both.
+function readsStat(count: number, label: 'Pinned' | 'Unseated'): boolean {
+  return new RegExp(`${count}\\s*${label}`, 'i').test(document.body.textContent ?? '')
+}
+
 /**
  * Stands in for `App`'s own `allocated` state — PlanScreen takes `allocated`/`setAllocated` as
  * props rather than owning them, so something above it has to.
@@ -556,14 +564,14 @@ describe('PlanScreen — the header reflects a placement, with PlanHeader.tsx it
     const user = userEvent.setup()
     renderPlanScreen()
 
-    expect(document.body.textContent).toContain('3 unseated')
-    expect(document.body.textContent).toContain('0 pinned')
+    expect(readsStat(3, 'Unseated')).toBe(true)
+    expect(readsStat(0, 'Pinned')).toBe(true)
 
     await user.click(screen.getByRole('button', { name: 'Guest g-0' }))
     await user.click(screen.getByRole('button', { name: /^Place Guest g-0 at Table 1/ }))
 
-    expect(document.body.textContent).toContain('1 pinned')
-    expect(document.body.textContent).toContain('2 unseated')
+    expect(readsStat(1, 'Pinned')).toBe(true)
+    expect(readsStat(2, 'Unseated')).toBe(true)
   })
 })
 
@@ -827,7 +835,7 @@ describe('PlanScreen — Auto-allocate honours a pin that was already there', ()
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
-    expect(document.body.textContent).toContain('3 pinned')
+    expect(readsStat(3, 'Pinned')).toBe(true)
     const stillTogether = tables().find((table) => table.textContent?.includes('Guest g-0'))
     expect(stillTogether?.textContent).toContain('Guest g-1')
     expect(tables().some((table) => table.textContent?.includes('Guest g-2'))).toBe(true)
@@ -843,13 +851,13 @@ describe('PlanScreen — a pin to the top table with no protocol role is honoure
     const user = userEvent.setup()
     renderPlanScreen()
 
-    expect(document.body.textContent).toContain('2 pinned')
+    expect(readsStat(2, 'Pinned')).toBe(true)
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
     // Both pins survive the solver: allocate seats a top table pin rather than moving it, so the
     // figure a hand placement produced is the figure Auto-allocate leaves behind.
-    expect(document.body.textContent).toContain('2 pinned')
+    expect(readsStat(2, 'Pinned')).toBe(true)
     const [topTable] = tables()
     if (!topTable) {
       throw new Error('expected the top table to render first')
@@ -868,7 +876,7 @@ describe('PlanScreen — the announcement reports the figures this press produce
 
     // Nothing pinned, so the pre-click header already reads "70 unseated" — the exact figure a
     // stale read of the pre-click render would wrongly repeat in the announcement.
-    expect(document.body.textContent).toContain('70 unseated')
+    expect(readsStat(70, 'Unseated')).toBe(true)
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
@@ -942,11 +950,11 @@ describe('PlanScreen — correcting the plan after allocating takes effect with 
     renderPlanScreen()
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
-    expect(document.body.textContent).toContain('1 pinned')
+    expect(readsStat(1, 'Pinned')).toBe(true)
 
     await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
 
-    expect(document.body.textContent).toContain('0 pinned')
+    expect(readsStat(0, 'Pinned')).toBe(true)
   })
 })
 

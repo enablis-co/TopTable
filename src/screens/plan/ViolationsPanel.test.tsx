@@ -183,3 +183,69 @@ describe('ViolationsPanel — a violation with no detail renders cleanly (Findin
     expect(text).not.toContain('null')
   })
 })
+
+describe('ViolationsPanel — the footer states what is true, and never implies a publish feature (AC20; TT-34, "Share a read-only plan", is unbuilt)', () => {
+  it('reads "One hard violation needs fixing." when there is exactly one hard violation', () => {
+    const violation = makeViolation({ severity: 'hard' })
+    const { container } = render(<ViolationsPanel report={makeReport([violation], 1)} />)
+    const text = container.textContent ?? ''
+
+    expect(text).toContain('One hard violation needs fixing.')
+    expect(text).not.toMatch(/publish/i)
+  })
+
+  it('pluralises honestly when there is more than one hard violation, rather than reusing the singular line', () => {
+    const violations = [
+      makeViolation({ severity: 'hard', tableIds: ['table-1'] }),
+      makeViolation({ severity: 'hard', tableIds: ['table-2'] }),
+    ]
+    const { container } = render(<ViolationsPanel report={makeReport(violations, 1)} />)
+    const text = container.textContent ?? ''
+
+    expect(text).toContain('2 hard violations need fixing.')
+    expect(text).not.toContain('One hard violation')
+    expect(text).not.toMatch(/publish/i)
+  })
+
+  it('reads "Nothing is blocking this plan." when only soft violations are present', () => {
+    const violation = makeViolation({ severity: 'soft' })
+    const { container } = render(<ViolationsPanel report={makeReport([violation], 1)} />)
+    const text = container.textContent ?? ''
+
+    expect(text).toContain('Nothing is blocking this plan.')
+    expect(text).not.toMatch(/publish/i)
+  })
+
+  it('reads "No violations." when the plan has none at all', () => {
+    const { container } = render(<ViolationsPanel report={makeReport([], 1)} />)
+    const text = container.textContent ?? ''
+
+    expect(text).toContain('No violations.')
+    expect(text).not.toMatch(/publish/i)
+  })
+
+  // The scope decision behind AC20: TT-34 is the ticket for a publish/share feature and it
+  // is not built. "publish" alone already catches "publishing" as a substring, but both are
+  // asserted because that is the exact tripwire AC20 names, and the handoff's own copy for
+  // this footer — "One hard violation stops this plan publishing" — is the wording this
+  // guards against.
+  it('never contains "publish" or "publishing" in any of the four footer states', () => {
+    const reports = [
+      makeReport([makeViolation({ severity: 'hard' })], 1),
+      makeReport(
+        [makeViolation({ severity: 'hard', tableIds: ['table-1'] }), makeViolation({ severity: 'hard', tableIds: ['table-2'] })],
+        1,
+      ),
+      makeReport([makeViolation({ severity: 'soft' })], 1),
+      makeReport([], 1),
+    ]
+
+    for (const report of reports) {
+      const { container, unmount } = render(<ViolationsPanel report={report} />)
+      const text = container.textContent ?? ''
+      expect(text).not.toContain('publish')
+      expect(text).not.toContain('publishing')
+      unmount()
+    }
+  })
+})

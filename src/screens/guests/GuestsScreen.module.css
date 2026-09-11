@@ -1,13 +1,17 @@
+/* Review fix (TT-35): see SetupScreen.module.css's own comment on `.screen` for why this
+   padding exists and why it is `var(--s-6) var(--s-7)` — the same inset as Setup and as
+   PlanHeader.module.css's canvas header, so all three screens agree. */
 .screen {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--s-4);
+  padding: var(--s-6) var(--s-7);
 }
 
 .header {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--s-4);
 }
 
 .search {

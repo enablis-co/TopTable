@@ -154,23 +154,35 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   }
 
   return (
-    <div>
+    <div className={styles.plan}>
       <h1 className="tt-visually-hidden">Plan</h1>
       {showFloorplan ? (
-        <>
-          <div className={styles.actions}>
-            <Button variant="primary" onClick={handleAllocate}>
-              Auto-allocate
-            </Button>
-          </div>
-          <PlanHeader
-            scenario={scenario}
-            room={room}
-            guests={guests}
-            seating={seating}
-            unseatedCount={plan.unseated.length}
-          />
-          <div className={styles.screen}>
+        <div className={styles.layout}>
+          <div className={styles.canvas}>
+            {/* Auto-allocate stays the screen's one primary action (handoff rule 2) but now
+                sits at this row's right edge rather than above it — the button is still owned
+                and handled entirely by this file; PlanHeader gains no new prop for it. */}
+            <div className={styles.canvasHeader}>
+              <PlanHeader
+                scenario={scenario}
+                room={room}
+                guests={guests}
+                seating={seating}
+                unseatedCount={plan.unseated.length}
+              />
+              <Button variant="primary" className={styles.allocate} onClick={handleAllocate}>
+                Auto-allocate
+              </Button>
+            </div>
+            <div className={styles.floorplanArea}>
+              <FloorplanGrid
+                room={room}
+                seating={seating}
+                placingGuestName={selectedGuest?.name}
+                onPlace={handlePlace}
+                onRelease={handleRelease}
+              />
+            </div>
             <div ref={railRef}>
               <UnseatedRail
                 guests={plan.unseated}
@@ -179,19 +191,14 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 headingRef={railHeadingRef}
               />
             </div>
-            <FloorplanGrid
-              room={room}
-              seating={seating}
-              placingGuestName={selectedGuest?.name}
-              onPlace={handlePlace}
-              onRelease={handleRelease}
-            />
+          </div>
+          <div className={styles.violations}>
             <ViolationsPanel report={report} />
           </div>
           <p role="status" className="tt-visually-hidden">
             {announcement}
           </p>
-        </>
+        </div>
       ) : (
         <PlanEmpty
           reason={hasSeats ? 'topTableIncomplete' : 'unconfigured'}

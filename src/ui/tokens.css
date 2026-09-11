@@ -1,26 +1,52 @@
 /*
- * Design tokens. Every colour, radius, spacing step, font size and font weight used
- * anywhere in src/ resolves through one of these custom properties.
+ * Design tokens. Every colour, radius, spacing step and type style used anywhere in src/
+ * resolves through one of these custom properties.
  *
- * This is the only file in src/ allowed to contain a colour literal. Values are lifted
- * verbatim from docs/style-guide.html (design's file), which KB-5 names as the
- * implementation of its decisions. Token names are the style guide's own names,
- * unprefixed, so markup lifted from that file works unmodified.
+ * v2, "Lit canvas" (TT-35). A full rewrite of the v1 palette — not additive, no compatibility
+ * aliases kept alongside the new names. Two zones: chrome (dark; the top bar and left rail
+ * only) and canvas (light; everywhere else). A component belongs to exactly one zone and reads
+ * only that zone's ink scale — never a --paper surface inside chrome, never a --chrome fill on
+ * the canvas.
  *
- * No dark-mode block: KB-5 publishes one light palette and no dark variant.
+ * This is the only file in src/ allowed to contain a colour literal. Values are lifted from
+ * docs/design_handoff_top_table_shell/tokens.css, TT-35's handoff. KB-5 on Tickety still
+ * describes the superseded v1 palette below; TT-35 proposes replacement text for that page but
+ * cannot apply it (Tickety exposes no page-write tool).
+ *
+ * No dark-mode block: chrome is always dark and canvas always light regardless of the reader's
+ * OS setting — two zones of one fixed theme, not a user-switchable one. No prefers-color-scheme
+ * variant of either.
  */
 :root {
-  /* Surfaces and ink */
+  /* ---- Canvas surfaces (the light zone) ---- */
   --paper: #F7F5F0;
   --surface: #FFFFFF;
   --sunken: #EFECE4;
+  --surface-edge: #E4E0D7;
+
+  /* ---- Chrome surfaces (the dark zone: top bar and left rail, nowhere else) ---- */
+  --chrome: #151D26;
+  --chrome-edge: #0D1319; /* defined, unused: the handoff's outer frame border is a prototype staging device around its fixed-size mockup, not an app surface. This shell is full-bleed and has no outer frame. */
+  --chrome-rule: #222D3A;
+  --chrome-line: #2B3745;
+  --chrome-raised: #1E2833;
+  --chrome-active: #22303E;
+  --chrome-ink: #FFFFFF;
+  --chrome-ink-muted: #E4E1DA;
+  --chrome-ink-dim: #A9B6C4;
+  --chrome-ink-faint: #768696; /* Raised from the handoff's #6E7D8C: that value is below WCAG AA at the 11px sizes this token is used for (rail section label, nav counts). Same hue and saturation, the minimal lift that clears AA. Flagged for Design. */
+  --chrome-border: #34424F;
+  --chrome-primary-fill: #F0EDE6; /* defined, unused: the chrome-zone primary button this would serve is not built — every screen's primary action renders on its own canvas instead */
+  --chrome-focus: #8FA0B2; /* :focus-visible on chrome; base.css's global focus ring uses --slate, which is a canvas value */
+
+  /* ---- Ink (on light) ---- */
   --ink: #1C1B18;
   --ink-muted: #6B6862;
   --ink-faint: #9A968D;
   --rule: #DDD8CE;
   --rule-strong: #C4BDB0;
 
-  /* Accent and severity. Hard and soft are left bar and label only, never a fill. */
+  /* ---- Accent and severity. Hard and soft are left bar and label only, never a fill. ---- */
   --slate: #23303F;
   --slate-hover: #2F4055;
   --hard: #B3261E;
@@ -29,33 +55,55 @@
   --soft: #B26A00;
   --soft-wash: #FBF5EA;
   --soft-deep: #8A5A16;
+  /* There is no colour for "nothing wrong here" — a clean plan says so in words, not a fill. */
 
-  /* TT-7 additions: the style guide writes these two inline rather than as tokens. */
-  --on-slate: #FFFFFF; /* the white the guide writes as #fff on primary buttons */
-  --scrim: rgba(28, 27, 24, 0.32); /* ink at 32%, KB-6's dimmed page behind the slide-over */
+  /* ---- Kept from v1 against the v2 handoff, which drops both ---- */
+  --on-slate: #FFFFFF; /* ink on a --slate fill on the CANVAS — a different zone from --chrome-ink, which is also white but means ink on chrome */
+  --scrim: rgba(28, 27, 24, 0.32); /* ink at 32%; the v2 set has no translucent ink and dropping this breaks KB-6's dimmed page behind the slide-over */
 
-  /* Radii. Pill is tags only. */
-  --r-control: 4px;
+  /* ---- Radius ---- */
+  --r-control: 5px;
   --r-card: 8px;
+  --r-nav: 6px;
+  --r-frame: 14px; /* defined, unused: the same staging device as --chrome-edge above — this shell is full-bleed */
   --r-pill: 11px;
 
-  /* Layout spacing scale: 4 · 8 · 12 · 16 · 24 · 32 · 48. No layout value off the scale. */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --space-7: 48px;
+  /* ---- Spacing scale ---- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 18px;
+  --s-6: 22px;
+  --s-7: 26px;
+  --s-8: 32px;
+  --s-9: 48px;
 
-  /* Type. Weights 400 and 500 only, nothing heavier. */
+  /* ---- Type ---- */
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
-  --text-display: 32px;
-  --text-title: 22px;
-  --text-heading: 17px;
-  --text-body: 14px;
-  --text-data: 13px;
-  --text-caption: 12px;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace; /* every figure that can change between renders — capacity, seat counts, table fills, nav counts */
+
+  /* Trap, and it fails silently: the `font` shorthand below resets font-family, font-weight
+     and font-variant-numeric. Never apply one of the --t-* values to an element that also
+     carries tabularClass ('tt-num') — src/ui/tokens.test.ts and src/ui/base.css guard this. */
+  --t-figure-xl: 500 38px/1 var(--font-mono);
+  --t-figure-lg: 500 20px/1 var(--font-mono);
+  --t-figure: 400 11px/1.4 var(--font-mono);
+  --t-title: 500 17px/1.3 var(--font-sans);
+  --t-heading: 500 15px/1.3 var(--font-sans);
+  --t-body: 400 13px/1.6 var(--font-sans);
+  --t-caption: 400 12px/1.5 var(--font-sans);
+  --t-label: 400 11px/1.4 var(--font-sans);
+  --tracking-figure-xl: -1.5px;
+  --tracking-wordmark: -0.4px;
+
+  /* Kept against the v2 file, which drops both: several declarations under src/ still name a
+     font-weight by one of these rather than a bare number, and brand.test.ts's font-weight
+     allow-list names both literally. */
   --weight-regular: 400;
   --weight-medium: 500;
+
+  /* ---- Shape rules ---- */
+  /* No shadows of any kind, anywhere. Depth is value contrast between the chrome and canvas
+     zones, and 1px borders. */
 }

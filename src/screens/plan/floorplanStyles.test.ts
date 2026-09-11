@@ -18,16 +18,21 @@ const CSS_PATH = join(DIR, 'PlanTable.module.css')
 // accept a bare [data-pinned] or an explicit [data-pinned='true'] interchangeably.
 // data-occupancy always carries a value, so its patterns require one.
 const OCCUPANCY_EMPTY = /\.table\[\s*data-occupancy\s*=\s*['"]?empty['"]?\s*\]/
+const OCCUPANCY_PARTIAL = /\.table\[\s*data-occupancy\s*=\s*['"]?partial['"]?\s*\]/
 const OCCUPANCY_FULL = /\.table\[\s*data-occupancy\s*=\s*['"]?full['"]?\s*\]/
 const VIOLATION_TRUE = /\.table\[\s*data-violation(?:\s*=\s*['"]?true['"]?)?\s*\]/
-const PINNED_AFTER = /\.table\[\s*data-pinned(?:\s*=\s*['"]?true['"]?)?\s*\]::after/
+// TT-35: the dashed border is TOP-only now — a round table's own violation mark is its SVG
+// body stroke (PlanTable.module.css's --ring-* properties), not a second, square CSS border.
+const TOP_VIOLATION = /\.top\[\s*data-violation(?:\s*=\s*['"]?true['"]?)?\s*\]/
+// TT-35: the ::after pin mark is TOP-only now — a round table's pin moved into TableRing's SVG.
+const PINNED_AFTER = /\.top\[\s*data-pinned(?:\s*=\s*['"]?true['"]?)?\s*\]::after/
 const BASE_TABLE = /\.table\s*\{/
 const ROUND_SHAPE = /\.round\s*\{/
 const TOP_SHAPE = /\.top\s*\{/
-const ROUND_PINNED_AFTER = /\.round\[\s*data-pinned(?:\s*=\s*['"]?true['"]?)?\s*\]::after/
 // TT-12: the placing face, a descendant selector so it beats Button.module.css's .button on
 // specificity rather than on source order.
 const FACE_BASE = /\.table\s+\.face\s*\{/
+const TOP_FACE = /\.top\s+\.face\s*\{/
 const FACE_FOCUS_VISIBLE = /\.table\s+\.face:focus-visible\s*\{/
 // (0,4,0): .table, .face, :hover and :not(:disabled) each count, beating Button.module.css's
 // .quiet:hover:not(:disabled) at (0,3,0) regardless of source order.
@@ -96,9 +101,13 @@ function requireRule(css: string, selectorPattern: RegExp, description: string):
   return rule
 }
 
-describe('PlanTable.module.css — a dedicated rule for each of the four states (C4)', () => {
+describe('PlanTable.module.css — a dedicated rule for each of the four states (C4, TT-35)', () => {
   it('declares data-occupancy="empty"', () => {
     expect(findRule(readCss(), OCCUPANCY_EMPTY)).not.toBeNull()
+  })
+
+  it('declares data-occupancy="partial"', () => {
+    expect(findRule(readCss(), OCCUPANCY_PARTIAL)).not.toBeNull()
   })
 
   it('declares data-occupancy="full"', () => {
@@ -109,38 +118,108 @@ describe('PlanTable.module.css — a dedicated rule for each of the four states 
     expect(findRule(readCss(), VIOLATION_TRUE)).not.toBeNull()
   })
 
-  it('declares a ::after rule for data-pinned', () => {
+  it('declares a ::after rule for data-pinned, scoped to the top table', () => {
     expect(findRule(readCss(), PINNED_AFTER)).not.toBeNull()
   })
 })
 
-describe('PlanTable.module.css — each state carries the published shape (C4)', () => {
-  it('the violation rule declares a dashed border in the hard token — border-style and border-color', () => {
-    const rule = requireRule(readCss(), VIOLATION_TRUE, 'data-violation')
+describe('PlanTable.module.css — each state carries the published shape (C4, TT-35)', () => {
+  it('the violation rule declares a dashed border in the hard token, scoped to the top table — a round table carries its own violation mark on the SVG body stroke instead', () => {
+    const rule = requireRule(readCss(), TOP_VIOLATION, 'top[data-violation]')
     expect(rule.body).toMatch(/border-style\s*:\s*dashed/i)
     expect(rule.body).toMatch(/border-color\s*:\s*var\(--hard\)/i)
   })
 
-  it('the full rule declares a sunken fill — background: var(--sunken)', () => {
+  it('the general data-violation rule (both table kinds) does not itself declare a border — that stays top[data-violation]-only', () => {
+    const rule = requireRule(readCss(), VIOLATION_TRUE, 'data-violation')
+    expect(rule.body).not.toMatch(/border-style\s*:/i)
+  })
+
+  it('the full rule declares a slate ring body, read by the SVG, and no outer background of its own — the ring stays visible against its own face rather than disappearing into a same-colour square (browser-pass finding)', () => {
     const rule = requireRule(readCss(), OCCUPANCY_FULL, 'data-occupancy="full"')
-    expect(rule.body).toMatch(/background\s*:\s*var\(--sunken\)/i)
+    expect(rule.body).toMatch(/--ring-body-fill\s*:\s*var\(--slate\)/i)
+    expect(rule.body).not.toMatch(/background\s*:/i)
   })
 
   it('the pinned rule is a ::after declaring content, border-radius and a real token background — the dot, not a colour swap', () => {
-    const rule = requireRule(readCss(), PINNED_AFTER, 'data-pinned::after')
+    const rule = requireRule(readCss(), PINNED_AFTER, 'top[data-pinned]::after')
     expect(rule.selector).toMatch(/::after/)
     expect(rule.body).toMatch(/content\s*:/i)
     expect(rule.body).toMatch(/border-radius\s*:/i)
     expect(rule.body).toMatch(/background\s*:\s*var\(--[\w-]+\)/i)
   })
 
-  it('neither occupancy rule reaches for the hard or soft token — an empty table is not a warning', () => {
+  it('neither empty nor partial reaches for the hard or soft token — an unfilled or filling table is not a warning', () => {
     const css = readCss()
     const empty = requireRule(css, OCCUPANCY_EMPTY, 'data-occupancy="empty"')
-    const full = requireRule(css, OCCUPANCY_FULL, 'data-occupancy="full"')
-    const combined = `${empty.body}\n${full.body}`
+    const partial = requireRule(css, OCCUPANCY_PARTIAL, 'data-occupancy="partial"')
+    const combined = `${empty.body}\n${partial.body}`
     expect(combined).not.toMatch(/var\(--hard\)/i)
     expect(combined).not.toMatch(/var\(--soft\)/i)
+  })
+})
+
+describe('PlanTable.module.css — the four materials (KB-6 "Floorplan"), read through the --ring-* properties TableRing.module.css consumes (TT-35)', () => {
+  it('every one of the four states sets its own --ring-body-fill, and no two of them share a value', () => {
+    const css = readCss()
+    const fills = [OCCUPANCY_EMPTY, OCCUPANCY_PARTIAL, OCCUPANCY_FULL, VIOLATION_TRUE].map((pattern, index) => {
+      const rule = requireRule(css, pattern, `state ${index}`)
+      const match = /--ring-body-fill\s*:\s*(var\([^)]+\))/i.exec(rule.body)
+      expect(match, `expected a --ring-body-fill declaration`).not.toBeNull()
+      return match?.[1]
+    })
+    expect(new Set(fills).size).toBe(fills.length)
+  })
+
+  it('the empty and partial rules each also declare a --ring-stroke and a --ring-body-stroke-width, distinguishing an unfilled ring from a bare .table', () => {
+    const css = readCss()
+    for (const pattern of [OCCUPANCY_EMPTY, OCCUPANCY_PARTIAL]) {
+      const rule = requireRule(css, pattern, 'occupancy state')
+      expect(rule.body).toMatch(/--ring-stroke\s*:\s*var\(--rule-strong\)/i)
+      expect(rule.body).toMatch(/--ring-body-stroke-width\s*:\s*1\.5px/i)
+    }
+  })
+
+  it('the full rule declares no body stroke — --ring-body-stroke: none', () => {
+    const rule = requireRule(readCss(), OCCUPANCY_FULL, 'data-occupancy="full"')
+    expect(rule.body).toMatch(/--ring-body-stroke\s*:\s*none/i)
+  })
+
+  it('the violation rule sets a dashed body stroke — --ring-body-stroke-width and --ring-body-dasharray — so a round table in violation is marked on the ring itself', () => {
+    const rule = requireRule(readCss(), VIOLATION_TRUE, 'data-violation')
+    expect(rule.body).toMatch(/--ring-body-stroke-width\s*:\s*1\.8px/i)
+    expect(rule.body).toMatch(/--ring-body-dasharray\s*:\s*6\s+4/i)
+    expect(rule.body).toMatch(/--ring-stroke\s*:\s*var\(--hard\)/i)
+  })
+
+  it("violation's selector sits after full's, so a table that is both full and in violation reads as in violation (0,2,0 vs 0,2,0: only source order decides)", () => {
+    const css = stripComments(readCss())
+    const fullIndex = css.search(OCCUPANCY_FULL)
+    const violationIndex = css.search(VIOLATION_TRUE)
+    expect(fullIndex, 'expected a data-occupancy="full" rule').toBeGreaterThanOrEqual(0)
+    expect(violationIndex, 'expected a data-violation rule').toBeGreaterThanOrEqual(0)
+    expect(violationIndex).toBeGreaterThan(fullIndex)
+  })
+
+  it("violation's rule redeclares every --ring-* property full also sets, so nothing of full's material leaks through when both match the same table", () => {
+    const css = readCss()
+    const full = requireRule(css, OCCUPANCY_FULL, 'data-occupancy="full"')
+    const violation = requireRule(css, VIOLATION_TRUE, 'data-violation')
+    const fullProperties = [...full.body.matchAll(/(--ring-[\w-]+)\s*:/g)].map((match) => match[1])
+    const violationProperties = new Set([...violation.body.matchAll(/(--ring-[\w-]+)\s*:/g)].map((match) => match[1]))
+    for (const property of fullProperties) {
+      expect(violationProperties.has(property as string), `expected data-violation to also set ${property}`).toBe(true)
+    }
+  })
+
+  it('a pinned table resolves --ring-pin to --on-slate only on the full material — --slate everywhere else, so the dot stays visible against every fill', () => {
+    const css = readCss()
+    const full = requireRule(css, OCCUPANCY_FULL, 'data-occupancy="full"')
+    expect(full.body).toMatch(/--ring-pin\s*:\s*var\(--on-slate\)/i)
+    for (const pattern of [OCCUPANCY_EMPTY, OCCUPANCY_PARTIAL, VIOLATION_TRUE]) {
+      const rule = requireRule(css, pattern, 'state')
+      expect(rule.body).toMatch(/--ring-pin\s*:\s*var\(--slate\)/i)
+    }
   })
 })
 
@@ -165,9 +244,10 @@ describe('PlanTable.module.css — R3: the one same-specificity pair is resolved
 
     const stateSelectors = [
       requireRule(css, OCCUPANCY_EMPTY, 'data-occupancy="empty"').selector,
+      requireRule(css, OCCUPANCY_PARTIAL, 'data-occupancy="partial"').selector,
       requireRule(css, OCCUPANCY_FULL, 'data-occupancy="full"').selector,
       requireRule(css, VIOLATION_TRUE, 'data-violation').selector,
-      requireRule(css, PINNED_AFTER, 'data-pinned::after').selector,
+      requireRule(css, PINNED_AFTER, 'top[data-pinned]::after').selector,
     ]
     for (const selector of stateSelectors) {
       expect(selector).toContain('[data-')
@@ -191,6 +271,33 @@ describe('PlanTable.module.css — the top table\'s width is capped and centred,
   it('.top no longer spans the grid — it is not a grid item at all (FloorplanGrid.tsx)', () => {
     const rule = requireRule(readCss(), TOP_SHAPE, '.top')
     expect(rule.body).not.toMatch(/grid-column\s*:/i)
+  })
+})
+
+describe('PlanTable.module.css — the top table is a constant slate bar, not a fifth material (coordinator browser-pass finding, TT-35)', () => {
+  it('.top .face is always filled slate with on-slate text', () => {
+    const rule = requireRule(readCss(), TOP_FACE, '.top .face')
+    expect(rule.body).toMatch(/background\s*:\s*var\(--slate\)/i)
+    expect(rule.body).toMatch(/color\s*:\s*var\(--on-slate\)/i)
+  })
+
+  it("is declared after the shared .table .face rule, so its literal colour wins the specificity tie over that rule's color: inherit — both are 0,2,0", () => {
+    const css = stripComments(readCss())
+    const sharedIndex = css.search(FACE_BASE)
+    const topFaceIndex = css.search(TOP_FACE)
+    expect(sharedIndex, 'expected the shared .table .face rule').toBeGreaterThanOrEqual(0)
+    expect(topFaceIndex, 'expected a .top .face rule').toBeGreaterThanOrEqual(0)
+    expect(topFaceIndex).toBeGreaterThan(sharedIndex)
+  })
+
+  it('no rule anywhere reads data-occupancy on .top — unlike a round table, the top table never varies by occupancy', () => {
+    const css = stripComments(readCss())
+    expect(css).not.toMatch(/\.top\[\s*data-occupancy/i)
+  })
+
+  it('the pinned mark drawn over that face is on-slate, not the slate it would otherwise vanish into', () => {
+    const rule = requireRule(readCss(), PINNED_AFTER, 'top[data-pinned]::after')
+    expect(rule.body).toMatch(/background\s*:\s*var\(--on-slate\)/i)
   })
 })
 
@@ -221,36 +328,39 @@ describe('PlanTable.module.css — .round contains its own content instead of st
   })
 })
 
-describe('PlanTable.module.css — the pin dot stays proportionally inside a round table at any track size', () => {
-  it('the shared pinned rule still positions with the original fixed token inset — the top table (a rectangle) is untouched by this fix', () => {
-    const rule = requireRule(readCss(), PINNED_AFTER, 'the shared data-pinned::after rule')
-    expect(rule.body).toMatch(/top\s*:\s*var\(--space-2\)/i)
-    expect(rule.body).toMatch(/right\s*:\s*var\(--space-2\)/i)
+describe('PlanTable.module.css — the top table\'s pin stays a fixed-offset ::after mark (TT-35: a round table\'s moved into the SVG instead)', () => {
+  it('offsets far enough to clear .table\'s own padding plus border and land on .face, not in the gap outside it (coordinator browser-pass finding)', () => {
+    const rule = requireRule(readCss(), PINNED_AFTER, 'top[data-pinned]::after')
+    // .table's inset is --s-3 (12px) padding + 1px border = 13px; the mark must clear that.
+    expect(rule.body).toMatch(/top\s*:\s*var\(--s-4\)/i)
+    expect(rule.body).toMatch(/right\s*:\s*var\(--s-4\)/i)
   })
 
-  it('.round overrides the position in relative units, not a fixed pixel offset', () => {
-    const rule = requireRule(readCss(), ROUND_PINNED_AFTER, 'a .round-specific data-pinned::after override')
-    expect(rule.body).toMatch(/top\s*:/i)
-    expect(rule.body).toMatch(/right\s*:/i)
-    // The geometry, not a specific number: no bare px length on either offset.
-    expect(rule.body).not.toMatch(/top\s*:\s*[\d.]+px/i)
-    expect(rule.body).not.toMatch(/right\s*:\s*[\d.]+px/i)
-    expect(rule.body).toMatch(/%/)
+  it('no rule anywhere still targets .round[data-pinned] — that mechanism is retired, not merely overridden', () => {
+    expect(findRule(readCss(), /\.round\[\s*data-pinned/)).toBeNull()
+  })
+})
+
+describe('TableRing.module.css — the round table\'s pin is an SVG circle reading --ring-pin, not a CSS ::after mark (TT-35, AC16)', () => {
+  const RING_CSS_PATH = join(DIR, 'TableRing.module.css')
+
+  function readRingCss(): string {
+    return readFileSync(RING_CSS_PATH, 'utf8')
+  }
+
+  it('declares a .pin rule whose fill comes from the --ring-pin custom property, not a literal colour', () => {
+    const rule = requireRule(readRingCss(), /\.pin\s*\{/, '.pin')
+    expect(rule.body).toMatch(/fill\s*:\s*var\(--ring-pin\)/i)
+    expect(rule.body).not.toMatch(/#[0-9a-f]{3,8}\b/i)
   })
 
-  it('.round recentres the (fixed-size) dot on that point with a transform, rather than positioning its corner', () => {
-    const rule = requireRule(readCss(), ROUND_PINNED_AFTER, 'a .round-specific data-pinned::after override')
-    expect(rule.body).toMatch(/transform\s*:\s*translate\(/i)
-  })
-
-  it('the .round override is declared after the shared rule, so source order lets the equal-specificity override win', () => {
-    const css = stripComments(readCss())
-    const sharedIndex = css.search(PINNED_AFTER)
-    const roundIndex = css.search(ROUND_PINNED_AFTER)
-
-    expect(sharedIndex, 'expected the shared .table[data-pinned]::after rule').toBeGreaterThanOrEqual(0)
-    expect(roundIndex, 'expected a .round[data-pinned]::after override').toBeGreaterThanOrEqual(0)
-    expect(roundIndex).toBeGreaterThan(sharedIndex)
+  it('declares a .ring and a .body rule, each reading its colour from a --ring-* property rather than a literal', () => {
+    const css = readRingCss()
+    const ring = requireRule(css, /\.ring\s*\{/, '.ring')
+    const body = requireRule(css, /\.body\s*\{/, '.body')
+    expect(ring.body).toMatch(/stroke\s*:\s*var\(--ring-stroke\)/i)
+    expect(body.body).toMatch(/fill\s*:\s*var\(--ring-body-fill\)/i)
+    expect(`${ring.body}\n${body.body}`).not.toMatch(/#[0-9a-f]{3,8}\b/i)
   })
 })
 

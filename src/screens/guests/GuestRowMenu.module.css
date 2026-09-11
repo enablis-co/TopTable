@@ -11,7 +11,7 @@
   height: 28px;
   padding: 0;
   border-color: transparent;
-  font-size: var(--text-heading);
+  font: var(--t-heading);
   line-height: 1;
 }
 
@@ -27,8 +27,8 @@
   display: flex;
   flex-direction: column;
   min-width: 120px;
-  margin-top: var(--space-1);
-  padding: var(--space-1);
+  margin-top: var(--s-1);
+  padding: var(--s-1);
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--r-control);
@@ -37,8 +37,8 @@
 .item {
   display: block;
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--s-2) var(--s-3);
   border-color: transparent;
   text-align: left;
-  font-size: var(--text-data);
+  font: var(--t-body);
 }

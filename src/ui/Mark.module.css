@@ -6,3 +6,11 @@
   fill: none;
   stroke: var(--ink);
 }
+
+.chrome .bar {
+  fill: var(--chrome-ink);
+}
+
+.chrome .dot {
+  stroke: var(--chrome-ink);
+}

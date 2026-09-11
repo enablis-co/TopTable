@@ -1,5 +1,5 @@
 .summary {
   margin: 0;
-  font-size: var(--text-data);
+  font: var(--t-body);
   color: var(--ink);
 }

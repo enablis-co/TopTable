@@ -14,37 +14,27 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  line-height: 1.6;
-  /* Numbers are proportional by default. Opt in with .tt-num where a value updates,
-     otherwise every capacity readout jitters as you type. */
+  font: var(--t-body);
+  /* Numbers are proportional by default. Opt in with .tt-num where a value updates, otherwise
+     every capacity readout jitters as you type. The `font` shorthand above already resets
+     font-variant-numeric to this same value; stated explicitly so it stays true even if the
+     shorthand above is ever split back into longhand properties. */
   font-variant-numeric: normal;
 }
 
 h1,
 h2,
 h3 {
-  font-weight: var(--weight-medium);
   margin: 0;
 }
 
-h1 {
-  font-size: var(--text-display);
-  line-height: 1.15;
-  letter-spacing: -0.5px;
-}
-
+h1,
 h2 {
-  font-size: var(--text-title);
-  line-height: 1.2;
-  letter-spacing: -0.2px;
+  font: var(--t-title);
 }
 
 h3 {
-  font-size: var(--text-heading);
-  line-height: 1.3;
-  letter-spacing: -0.2px;
+  font: var(--t-heading);
 }
 
 /* Reset to the one heavier weight this brand allows. Left unreset, both render bold. */
@@ -58,8 +48,14 @@ strong {
   outline-offset: 2px;
 }
 
-/* Opt-in tabular figures for anything that changes: capacity, seat counts, totals. */
+/* Every figure that can change between renders is monospace, so its width never jitters;
+   font-variant-numeric is the fallback that keeps the same guarantee if the mono face fails to
+   load. Trap, and it fails silently: never let an element carry both this class and a component
+   rule that sets the `font` shorthand — the shorthand resets font-family and
+   font-variant-numeric back to the sans/proportional defaults. src/ui/tokens.test.ts guards
+   this. */
 .tt-num {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 

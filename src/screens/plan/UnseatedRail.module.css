@@ -1,40 +1,93 @@
+/*
+ * TT-35, handoff "Unseated strip". This is now the bottom strip below the floorplan: a header
+ * row (heading, total, hint), then a horizontally scrolling chip run — every guest still
+ * renders in it (AC19), so the header's total is always the true count, never an estimate.
+ */
 .rail {
+  flex: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 9px;
+  border-top: 1px solid var(--rule);
+  padding: var(--s-3) var(--s-7) 14px;
 }
 
-.instruction {
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.heading {
   margin: 0;
-  font-size: var(--text-caption);
+  font: 500 13px/1.3 var(--font-sans);
+  color: var(--ink);
+}
+
+.count {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+/* Review fix (TT-35): this shipped on --ink-faint, which is 2.71:1 on --paper at this 12px size —
+   below WCAG AA, and inconsistent with this same commit rejecting a handoff colour at 4.03:1 as
+   below AA elsewhere (see tokens.css's --chrome-ink-faint comment). --ink-muted is 5.10:1. */
+.instruction {
+  margin: 0 0 0 auto;
+  font-size: 12px;
   color: var(--ink-muted);
 }
 
 .empty {
   margin: 0;
-  font-size: var(--text-body);
+  font: var(--t-body);
   color: var(--ink);
 }
 
+/* The chip run: a flex:1, min-width:0 scrolling row so it shrinks rather than pushing anything
+   off screen, with nowrap so chips sit in one line and scroll instead of wrapping. */
 .list {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Each chip's <li> must not shrink below its own content — flex's default shrink would squeeze
+   a guest's name before overflow-x ever has to scroll, which is exactly backwards. */
+.list li {
+  flex: none;
+}
+
 /* Descendant selectors (0,2,0) beat Button.module.css's .button and .quiet (0,1,0) whatever
-   order the bundle emits them in. railStyles.test.ts asserts the pressed row's shape. */
+   order the bundle emits them in. railStyles.test.ts asserts the pressed row's shape.
+
+   Review fix (TT-35): the handoff specifies a resting `1px solid var(--rule-strong)` border on
+   every chip (kept below), which means selection can no longer be "no border, then a border
+   appears" the way it read on main — that was this rule's own shape signal before the resting
+   border was added. Selection now doubles the border's width as well as swapping its colour, so
+   colour never carries the state alone (KB-5, handoff rule 5). Padding drops by the same 1px per
+   side on the pressed rule so border-box sizing keeps the chip's own footprint unchanged —
+   only the border's weight and colour move. */
 .rail .row {
-  display: block;
-  width: 100%;
-  padding: var(--space-2);
-  border-color: transparent;
-  text-align: left;
+  background: var(--surface);
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--rule-strong);
+  border-radius: var(--r-control);
+  padding: 5px 10px;
+  white-space: nowrap;
   color: var(--ink);
 }
 
 .rail .row[aria-pressed='true'] {
+  border-width: 2px;
   border-color: var(--slate);
+  padding: 4px 9px;
 }

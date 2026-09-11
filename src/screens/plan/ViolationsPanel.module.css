@@ -1,27 +1,55 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  margin: var(--space-4) 0 0;
+  gap: 7px;
+  margin: var(--s-4) 0 0;
   padding: 0;
   list-style: none;
 }
 
 .list li {
-  padding-left: var(--space-3);
+  padding: 9px 12px;
 }
 
 .list p {
   margin: 0;
 }
 
+.title {
+  font: var(--t-body);
+  color: var(--ink);
+}
+
+.meta {
+  margin-top: 2px;
+  font: var(--t-figure);
+}
+
+.footer {
+  margin-top: var(--s-3);
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+
 /* KB-5's left bar, shape as well as colour (TT-14 supersedes KB-5's "soft gets the same, in
    amber"): solid for hard, dotted for soft — never dashed, which PlanTable.module.css already
-   uses for a table in violation, so one shape does not mean two things. */
+   uses for a table in violation, so one shape does not mean two things. TT-35 adds the wash
+   background the handoff specifies for each entry, which the token set already carried and
+   nothing had used yet. */
 [data-severity='hard'] {
   border-left: 3px solid var(--hard);
+  background: var(--hard-wash);
 }
 
 [data-severity='soft'] {
   border-left: 3px dotted var(--soft);
+  background: var(--soft-wash);
+}
+
+[data-severity='hard'] .meta {
+  color: var(--hard-deep);
+}
+
+[data-severity='soft'] .meta {
+  color: var(--soft-deep);
 }

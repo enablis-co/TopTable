@@ -1,7 +1,19 @@
+/*
+ * TT-35, handoff "Floorplan". This is the white floor: PlanScreen.module.css gives the
+ * surrounding canvas area its flex:1/min-height:0 and 18px/22px breathing room (the handoff's
+ * "Container"); this class is what the handoff calls the panel inside it — a full-height
+ * --surface card the SVG/grid content sits on, 10px padding per the handoff (off the spacing
+ * scale, and authoritative for it regardless — see the plan's A3).
+ */
 .floorplan {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--surface-edge);
+  border-radius: var(--r-card);
+  padding: 10px;
 }
 
 /* A one-item list: a bare <li> outside any list container does not carry the "listitem" role. */
@@ -11,12 +23,24 @@
   padding: 0;
 }
 
-/* `.grid` (the `<ul>` inside) stays at the default `overflow: visible`, so its excess width
-   escapes into this wrapper, which is what `overflow-x: auto` here catches. `overflow-y` stays
-   unset — floorplanStyles.test.ts checks it isn't pinned to hidden/scroll — so vertical
-   scrolling stays with the document. */
+/* `.grid` (the `<ul>` inside) stays at the default `overflow: visible`, so its excess width and
+   height both escape into this wrapper, which is what `overflow-x`/`overflow-y: auto` here
+   catch.
+
+   Review fix (TT-35): a fixed viewport with internal scrolling is the intended layout (the
+   handoff's 54px bar over a row that fills the rest), so this is where the floorplan's own
+   vertical overflow belongs — not the document, which is what an unset overflow-y used to leave
+   true. flex: 1; min-height: 0 is what gives this box a real, shrinkable height to hand that
+   overflow into, rather than growing to fit however many tables there are: PlanScreen.module.css's
+   .canvas and .floorplanArea both have to resolve to a definite height first for this to have
+   anything bounded to scroll within. floorplan.test.ts checks overflow-y is never pinned to
+   hidden or scroll, which would either clip a tall plan permanently or show a bar even when
+   everything fits. */
 .gridScroll {
+  flex: 1;
+  min-height: 0;
   overflow-x: auto;
+  overflow-y: auto;
 }
 
 /* Restates base.css's global :focus-visible — the same convention Button.module.css and
@@ -38,8 +62,8 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  max-width: calc(var(--floorplan-columns, 1) * 200px + (var(--floorplan-columns, 1) - 1) * var(--space-4));
-  gap: var(--space-4);
+  max-width: calc(var(--floorplan-columns, 1) * 200px + (var(--floorplan-columns, 1) - 1) * var(--s-4));
+  gap: var(--s-4);
   /* `safe center`, not plain `center`: centres the row while it fits, but falls back to start
      alignment once it overflows its own box, so the first table stays reachable rather than
      being centred off-screen along with the rest of the overflow. */

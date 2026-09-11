@@ -5,13 +5,13 @@
 
 .select {
   appearance: none;
-  padding-right: var(--space-6);
+  padding-right: var(--s-8);
 }
 
 .chevron {
   position: absolute;
   top: 50%;
-  right: var(--space-3);
+  right: var(--s-3);
   transform: translateY(-50%);
   color: var(--ink-muted);
   pointer-events: none;

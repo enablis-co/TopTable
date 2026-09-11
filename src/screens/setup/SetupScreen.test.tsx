@@ -366,9 +366,9 @@ describe('navigation, rendered through the real App per the harness note (A14)',
 
     await user.click(screen.getByRole('button', { name: 'Go to guests' }))
 
-    const header = screen.getByRole('banner')
-    const guestsControl = within(header).getByRole('button', { name: 'Guests' })
-    const setupControl = within(header).getByRole('button', { name: 'Setup' })
+    const nav = screen.getByRole('navigation', { name: 'Sections' })
+    const guestsControl = within(nav).getByRole('button', { name: 'Guests' })
+    const setupControl = within(nav).getByRole('button', { name: 'Setup' })
     expect(isMarkedCurrent(guestsControl)).toBe(true)
     expect(isMarkedCurrent(setupControl)).toBe(false)
   })

@@ -1,13 +1,21 @@
 .shell {
-  min-height: 100dvh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--paper);
+  background: var(--chrome);
 }
 
-/* No max-width: the floorplan (TT-11) needs the full width at 27 tables. Screens that
-   want a narrower measure constrain themselves. */
+.row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Full-bleed (A14): no --r-frame, no --chrome-edge border. No padding either — that moves
+   into each screen so Plan can run its floorplan to the edge. */
 .main {
   flex: 1;
-  padding: var(--space-5);
+  min-width: 0;
+  overflow: auto;
+  background: var(--paper);
 }

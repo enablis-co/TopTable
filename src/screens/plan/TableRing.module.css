@@ -1,0 +1,27 @@
+/*
+ * TT-35. Geometry-neutral: this file draws nothing of its own and sets no literal colour, size
+ * or dash pattern — every value that can differ by state comes from a `--ring-*` custom property
+ * that PlanTable.module.css sets per data-occupancy/data-violation state on the table `<li>` this
+ * SVG renders inside. This file only has to know which part of the drawing reads which property.
+ */
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ring {
+  stroke: var(--ring-stroke);
+}
+
+.body {
+  fill: var(--ring-body-fill);
+  stroke: var(--ring-body-stroke);
+  stroke-width: var(--ring-body-stroke-width, 0);
+  stroke-dasharray: var(--ring-body-dasharray, none);
+}
+
+.pin {
+  fill: var(--ring-pin);
+}
