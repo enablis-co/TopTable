@@ -427,7 +427,7 @@ describe('allocate — the fill consults a caller-supplied guard (C11)', () => {
     expect(round2?.seats.filter((seat) => seat !== null)).toHaveLength(4)
   })
 
-  it('the same guard does not stop a guest pinned to round-1, nor the protocol overflow block placed there (A8)', () => {
+  it('the guard does not stop a guest pinned to round-1, but does divert the overflow block to a table it allows (KB-1)', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 8, topTableSeats: 6 }
     const guests = [...otherProtocolGuests(), makeGuest('best-man', { role: BEST_MAN }), makeGuest('pinned-guest')]
     const pins: Pin[] = [{ guestId: 'pinned-guest', tableId: 'round-1' }]
@@ -436,6 +436,17 @@ describe('allocate — the fill consults a caller-supplied guard (C11)', () => {
     const plan = allocate(room, guests, pins, { allowSeat: refuseRoundOne })
 
     expect(seatOf(plan, 'pinned-guest')?.table.id).toBe('round-1')
+    expect(seatOf(plan, 'chief-bridesmaid')?.table.id).toBe('round-2')
+    expect(seatOf(plan, 'best-man')?.table.id).toBe('round-2')
+  })
+
+  it('when every round table is refused, the overflow block still seats together at the first with room, so the hard violation stays representable (KB-2)', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 8, topTableSeats: 6 }
+    const guests = [...otherProtocolGuests(), makeGuest('best-man', { role: BEST_MAN })]
+    const refuseEverything: SeatGuard = () => false
+
+    const plan = allocate(room, guests, [], { allowSeat: refuseEverything })
+
     expect(seatOf(plan, 'chief-bridesmaid')?.table.id).toBe('round-1')
     expect(seatOf(plan, 'best-man')?.table.id).toBe('round-1')
   })
