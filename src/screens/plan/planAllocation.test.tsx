@@ -62,6 +62,20 @@ function tables(): HTMLElement[] {
   return Array.from(document.querySelectorAll('[data-occupancy]'))
 }
 
+// Once a room has a top table it renders first, so tables()[0] is no longer "the table under
+// test" — this locates one by its own rendered label instead of DOM position. Matched on a
+// leading ", " too, since a pinned or violating table appends that to the same heading text.
+function tableLabelled(label: string): HTMLElement {
+  const match = tables().find((table) => {
+    const heading = table.querySelector('p')?.textContent ?? ''
+    return heading === label || heading.startsWith(`${label},`)
+  })
+  if (!match) {
+    throw new Error(`no table labelled "${label}"`)
+  }
+  return match
+}
+
 // Renders the real app and activates its Plan tab, the one seam every test in this file needs
 // regardless of which defect it targets.
 async function renderAppOnPlanTab(user: ReturnType<typeof userEvent.setup>) {
@@ -103,7 +117,7 @@ describe('TT-12 ("Clicking a pinned guest releases the pin") — the release con
   // order, so releasing pinnedGuest's pin only sends them back to the rail (rather than quietly
   // re-seating them) if both ordinary guests ahead of them already claim the table's two seats.
   function setUpSharedTable(): { autoGuestOne: Guest; pinnedGuest: Guest } {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 2, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 2, topTableSeats: 2 })
     const autoGuestOne = makeGuest('auto-1', { name: 'Auto Guest One' })
     const autoGuestTwo = makeGuest('auto-2', { name: 'Auto Guest Two' })
     const pinnedGuest = makeGuest('pinned-1', { name: 'Pinned Guest' })
@@ -119,10 +133,7 @@ describe('TT-12 ("Clicking a pinned guest releases the pin") — the release con
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
-    const [table] = tables()
-    if (!table) {
-      throw new Error('expected one table')
-    }
+    const table = tableLabelled('Table 1')
     // Sanity: the pinned and the solver-seated guest really did land at the same table.
     expect(table.textContent).toContain('Auto Guest One')
     expect(table.textContent).toContain('Pinned Guest')
@@ -151,7 +162,7 @@ describe('TT-12 ("Clicking a pinned guest releases the pin") — the release con
 
 describe('KB-1 (the journey moves past Plan and back) — an allocated plan survives leaving and returning to the Plan tab', () => {
   it('keeps the same guests at the same tables, and the same header figures, after navigating to Guests and back to Plan', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(8))
     const user = userEvent.setup()
     render(<App />)
@@ -171,7 +182,7 @@ describe('KB-1 (the journey moves past Plan and back) — an allocated plan surv
   })
 
   it('does not survive a full store reload — a fresh store reading the same storage still computes an unallocated plan (docs/state.md)', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(8))
     const user = userEvent.setup()
     render(<App />)
@@ -190,7 +201,7 @@ describe('KB-1 (the journey moves past Plan and back) — an allocated plan surv
     const { useTopTableStore: reloadedStore } = await import('../../store/store')
     const reloaded = reloadedStore.getState()
 
-    expect(reloaded.room).toEqual({ roundTables: 2, seatsEach: 4, topTableSeats: 0 })
+    expect(reloaded.room).toEqual({ roundTables: 2, seatsEach: 4, topTableSeats: 2 })
     expect(reloaded.guests).toHaveLength(8)
     expect(reloaded.pins).toEqual([])
 
@@ -204,7 +215,7 @@ describe('KB-1 (the journey moves past Plan and back) — an allocated plan surv
 
 describe('KB-5 ("the button that says Auto-allocate produces a state that says allocated") — the Setup screen\'s plan status', () => {
   it('reads "Not generated" before Auto-allocate and "Allocated" after, driven through the real navigation', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(4))
     const user = userEvent.setup()
     render(<App />)
@@ -225,7 +236,7 @@ describe("TT-11 (the header's unseated figure) — it always agrees with the pla
   const ROOM_CASES: { label: string; room: RoomConfig }[] = [
     { label: 'zero round tables (top table 8)', room: { roundTables: 0, seatsEach: 8, topTableSeats: 8 } },
     { label: 'zero-capacity round tables', room: { roundTables: 4, seatsEach: 0, topTableSeats: 6 } },
-    { label: 'ordinary room, no top table', room: { roundTables: 2, seatsEach: 4, topTableSeats: 0 } },
+    { label: 'ordinary room, minimal top table', room: { roundTables: 2, seatsEach: 4, topTableSeats: 2 } },
     { label: 'top table of 6', room: { roundTables: 2, seatsEach: 4, topTableSeats: 6 } },
     { label: 'top table of 8, ample capacity', room: { roundTables: 3, seatsEach: 8, topTableSeats: 8 } },
   ]
