@@ -45,6 +45,18 @@ function tables(): HTMLElement[] {
   return Array.from(document.querySelectorAll('[data-occupancy]'))
 }
 
+// Fix to TT-3: a top table is now always required, so several fixtures below carry one
+// (2 seats — the minimum) purely to make the room complete. That makes `tables()[0]` no
+// longer reliably "the one table under test" — floorplanFromRoom renders the top table
+// before any round table — so this finds a table by its own label instead.
+function tableLabelled(label: string): HTMLElement {
+  const table = tables().find((element) => element.textContent?.includes(label))
+  if (!table) {
+    throw new Error(`expected a table labelled "${label}"`)
+  }
+  return table
+}
+
 function renderPlanScreen(goTo: (tab: string) => void = () => {}) {
   return render(
     <NavigationContext.Provider value={{ tab: 'plan', goTo }}>
@@ -178,6 +190,82 @@ describe('PlanScreen — first visit reads as an invitation, not an empty grid (
   })
 })
 
+describe('PlanScreen — a top table below the minimum is routed to the empty state (fix to TT-3)', () => {
+  it('renders no tables for nine tables of eight with no top table, the shape that used to force-seat every protocol role at Table 1', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    useTopTableStore.getState().setGuests(makeGuests(70))
+    renderPlanScreen()
+
+    expect(tables()).toHaveLength(0)
+  })
+
+  it('reads the specific, actionable copy rather than the generic "start from a scenario" invitation', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    renderPlanScreen()
+
+    expect(document.body.textContent).toContain('Add a top table of at least 2 seats. Set it on Setup.')
+    expect(document.body.textContent).not.toContain('Start from a scenario, or set the room up')
+    expect(document.body.textContent).not.toMatch(/sorry/i)
+  })
+
+  it('is also routed here at exactly one top-table seat, not only at zero', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 1 })
+    renderPlanScreen()
+
+    expect(tables()).toHaveLength(0)
+    expect(document.body.textContent).toContain('Add a top table of at least 2 seats. Set it on Setup.')
+  })
+
+  it('offers an "Add the top table" control, and activating it asks the app to go to Setup', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 0 })
+    let requestedTab: string | null = null
+    const user = userEvent.setup()
+    renderPlanScreen((tab) => {
+      requestedTab = tab
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Add the top table' }))
+
+    expect(requestedTab).toBe('setup')
+  })
+
+  it('renders the floorplan once the top table reaches the minimum of 2, all else unchanged', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 9, seatsEach: 8, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(70))
+    renderPlanScreen()
+
+    expect(tables()).toHaveLength(10)
+    expect(screen.queryByText(/add a top table/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps the true first-visit, all-zero room on the generic invitation rather than the top-table copy', () => {
+    // reset() in beforeEach already leaves the room at {0,0,0} — nothing typed at all, so this
+    // is "empty", not "incomplete" (the product-owner ruling exempts it explicitly).
+    renderPlanScreen()
+
+    expect(document.body.textContent).toContain('Start from a scenario, or set the room up')
+    expect(document.body.textContent).not.toContain('Add a top table')
+  })
+
+  it('renders the floorplan for each of the three shipped scenarios, none of which is affected (8, 6 and 8 top-table seats)', () => {
+    const scenarioRooms = [
+      { roundTables: 4, seatsEach: 8, topTableSeats: 8 }, // Small and cosy
+      { roundTables: 9, seatsEach: 8, topTableSeats: 6 }, // Adding up
+      { roundTables: 26, seatsEach: 8, topTableSeats: 8 }, // Celebrity scale
+    ]
+
+    for (const room of scenarioRooms) {
+      useTopTableStore.getState().reset()
+      useTopTableStore.getState().setRoom(room)
+      const { unmount } = renderPlanScreen()
+
+      expect(screen.queryByText(/add a top table/i)).not.toBeInTheDocument()
+      expect(tables().length).toBeGreaterThan(0)
+      unmount()
+    }
+  })
+})
+
 describe('PlanScreen — the gate agrees with the generator on an un-normalised room (regression, TT-11 review)', () => {
   it('a hand-edited room with a negative roundTables still shows the floorplan once it normalises to real seats', () => {
     // Raw totalSeats on this room is -1 * 8 + 8 = 0, but it normalises to { 0, 8, 8 } — a real
@@ -287,24 +375,22 @@ describe('PlanScreen — one live region announces placing and releasing', () =>
   })
 
   it('names the guest and the table once a placement is made', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     const user = userEvent.setup()
     renderPlanScreen()
 
     await user.click(screen.getByRole('button', { name: 'Guest g-0' }))
-    const [placingButton] = screen.getAllByRole('button', { name: /^Place Guest g-0 at/ })
-    if (!placingButton) {
-      throw new Error('expected a placing button once a guest is selected')
-    }
-    await user.click(placingButton)
+    // Anchored to "Table 1", not left to match either table: a top table always exists
+    // alongside it now (fix to TT-3), and this test's own name is about a round table.
+    await user.click(screen.getByRole('button', { name: /^Place Guest g-0 at Table 1/ }))
 
     expect(screen.getByRole('status').textContent).toMatch(/Guest g-0/)
     expect(screen.getByRole('status').textContent).toMatch(/placed/i)
   })
 
   it('names the guest and the table once a placed guest is released', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     useTopTableStore.getState().pinGuest('g-0', 'round-1')
     const user = userEvent.setup()
@@ -412,7 +498,7 @@ describe('PlanScreen — the rail lists every unseated guest beside the floorpla
 
 describe('PlanScreen — placing a guest with two clicks', () => {
   it('clicking a rail guest then a table places them: they leave the rail, the table reads one seat filled, and the table carries data-pinned', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     const user = userEvent.setup()
     renderPlanScreen()
@@ -421,10 +507,7 @@ describe('PlanScreen — placing a guest with two clicks', () => {
     await user.click(screen.getByRole('button', { name: /^Place Guest g-0 at Table 1/ }))
 
     expect(screen.queryByRole('button', { name: 'Guest g-0' })).not.toBeInTheDocument()
-    const [table] = tables()
-    if (!table) {
-      throw new Error('expected one table')
-    }
+    const table = tableLabelled('Table 1')
     expect(table.textContent).toMatch(/1\s*of\s*4\s*seats/i)
     expect(table.getAttribute('data-pinned')).toBe('true')
   })
@@ -432,15 +515,12 @@ describe('PlanScreen — placing a guest with two clicks', () => {
 
 describe('PlanScreen — a table offers nothing to click without a selection', () => {
   it('with no guest selected the table has no button to click, and clicking it writes no pin', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     const user = userEvent.setup()
     renderPlanScreen()
 
-    const [table] = tables()
-    if (!table) {
-      throw new Error('expected one table')
-    }
+    const table = tableLabelled('Table 1')
     expect(table.querySelectorAll('button')).toHaveLength(0)
 
     await user.click(table)
@@ -452,7 +532,7 @@ describe('PlanScreen — a table offers nothing to click without a selection', (
 
 describe('PlanScreen — the header reflects a placement, with PlanHeader.tsx itself unmodified', () => {
   it('after one placement the header reads one pinned and its unseated figure drops by one', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(3))
     const user = userEvent.setup()
     renderPlanScreen()
@@ -470,7 +550,7 @@ describe('PlanScreen — the header reflects a placement, with PlanHeader.tsx it
 
 describe('PlanScreen — releasing a pinned guest', () => {
   it('releasing the only pinned guest returns them to the rail, drops the table to zero seats, and clears data-pinned entirely rather than to "false"', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     useTopTableStore.getState().pinGuest('g-0', 'round-1')
     const user = userEvent.setup()
@@ -479,17 +559,14 @@ describe('PlanScreen — releasing a pinned guest', () => {
     await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
 
     expect(screen.getByRole('button', { name: 'Guest g-0' })).toBeInTheDocument()
-    const [table] = tables()
-    if (!table) {
-      throw new Error('expected one table')
-    }
+    const table = tableLabelled('Table 1')
     expect(table.textContent).toMatch(/0\s*of\s*4\s*seats/i)
     expect(table.hasAttribute('data-pinned')).toBe(false)
     expect(table.getAttribute('data-pinned')).not.toBe('false')
   })
 
   it('releasing one of two guests pinned at the same table keeps it pinned and drops it to one seat', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(2))
     useTopTableStore.getState().pinGuest('g-0', 'round-1')
     useTopTableStore.getState().pinGuest('g-1', 'round-1')
@@ -498,10 +575,7 @@ describe('PlanScreen — releasing a pinned guest', () => {
 
     await user.click(screen.getByRole('button', { name: /^Release Guest g-0 from/ }))
 
-    const [table] = tables()
-    if (!table) {
-      throw new Error('expected one table')
-    }
+    const table = tableLabelled('Table 1')
     expect(table.getAttribute('data-pinned')).toBe('true')
     expect(table.textContent).toMatch(/1\s*of\s*4\s*seats/i)
   })
@@ -509,7 +583,7 @@ describe('PlanScreen — releasing a pinned guest', () => {
 
 describe('PlanScreen — Escape clears the selection', () => {
   it('selecting a guest then pressing Escape leaves no guest pressed, offers no table to place at, and writes no pin', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     const user = userEvent.setup()
     renderPlanScreen()
@@ -520,16 +594,13 @@ describe('PlanScreen — Escape clears the selection', () => {
     await user.keyboard('{Escape}')
 
     expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveAttribute('aria-pressed', 'false')
-    const [table] = tables()
-    if (!table) {
-      throw new Error('expected one table')
-    }
+    const table = tableLabelled('Table 1')
     expect(table.querySelectorAll('button')).toHaveLength(0)
     expect(useTopTableStore.getState().pins).toEqual([])
   })
 
   it('Escape with no guest selected does nothing, and does not throw', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     const user = userEvent.setup()
     renderPlanScreen()
@@ -541,7 +612,7 @@ describe('PlanScreen — Escape clears the selection', () => {
   })
 
   it('reports the cleared selection in the live region', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     const user = userEvent.setup()
     renderPlanScreen()
@@ -575,7 +646,7 @@ describe('PlanScreen — placing at the top table', () => {
 
 describe('PlanScreen — a table can be placed past its capacity by hand', () => {
   it('placing a ninth guest at an eight-seat table succeeds; the table reads nine of eight seats and stays full', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 8, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(9))
     for (let index = 0; index < 8; index += 1) {
       useTopTableStore.getState().pinGuest(`g-${index}`, 'round-1')
@@ -586,10 +657,7 @@ describe('PlanScreen — a table can be placed past its capacity by hand', () =>
     await user.click(screen.getByRole('button', { name: 'Guest g-8' }))
     await user.click(screen.getByRole('button', { name: /^Place Guest g-8 at Table 1/ }))
 
-    const [table] = tables()
-    if (!table) {
-      throw new Error('expected one table')
-    }
+    const table = tableLabelled('Table 1')
     expect(table.textContent).toMatch(/9\s*of\s*8\s*seats/i)
     expect(table.getAttribute('data-occupancy')).toBe('full')
   })
@@ -597,7 +665,7 @@ describe('PlanScreen — a table can be placed past its capacity by hand', () =>
 
 describe('PlanScreen — focus follows the gesture, since the control just activated unmounts', () => {
   it('after placing, focus lands on the rail\'s first remaining guest button', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(3))
     const user = userEvent.setup()
     renderPlanScreen()
@@ -609,7 +677,7 @@ describe('PlanScreen — focus follows the gesture, since the control just activ
   })
 
   it('placing the only remaining guest empties the rail, and focus lands on the rail heading instead', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     const user = userEvent.setup()
     renderPlanScreen()
@@ -621,7 +689,7 @@ describe('PlanScreen — focus follows the gesture, since the control just activ
   })
 
   it('after releasing, focus lands on that guest\'s newly-appeared rail button', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(1))
     useTopTableStore.getState().pinGuest('g-0', 'round-1')
     const user = userEvent.setup()
@@ -635,7 +703,7 @@ describe('PlanScreen — focus follows the gesture, since the control just activ
 
 describe('PlanScreen — a pin survives a remount, and a selection does not', () => {
   it('placing a guest, then unmounting and remounting the screen, keeps the pin and starts with nothing selected', async () => {
-    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 0 })
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(2))
     const user = userEvent.setup()
     const { unmount } = renderPlanScreen()

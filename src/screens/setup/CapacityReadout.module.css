@@ -8,8 +8,11 @@
   gap: var(--space-1);
 }
 
-/* Bar plus the word "short", never a wash fill: KB-5's shape half of the pairing. */
-.readout[data-state='short'] {
+/* Bar plus the word "short" (or, below the top-table minimum, "Add a top table…"), never a
+   wash fill: KB-5's shape half of the pairing. Both states are a warning, not a violation, so
+   both reuse --soft rather than --hard. */
+.readout[data-state='short'],
+.readout[data-state='incomplete'] {
   border-left: 3px solid var(--soft);
 }
 
