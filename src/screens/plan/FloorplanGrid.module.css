@@ -1,7 +1,3 @@
-/* `.grid` doesn't use `auto-fit`/`auto-fill` — those respond only to container width and would
-   keep every track growing back to a fixed ceiling regardless of count. `--floorplan-columns`
-   (FloorplanGrid.tsx, from ./floorplan.ts) makes the column count respond to table count
-   instead. */
 .floorplan {
   display: flex;
   flex-direction: column;
@@ -30,17 +26,25 @@
   outline-offset: 2px;
 }
 
+/* auto-fit, not a fixed repeat(N, …): a fixed column count can only ever overflow below its
+   own minimum width, never wrap — which is why a narrow viewport used to scroll the whole row
+   sideways instead of adding rows (TT-11). auto-fit reads the container's real width instead,
+   wrapping extra tables onto new rows as it narrows. `--floorplan-columns` (FloorplanGrid.tsx,
+   from roundTableColumns in ./floorplan) now bounds max-width rather than the column count: an
+   auto-fit `1fr` track keeps absorbing free space with no ceiling of its own, so this is what
+   stops fewer-than-the-cap tables growing past the per-table maximum on a wide screen. The
+   200px here is that maximum and must match the 112px floor's counterpart below, or the cap
+   stops matching the ceiling it exists to enforce. */
 .grid {
   display: grid;
-  /* --floorplan-columns is set inline by FloorplanGrid.tsx; the `, 1` fallback only matters if
-     this class is ever used without it. 112px/200px are the floor and ceiling. */
-  grid-template-columns: repeat(var(--floorplan-columns, 1), minmax(112px, 200px));
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  max-width: calc(var(--floorplan-columns, 1) * 200px + (var(--floorplan-columns, 1) - 1) * var(--space-4));
   gap: var(--space-4);
   /* `safe center`, not plain `center`: centres the row while it fits, but falls back to start
      alignment once it overflows its own box, so the first table stays reachable rather than
      being centred off-screen along with the rest of the overflow. */
   justify-content: safe center;
   list-style: none;
-  margin: 0;
+  margin: 0 auto;
   padding: 0;
 }

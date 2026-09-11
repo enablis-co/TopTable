@@ -96,8 +96,13 @@
   font-size: var(--text-caption);
 }
 
+/* overflow: hidden (not just .round's, above) is what lets a flex item's automatic minimum
+   size become 0 instead of its content's height — see the @container block below for why that
+   matters here (TT-11 fix). */
 .guests {
   display: none;
+  overflow: hidden;
+  min-height: 0;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -157,15 +162,16 @@
 /* Revealed by container query, not a ResizeObserver — jsdom does no layout, so a
    measurement-based approach would be untestable. A container query's min-width reads the
    content box, not the border box, so this threshold is not the table's own rendered width.
-   .face keeps growing (flex: 1, above) only up to here — once the guest list is revealed it
-   must stop, or it pushes the list past the table's centre; floorplanStyles.test.ts asserts
-   this reset is declared. */
+   .face (flex: 1, above) must stop growing once the guest list is revealed, or it pushes the
+   list past the table's centre — and must stop shrinking too, or overflow pushes back into it
+   and clips the number instead (TT-11 fix). .guests is the child that yields; see its own
+   overflow: hidden above. floorplanStyles.test.ts asserts both halves of this. */
 @container (min-width: 132px) {
   .guests {
     display: block;
   }
 
   .table .face {
-    flex: initial;
+    flex: 0 0 auto;
   }
 }
