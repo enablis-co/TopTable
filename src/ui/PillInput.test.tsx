@@ -396,3 +396,38 @@ describe('Escape and the suggestion list (regression)', () => {
     expect(parentKeyDown).toHaveBeenCalledTimes(1)
   })
 })
+
+/*
+ * TT-5. A guest can reach the panel already holding the same entry twice: the draft copies the
+ * stored array verbatim and only save deduplicates it. Rendering both is wrong twice over —
+ * React keys pills by value, and the remove control filters by value, so one click would take
+ * away a pill the person had not pointed at.
+ */
+describe('PillInput — a value repeated in the caller is shown once', () => {
+  it('renders one pill for a value held twice, not two', () => {
+    render(
+      <PillInput
+        label="Accessibility"
+        value={['step-free access', 'step-free access']}
+        onChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getAllByText('step-free access')).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Remove step-free access' })).toHaveLength(1)
+  })
+
+  it('treats a repeat differing only in case as the same entry, keeping the first spelling', () => {
+    render(<PillInput label="Tags" value={['Uni', 'uni']} onChange={vi.fn()} />)
+
+    const pills = screen.getAllByRole('button', { name: /^Remove / })
+    expect(pills).toHaveLength(1)
+    expect(pills[0]).toHaveAccessibleName('Remove Uni')
+  })
+
+  it('leaves a list with no repeats exactly as it was given', () => {
+    render(<PillInput label="Tags" value={['uni', 'footie', 'family']} onChange={vi.fn()} />)
+
+    expect(screen.getAllByRole('button', { name: /^Remove / })).toHaveLength(3)
+  })
+})
