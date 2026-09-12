@@ -45,6 +45,15 @@ function makeGuests(count: number): Guest[] {
   return Array.from({ length: count }, (_, index) => makeGuest(`g-${index}`))
 }
 
+// TT-38 delta: the search field is now a Combobox, whose input also carries role="combobox"
+// (the same implicit role a plain HTML <select> already has) — so `getAllByRole('combobox')`
+// alone can no longer distinguish "the three selects" from "the three selects plus the search
+// field". Filtering to actual <select> elements is what the pre-delta "three selects" checks
+// need now that the count is genuinely ambiguous by role alone.
+function selectControls(): HTMLElement[] {
+  return screen.getAllByRole('combobox').filter((element) => element.tagName === 'SELECT')
+}
+
 function renderRail(
   overrides: {
     guests?: Guest[]
@@ -192,7 +201,7 @@ describe('UnseatedRail — the filter controls appear only once there is somethi
   it('renders no search field, no selects and no Clear button when totalCount is zero', () => {
     renderRail({ guests: [], totalCount: 0 })
 
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /search/i })).not.toBeInTheDocument()
     expect(screen.queryAllByRole('combobox')).toHaveLength(0)
     expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
   })
@@ -200,8 +209,8 @@ describe('UnseatedRail — the filter controls appear only once there is somethi
   it('renders the search field and three selects once totalCount is above zero, even when the filtered guest list is itself empty', () => {
     renderRail({ guests: [], totalCount: 5 })
 
-    expect(screen.getByRole('textbox', { name: /search/i })).toBeInTheDocument()
-    expect(screen.getAllByRole('combobox')).toHaveLength(3)
+    expect(screen.getByRole('combobox', { name: /search/i })).toBeInTheDocument()
+    expect(selectControls()).toHaveLength(3)
   })
 })
 
@@ -209,7 +218,7 @@ describe('UnseatedRail — the search field and the three selects are reachable 
   it('exposes a search field and "Filter by side", "Filter by role" and "Filter by need" selects', () => {
     renderRail({ guests: makeGuests(2) })
 
-    expect(screen.getByRole('textbox', { name: /search/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /search/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Filter by side' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Filter by role' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Filter by need' })).toBeInTheDocument()
@@ -222,7 +231,7 @@ describe('UnseatedRail — typing in the search field narrows the visible rows (
     const allGuests = [makeGuest('g-1', { name: 'Ana Ferreira' }), makeGuest('g-2', { name: 'Ben Ojo' })]
     renderControlledRail(allGuests)
 
-    await user.type(screen.getByRole('textbox', { name: /search/i }), 'Ana')
+    await user.type(screen.getByRole('combobox', { name: /search/i }), 'Ana')
 
     expect(screen.getByRole('button', { name: 'Ana Ferreira' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ben Ojo' })).not.toBeInTheDocument()
@@ -260,7 +269,7 @@ describe('UnseatedRail — the count states shown and hidden only once a filter 
     ]
     renderControlledRail(allGuests)
 
-    await user.type(screen.getByRole('textbox', { name: /search/i }), 'an')
+    await user.type(screen.getByRole('combobox', { name: /search/i }), 'an')
 
     const text = document.body.textContent ?? ''
     expect(containsStandaloneNumber(text, 3)).toBe(true)
@@ -307,7 +316,7 @@ describe('UnseatedRail — one action clears every filter (C10)', () => {
     const allGuests = [makeGuest('g-1', { name: 'Ana Ferreira' }), makeGuest('g-2', { name: 'Ben Ojo' })]
     renderControlledRail(allGuests)
 
-    await user.type(screen.getByRole('textbox', { name: /search/i }), 'Ana')
+    await user.type(screen.getByRole('combobox', { name: /search/i }), 'Ana')
     expect(screen.queryByRole('button', { name: 'Ben Ojo' })).not.toBeInTheDocument()
 
     const clearButton = screen.getByRole('button', { name: 'Clear filters' })
@@ -320,6 +329,42 @@ describe('UnseatedRail — one action clears every filter (C10)', () => {
     expect(screen.getByRole('button', { name: 'Ana Ferreira' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ben Ojo' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: /search/i })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: /search/i })).toHaveValue('')
+  })
+})
+
+/*
+ * TT-38 delta plan (re-scoped 5 -> 13 points), §D3/§D6 — D13/D14, A4. Written from the ticket's
+ * own note ("Anything other than `guest` is worth marking, and the eight protocol roles most of
+ * all") and the plan's A4 ("One marker treatment for every role other than `guest`... a
+ * rationale, not a second treatment"), without opening UnseatedRail.tsx.
+ *
+ * `bridesmaid` sits in `OTHER_ROLES`, not `PROTOCOL_ROLES` (src/domain/types.ts) — a build that
+ * only reads the ticket's "protocol roles most of all" clause as the whole rule, rather than as
+ * emphasis within a wider one, marks `best man` but not `bridesmaid`. That reading is tested
+ * explicitly below rather than assumed correct.
+ *
+ * Every fixture here carries a real role, so its accessible name gains the marker text — R3's
+ * warning that existing fixtures default to `role: 'guest'` and stay exact-matchable, but a new
+ * one must not. Regex matchers throughout, per that guidance.
+ */
+
+describe('UnseatedRail — a guest holding any role other than "guest" carries that role as a marker on their tile (D13)', () => {
+  it('a protocol role, "best man", is marked', () => {
+    renderRail({ guests: [makeGuest('g-1', { name: 'Danny Whitaker', role: 'best man' })] })
+
+    expect(screen.getByRole('button', { name: /^Danny Whitaker\s+Best man$/ })).toBeInTheDocument()
+  })
+
+  it('"bridesmaid" — an OTHER_ROLES role, not a protocol one — is marked too, not only the eight protocol roles (A4)', () => {
+    renderRail({ guests: [makeGuest('g-1', { name: 'Priya Shah', role: 'bridesmaid' })] })
+
+    expect(screen.getByRole('button', { name: /^Priya Shah\s+Bridesmaid$/ })).toBeInTheDocument()
+  })
+
+  it('the plain "guest" role carries no marker at all: the accessible name is exactly the guest\'s own name', () => {
+    renderRail({ guests: [makeGuest('g-1', { name: 'Kev Braithwaite', role: 'guest' })] })
+
+    expect(screen.getByRole('button', { name: 'Kev Braithwaite' })).toBeInTheDocument()
   })
 })

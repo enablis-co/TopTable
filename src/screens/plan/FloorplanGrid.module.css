@@ -50,19 +50,21 @@
   outline-offset: 2px;
 }
 
-/* auto-fit, not a fixed repeat(N, …): a fixed column count can only ever overflow below its
-   own minimum width, never wrap — which is why a narrow viewport used to scroll the whole row
-   sideways instead of adding rows (TT-11). auto-fit reads the container's real width instead,
-   wrapping extra tables onto new rows as it narrows. `--floorplan-columns` (FloorplanGrid.tsx,
-   from roundTableColumns in ./floorplan) now bounds max-width rather than the column count: an
-   auto-fit `1fr` track keeps absorbing free space with no ceiling of its own, so this is what
-   stops fewer-than-the-cap tables growing past the per-table maximum on a wide screen. The
-   200px here is that maximum and must match the 112px floor's counterpart below, or the cap
-   stops matching the ceiling it exists to enforce. */
+/* TT-38: `auto-fit` only ever wrapped by width and left height to `.gridScroll`'s own scrollbar,
+   which is the defect this ticket exists to fix — 26 tables at a 112px floor ran to five rows
+   with most of them off-screen. `--floorplan-columns` and `--table-size` (FloorplanGrid.tsx, from
+   `fitFloorplan`) are recomputed from the box's measured width and height on every resize, so a
+   fixed `repeat(N, …)` here is not the old defect returning: the count and size behind it are
+   live, not a cap on top of a still-elastic track.
+
+   A bare `--table-size` track, not `minmax(0, var(--table-size))`: `minmax(0, …)` lets the grid
+   compress every track below that value whenever the tracks don't all fit, which would silently
+   defeat fitFloorplan's own floor — the one case this matters, a box too small to hold `count`
+   tables even at the floor, is exactly when a fixed track is supposed to overflow into
+   `.gridScroll`'s own scrollbar instead of shrinking. floorplanStyles.test.ts guards this. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  max-width: calc(var(--floorplan-columns, 1) * 200px + (var(--floorplan-columns, 1) - 1) * var(--s-4));
+  grid-template-columns: repeat(var(--floorplan-columns, 1), var(--table-size, 200px));
   gap: var(--s-4);
   /* `safe center`, not plain `center`: centres the row while it fits, but falls back to start
      alignment once it overflows its own box, so the first table stays reachable rather than

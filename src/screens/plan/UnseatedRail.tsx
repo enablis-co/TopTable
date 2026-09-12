@@ -1,10 +1,11 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { Ref } from 'react'
-import { Button, Select, TextField, cx, tabularClass } from '../../ui'
+import { Button, Combobox, Select, Tag, cx, tabularClass } from '../../ui'
 import { OTHER_ROLES, PROTOCOL_ROLES } from '../../domain/types'
 import type { Guest, Role, Side } from '../../domain/types'
 import { NO_FILTERS, isFiltered } from './unseatedFilter'
 import type { NeedsFilter, UnseatedFilters } from './unseatedFilter'
+import { suggestionsFrom } from './unseatedSuggestions'
 import styles from './UnseatedRail.module.css'
 
 const ROLES: Role[] = [...OTHER_ROLES, ...PROTOCOL_ROLES]
@@ -21,6 +22,15 @@ type UnseatedRailProps = {
   totalCount: number
   filters: UnseatedFilters
   onFiltersChange: (filters: UnseatedFilters) => void
+  /**
+   * TT-38 delta. The unseated guests surviving the three non-query filters (side, role,
+   * needs) but not the search text — `PlanScreen`'s own filter with `query` reset to `''`.
+   * Suggesting a guest the active filters would exclude, or one already seated, would land
+   * the search on "No one matches those filters": a defect dressed as a feature. Optional,
+   * defaulting to no suggestions, so a caller that has not yet been given a pool degrades to
+   * a plain search rather than failing to typecheck.
+   */
+  suggestionPool?: readonly Guest[]
   selectedGuestId: string | null
   onSelect: (guestId: string) => void
   headingRef: Ref<HTMLHeadingElement>
@@ -76,18 +86,25 @@ type UnseatedRailProps = {
  * scroll position on the one `focusin` that immediately follows a same-filter drop in guest
  * count — the signature of a placement, never of ordinary Tab navigation or of a filter
  * narrowing the list.
+ *
+ * TT-38 delta: the search field is now `Combobox`, offering suggestions from `suggestionPool`
+ * (names, then tags), and each row that carries a role other than `guest` marks it with a
+ * `Tag` — sunken-on-surface, never coloured, KB-5's "colour never carries meaning alone" for
+ * the twelve roles rather than for a subset of them.
  */
 export function UnseatedRail({
   guests,
   totalCount,
   filters,
   onFiltersChange,
+  suggestionPool = [],
   selectedGuestId,
   onSelect,
   headingRef,
 }: UnseatedRailProps) {
   const filtered = isFiltered(filters)
   const hiddenCount = totalCount - guests.length
+  const suggestions = useMemo(() => suggestionsFrom(suggestionPool), [suggestionPool])
 
   function setField<K extends keyof UnseatedFilters>(key: K, value: UnseatedFilters[K]) {
     onFiltersChange({ ...filters, [key]: value })
@@ -149,14 +166,15 @@ export function UnseatedRail({
       </div>
       {totalCount > 0 ? (
         <div className={styles.controls}>
-          <TextField
+          <Combobox
             label="Search name or tag"
             labelHidden
             placeholder="Search name or tag"
             value={filters.query}
-            onChange={(event) => {
-              setField('query', event.target.value)
+            onChange={(value) => {
+              setField('query', value)
             }}
+            suggestions={suggestions}
           />
           <Select
             label="Filter by side"
@@ -230,6 +248,12 @@ export function UnseatedRail({
                 }}
               >
                 {guest.name}
+                {guest.role !== 'guest' ? (
+                  <>
+                    {' '}
+                    <Tag>{capitalizeFirst(guest.role)}</Tag>
+                  </>
+                ) : null}
               </Button>
             </li>
           ))}

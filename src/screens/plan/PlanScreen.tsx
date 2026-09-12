@@ -100,6 +100,13 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   // exactly the rows it is given — `totalCount` (plan.unseated.length) travels alongside it
   // for the header's shown/hidden line.
   const visibleUnseated = useMemo(() => filterUnseated(plan.unseated, filters), [plan.unseated, filters])
+  // TT-38 delta. The combobox's suggestion pool: side/role/needs filters still apply (so a
+  // suggestion is never a guest the active filters would hide) but the search text does not
+  // (so typing doesn't narrow its own suggestion source out from under it).
+  const suggestionPool = useMemo(
+    () => filterUnseated(plan.unseated, { ...filters, query: '' }),
+    [plan.unseated, filters],
+  )
   const selectedGuest = guests.find((guest) => guest.id === selectedGuestId) ?? null
   // `?? null` guards a table that stopped existing after a room edit — the violations panel is
   // the fallback rather than a crash.
@@ -266,6 +273,7 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 totalCount={plan.unseated.length}
                 filters={filters}
                 onFiltersChange={setFilters}
+                suggestionPool={suggestionPool}
                 selectedGuestId={selectedGuestId}
                 onSelect={handleSelect}
                 headingRef={railHeadingRef}

@@ -31,6 +31,18 @@ function read(path: string): string {
   return readFileSync(path, 'utf8')
 }
 
+/**
+ * Comments are prose, not code. Without this, a comment explaining why a rule
+ * uses `var(--table-size)` reads as a real, fallback-less reference and fails
+ * the guard below — which is exactly the trap brand.test.ts's own /green|success/
+ * grep carries, reproduced here. Block comments only: they are valid in both CSS
+ * and TSX, and a `//` strip risks eating a `://` inside a string.
+ * TT-38 is where this bit.
+ */
+function stripComments(content: string): string {
+  return content.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
 const ALL_FILES = walk(SRC_DIR)
 const CSS_FILES = ALL_FILES.filter((file) => file.endsWith('.css'))
 // Test files are excluded for the same reason brand.test.ts excludes them: they
@@ -138,12 +150,12 @@ describe('token guards', () => {
   it('resolves every var(--x) reference under src/ to a declaration under src/', () => {
     const declared = new Set<string>()
     for (const file of CSS_FILES) {
-      for (const name of findDeclaredNames(read(file))) declared.add(name)
+      for (const name of findDeclaredNames(stripComments(read(file)))) declared.add(name)
     }
 
     const offenders = new Set<string>()
     for (const file of STYLE_AND_MARKUP_FILES) {
-      for (const ref of findVarReferences(read(file))) {
+      for (const ref of findVarReferences(stripComments(read(file)))) {
         if (ref.hasFallback) continue
         if (!declared.has(ref.name)) {
           offenders.add(`${toSrcRelative(file)}: ${ref.name}`)
@@ -161,7 +173,7 @@ describe('token guards', () => {
   it('has no reference to the retired --space- or --text- token scale', () => {
     const offenders: string[] = []
     for (const file of STYLE_AND_MARKUP_FILES) {
-      const content = read(file)
+      const content = stripComments(read(file))
       if (/--space-/.test(content) || /--text-/.test(content)) {
         offenders.push(toSrcRelative(file))
       }

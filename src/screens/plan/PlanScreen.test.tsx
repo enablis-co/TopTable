@@ -1261,7 +1261,7 @@ describe('PlanScreen — a search filter survives a placement (TT-38, C11 filter
     const user = userEvent.setup()
     renderPlanScreen()
 
-    const search = screen.getByRole('textbox', { name: /search/i })
+    const search = screen.getByRole('combobox', { name: /search/i })
     await user.type(search, 'An')
 
     expect(screen.getByRole('button', { name: 'Anna Field' })).toBeInTheDocument()
@@ -1289,7 +1289,7 @@ describe('PlanScreen — click-to-place still pins and still moves focus to the 
     const user = userEvent.setup()
     renderPlanScreen()
 
-    await user.type(screen.getByRole('textbox', { name: /search/i }), 'An')
+    await user.type(screen.getByRole('combobox', { name: /search/i }), 'An')
     await user.click(screen.getByRole('button', { name: 'Anna Field' }))
     await user.click(screen.getByRole('button', { name: /^Place Anna Field at Table 1/ }))
 
@@ -1311,7 +1311,7 @@ describe('PlanScreen — Escape still clears the selection while a filter is act
     const user = userEvent.setup()
     renderPlanScreen()
 
-    const search = screen.getByRole('textbox', { name: /search/i })
+    const search = screen.getByRole('combobox', { name: /search/i })
     await user.type(search, 'An')
     await user.click(screen.getByRole('button', { name: 'Anna Field' }))
     expect(screen.getByRole('button', { name: 'Anna Field' })).toHaveAttribute('aria-pressed', 'true')
@@ -1321,5 +1321,64 @@ describe('PlanScreen — Escape still clears the selection while a filter is act
     expect(screen.getByRole('button', { name: 'Anna Field' })).toHaveAttribute('aria-pressed', 'false')
     expect(useTopTableStore.getState().pins).toEqual([])
     expect(search).toHaveValue('An')
+  })
+})
+
+/*
+ * TT-38 delta plan (re-scoped 5 -> 13 points), §D3/§D6 — D9, D12, D13. Written from the plan's
+ * contract for the search combobox and its suggestion pool, without opening UnseatedRail.tsx,
+ * Combobox.tsx or unseatedSuggestions.ts. The combobox's own keyboard behaviour is covered in
+ * Combobox.test.tsx; what belongs here is the two-handler interaction §D4 calls out by name:
+ * `PlanScreen`'s existing document-level Escape (which clears the rail's guest selection, TT-12)
+ * sits behind the combobox's own Escape (which only dismisses its suggestion popup), and the
+ * `stopPropagation()` the plan puts on the popup-closing Escape is what keeps the first keystroke
+ * from reaching both handlers at once (D12).
+ */
+
+describe('PlanScreen — Escape closes the suggestion list before it ever reaches the rail selection (TT-38, D12/D13)', () => {
+  it('with a guest selected and the suggestion list open, one Escape closes only the list; a second Escape then clears the selection', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests([
+      makeGuest('g-0', { name: 'Anna Field' }),
+      makeGuest('g-1', { name: 'Ben Ojo' }),
+    ])
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Anna Field' }))
+    expect(screen.getByRole('button', { name: 'Anna Field' })).toHaveAttribute('aria-pressed', 'true')
+
+    const search = screen.getByRole('combobox', { name: /search/i })
+    await user.type(search, 'an')
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Anna Field' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.getByRole('button', { name: 'Anna Field' })).toHaveAttribute('aria-pressed', 'false')
+    expect(useTopTableStore.getState().pins).toEqual([])
+  })
+})
+
+describe('PlanScreen — the search suggestion pool is the unseated guests, not the whole guest list (TT-38, D9/A1)', () => {
+  it('a guest already seated does not appear as a suggestion, even though their name matches what is typed', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests([
+      makeGuest('g-0', { name: 'Anna Baker' }),
+      makeGuest('g-1', { name: 'Anna Zeta' }),
+    ])
+    useTopTableStore.getState().pinGuest('g-1', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    const search = screen.getByRole('combobox', { name: /search/i })
+    await user.type(search, 'Anna')
+
+    expect(screen.getByRole('option', { name: 'Anna Baker name' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Anna Zeta name' })).not.toBeInTheDocument()
   })
 })

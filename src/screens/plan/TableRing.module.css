@@ -10,6 +10,12 @@
   display: block;
   width: 100%;
   height: auto;
+  /* TT-38: the browser clips an outermost <svg>'s own content to its box by default, ahead of
+     and regardless of `.round`'s own overflow (PlanTable.module.css) — a shrunk table's
+     non-scaling stroke overshoots that box before it ever reaches `.round`'s. A selected
+     table's 9px stroke clips at 3, 6, 9 and 12 o'clock at any size below the viewBox's own
+     94px; floorplanStyles.test.ts guards this declaration. */
+  overflow: visible;
 }
 
 .ring {
@@ -21,6 +27,11 @@
      rendered: the <circle>'s own strokeWidth attribute this used to fall back past is gone too
      (TableRing.tsx), so the custom property is the only place this number lives now. */
   stroke-width: var(--ring-stroke-width);
+  /* TT-38: holds this stroke at a constant CSS width as fitFloorplan (floorplanFit.ts) scales
+     the table down, rather than shrinking it with the viewBox — ringRadius stays legible at the
+     floor. stroke-dasharray is unaffected: it stays in user units, so the seat marks stay
+     proportional to the ring. tableRingStyles.test.ts guards this. */
+  vector-effect: non-scaling-stroke;
 }
 
 .body {
@@ -28,6 +39,7 @@
   stroke: var(--ring-body-stroke);
   stroke-width: var(--ring-body-stroke-width, 0);
   stroke-dasharray: var(--ring-body-dasharray, none);
+  vector-effect: non-scaling-stroke;
 }
 
 .pin {

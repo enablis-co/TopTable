@@ -168,3 +168,30 @@ describe('UnseatedRail.module.css — the list is height-bounded, never free to 
     expect(innerMaxHeight?.trim()).not.toBe(outerMaxHeight?.trim())
   })
 })
+
+/**
+ * TT-38 delta. Rows became short wrapping tiles on their own surface, separated from the
+ * controls above by a background step rather than a border — jsdom applies no CSS, so this is
+ * the only place the suite can confirm the declarations exist at all.
+ */
+describe('UnseatedRail.module.css — the rail delta: wrapping tiles, one separator only', () => {
+  it('.list declares flex-wrap: wrap', () => {
+    const rule = requireRule(readCss(), LIST_RULE, 'the scrolling list')
+    expect(rule.body).toMatch(/flex-wrap\s*:\s*wrap/i)
+  })
+
+  it('.rail .row no longer stretches to the width of a column', () => {
+    const rule = requireRule(readCss(), ROW_BASE, 'the base rail row')
+    expect(rule.body).not.toMatch(/width\s*:\s*100%/i)
+  })
+
+  it('.list declares exactly one of a background step or a border — never both, never a shadow', () => {
+    const rule = requireRule(readCss(), LIST_RULE, 'the scrolling list')
+    const hasBackground = /background\s*:/i.test(rule.body)
+    // border-radius is a corner, not a separator — excluded so a rounded surface step
+    // (background only) doesn't get counted as also declaring a border.
+    const hasBorder = /\bborder(?!-radius)(-\w+)?\s*:/i.test(rule.body)
+    expect(hasBackground !== hasBorder, 'expected exactly one of background or border on .list').toBe(true)
+    expect(rule.body).not.toMatch(/box-shadow\s*:/i)
+  })
+})

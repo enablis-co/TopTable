@@ -51,23 +51,32 @@
   color: var(--ink);
 }
 
-/* TT-38: the list flips from a horizontal chip run to a vertical scroll box. max-height is
-   the one declaration that bounds the strip — clamp(120px, 26vh, 260px) keeps it usable on a
-   short viewport without letting it grow past 260px on a tall one, and never lets it push into
-   .floorplanArea's own budget. */
+/* TT-38: the list is a bounded vertical scroll box. max-height is the one declaration that
+   bounds the strip — clamp(120px, 26vh, 260px) keeps it usable on a short viewport without
+   letting it grow past 260px on a tall one, and never lets it push into .floorplanArea's own
+   budget.
+
+   TT-38 delta: rows wrap as short tiles rather than stacking one per line, and the list gets
+   its own --sunken background so it reads as a separate plane from .controls above it — a
+   background step, KB-5's "where two things are not separating, a border or a step" — never a
+   border as well, and never a shadow. */
 .list {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: flex-start;
   overflow-y: auto;
   max-height: clamp(120px, 26vh, 260px);
   gap: 7px;
   margin: 0;
-  padding: 0;
+  padding: var(--s-2);
   list-style: none;
+  background: var(--sunken);
+  border-radius: var(--r-nav);
 }
 
-/* Each chip's <li> must not shrink below its own content — flex's default shrink would squeeze
-   a guest's name before overflow-x ever has to scroll, which is exactly backwards. */
+/* Each tile's <li> must not shrink below its own content — flex's default shrink would squeeze
+   a guest's name rather than let the row wrap onto the next line, which is exactly backwards. */
 .list li {
   flex: none;
 }
@@ -91,8 +100,6 @@
   padding: 5px 10px;
   white-space: nowrap;
   color: var(--ink);
-  width: 100%;
-  text-align: left;
 }
 
 .rail .row[aria-pressed='true'] {

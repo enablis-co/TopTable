@@ -59,10 +59,15 @@
   border: none;
   /* Lets aspect-ratio win over the grid item's content-based automatic minimum height. */
   min-height: 0;
-  /* Clips content taller than the box — the number and count now sit inside the ring itself
-     (.round .heading/.round .occupancy below), so this guards the ring's own curve, not a
-     guest list that used to sit below it. */
-  overflow: hidden;
+  /* .table's own --s-3 padding would leave the ring's SVG 24px narrower than this box, so
+     fitFloorplan's floor (floorplanFit.ts) would be wrong by nearly a third; floorplanStyles.test.ts
+     guards this at zero. */
+  padding: 0;
+  /* TableRing's stroke is non-scaling (TableRing.module.css) so it holds a constant CSS width as
+     the ring shrinks, which pushes its outer edge past the viewBox at small sizes — clipping it
+     here would reopen the flat-spot ringGeometry.ts's ringRadius was tuned to close.
+     floorplanStyles.test.ts guards this. */
+  overflow: visible;
 }
 
 /* Not a grid item — FloorplanGrid.tsx renders this table in its own list, outside the grid. */
@@ -206,6 +211,11 @@
   gap: var(--s-1);
   padding: 0;
   border-color: transparent;
+  /* Button.module.css's shared 1px border is already invisible here (border-color above), but
+     border-box sizing still spends it on layout: on a round table it shrank the ring's SVG 2px
+     inside fitFloorplan's own floor (floorplanFit.ts assumes the SVG fills .round exactly).
+     Zeroing the width, not just the colour, is what makes that assumption true. */
+  border-width: 0;
   background: transparent;
   color: inherit;
   border-radius: inherit;
