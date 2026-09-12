@@ -101,6 +101,18 @@ export function PillInput({
     }
   }
 
+  // `value` is whatever the caller holds, and a guest can carry the same entry twice — the panel
+  // accepts duplicates and only drops them on save (guestDraft.ts copies the array verbatim). Two
+  // identical pills would share a React key, which is unsupported, and `removePill` filters by
+  // value so one click would remove both. Shown once, deduplicated the way `pool` and `commit`
+  // already judge sameness. Guarded in PillInput.test.tsx.
+  const pills: string[] = []
+  for (const pill of value) {
+    if (!pills.some((existing) => sameValue(existing, pill))) {
+      pills.push(pill)
+    }
+  }
+
   const options: Option[] =
     trimmed === ''
       ? []
@@ -195,7 +207,7 @@ export function PillInput({
         {label}
       </label>
       <div className={cx(fieldStyles.field, styles.control)}>
-        {value.map((pill) => (
+        {pills.map((pill) => (
           <span key={pill} className={styles.pill}>
             <Tag>{pill}</Tag>
             <button
