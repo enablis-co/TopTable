@@ -1,9 +1,13 @@
 import type { CSSProperties } from 'react'
 import type { RoomConfig } from '../../domain/types'
 import { tablesInRoom } from '../../domain/seating'
-import { occupantsAt, roundTableColumns, type SeatingView } from './floorplan'
+import { occupantsAt, type SeatingView } from './floorplan'
+import { fitFloorplan } from './floorplanFit'
+import { useElementSize } from './useElementSize'
 import { PlanTable } from './PlanTable'
 import styles from './FloorplanGrid.module.css'
+
+const GRID_GAP = 16 // var(--s-4); fitFloorplan takes it as a number, CSS keeps the token.
 
 type FloorplanGridProps = {
   room: RoomConfig
@@ -17,7 +21,7 @@ type FloorplanGridProps = {
   selectedTableId?: string | null
 }
 
-type GridStyle = CSSProperties & { '--floorplan-columns': number }
+type GridStyle = CSSProperties & { '--floorplan-columns': number; '--table-size': string }
 
 /** A table offers itself as a placing destination only once both halves of "placing" exist. */
 function placingFor(
@@ -47,7 +51,18 @@ export function FloorplanGrid({
   const topSlot = slots.find((slot) => slot.kind === 'top')
   const roundSlots = slots.filter((slot) => slot.kind === 'round')
 
-  const gridStyle: GridStyle = { '--floorplan-columns': roundTableColumns(roundSlots.length) }
+  const [gridScrollRef, gridScrollSize] = useElementSize<HTMLDivElement>()
+  const fit = fitFloorplan({
+    width: gridScrollSize.width,
+    height: gridScrollSize.height,
+    count: roundSlots.length,
+    gap: GRID_GAP,
+  })
+
+  const gridStyle: GridStyle = {
+    '--floorplan-columns': fit.columns,
+    '--table-size': `${fit.size}px`,
+  }
 
   return (
     <div className={styles.floorplan}>
@@ -66,7 +81,13 @@ export function FloorplanGrid({
         // tabIndex, role and aria-label live on this wrapper, not the <ul> it contains —
         // role="region" on the <ul> itself would replace its implicit list role, and the round
         // tables would stop being exposed as list items.
-        <div className={styles.gridScroll} tabIndex={0} role="region" aria-label="Round tables">
+        <div
+          className={styles.gridScroll}
+          ref={gridScrollRef}
+          tabIndex={0}
+          role="region"
+          aria-label="Round tables"
+        >
           <ul className={styles.grid} style={gridStyle}>
             {roundSlots.map((slot) => (
               <PlanTable
@@ -76,6 +97,7 @@ export function FloorplanGrid({
                 placing={placingFor(slot.id, placingGuestName, onPlace)}
                 onSelect={() => onSelect?.(slot.id)}
                 selected={slot.id === selectedTableId}
+                showFillCount={fit.showsFillCount}
               />
             ))}
           </ul>

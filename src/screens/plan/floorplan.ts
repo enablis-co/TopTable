@@ -8,14 +8,21 @@ import type { SeatingPlan } from '../../domain/seating'
  * only ever reads from — nothing here re-derives a table address or a seat.
  */
 
-/** How many 112px-floor round-table columns this app's content width can hold at most. */
+/**
+ * TT-38: no longer a live CSS constraint. `FloorplanGrid.module.css`'s grid used to feed this
+ * into a `max-width` for an `auto-fit` track; both are gone now that `fitFloorplan`
+ * (floorplanFit.ts) picks the column count and table size from the box's own measured width and
+ * height. What's left is `floorplanFit`'s unmeasured-path fallback below — the column count it
+ * renders for the one frame before a real measurement exists.
+ */
 export const MAX_ROUND_TABLE_COLUMNS = 11
 
 /**
- * Caps the table count at MAX_ROUND_TABLE_COLUMNS. FloorplanGrid.module.css feeds this into a
- * `max-width` on the grid, not a literal column count — `auto-fit` computes the live column
- * count from the container's actual width and wraps, so this only stops fewer-than-the-cap
- * tables growing past the per-table ceiling on a wide screen (TT-11 fix).
+ * `floorplanFit.ts`'s fallback when the floorplan box has not been measured yet (jsdom always,
+ * and a real browser for one frame before `ResizeObserver` first reports): renders at
+ * `MAX_TABLE_SIZE` with this many columns, capped here rather than left to grow with the table
+ * count, so that one frame can't render wider than a typical viewport before the real fit takes
+ * over.
  */
 export function roundTableColumns(roundTableCount: number): number {
   return Math.max(1, Math.min(roundTableCount, MAX_ROUND_TABLE_COLUMNS))

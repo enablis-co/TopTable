@@ -116,3 +116,85 @@ describe('UnseatedRail.module.css — the brand rules hold for this file too', (
     expect(css).not.toMatch(/\b(rgb|rgba|hsl|hsla)\s*\(/i)
   })
 })
+
+/**
+ * TT-38. jsdom does no layout, so nothing in the suite can see whether the rail actually stays
+ * bounded on screen (that is the browser pass named in the plan's §5) — but the declaration
+ * that bounds it is text, and this is where a regression would show up first: `.list` losing
+ * its `max-height` while everything else still typechecks. Reads UnseatedRail.module.css only.
+ */
+const LIST_RULE = /(?<!\.rail\s)(?<![\w-])\.list\s*\{/
+
+describe('UnseatedRail.module.css — the list is height-bounded, never free to grow into the floorplan', () => {
+  // Asserting the absence of overflow-x: auto would claim more than it proves: alongside
+  // overflow-y: auto a visible x computes to auto anyway, so the list can still scroll
+  // sideways whatever this rule omits. What actually keeps it from doing so is the wrap,
+  // asserted in its own case below.
+  it('.list declares overflow-y: auto and a max-height', () => {
+    const rule = requireRule(readCss(), LIST_RULE, 'the scrolling list')
+    expect(rule.body).toMatch(/overflow-y\s*:\s*auto/i)
+    expect(rule.body).toMatch(/max-height\s*:/i)
+  })
+
+  it('the max-height is a clamp, so the bound flexes with viewport height rather than sitting at one fixed figure', () => {
+    const rule = requireRule(readCss(), LIST_RULE, 'the scrolling list')
+    expect(rule.body).toMatch(/max-height\s*:\s*clamp\(/i)
+  })
+
+  it('.rail stays flex: none — the strip takes only its own content height, never a share of .floorplanArea', () => {
+    const rule = requireRule(readCss(), /\.rail\s*\{/, 'the rail container')
+    expect(rule.body).toMatch(/flex\s*:\s*none/i)
+  })
+
+  it('a max-width: 720px media block overrides .list to a smaller max-height, matching PlanScreen.module.css\'s own collapse point', () => {
+    const css = stripComments(readCss())
+    const mediaMatch = /@media\s*\(\s*max-width\s*:\s*720px\s*\)\s*\{/i.exec(css)
+    expect(mediaMatch, 'expected a @media (max-width: 720px) block').toBeTruthy()
+
+    const openBrace = css.indexOf('{', mediaMatch!.index)
+    // Walk to the matching closing brace for the whole media block, since it nests one rule.
+    let depth = 1
+    let index = openBrace + 1
+    while (depth > 0 && index < css.length) {
+      if (css[index] === '{') depth += 1
+      if (css[index] === '}') depth -= 1
+      index += 1
+    }
+    const mediaBody = css.slice(openBrace + 1, index - 1)
+
+    expect(mediaBody).toMatch(/\.list\s*\{[^}]*max-height\s*:/i)
+
+    const outerMaxHeight = /max-height\s*:\s*([^;]+);/i.exec(requireRule(css, LIST_RULE, 'the scrolling list').body)?.[1]
+    const innerMaxHeight = /\.list\s*\{[^}]*max-height\s*:\s*([^;]+);/i.exec(mediaBody)?.[1]
+    expect(outerMaxHeight).toBeTruthy()
+    expect(innerMaxHeight).toBeTruthy()
+    expect(innerMaxHeight?.trim()).not.toBe(outerMaxHeight?.trim())
+  })
+})
+
+/**
+ * TT-38 delta. Rows became short wrapping tiles on their own surface, separated from the
+ * controls above by a background step rather than a border — jsdom applies no CSS, so this is
+ * the only place the suite can confirm the declarations exist at all.
+ */
+describe('UnseatedRail.module.css — the rail delta: wrapping tiles, one separator only', () => {
+  it('.list declares flex-wrap: wrap', () => {
+    const rule = requireRule(readCss(), LIST_RULE, 'the scrolling list')
+    expect(rule.body).toMatch(/flex-wrap\s*:\s*wrap/i)
+  })
+
+  it('.rail .row no longer stretches to the width of a column', () => {
+    const rule = requireRule(readCss(), ROW_BASE, 'the base rail row')
+    expect(rule.body).not.toMatch(/width\s*:\s*100%/i)
+  })
+
+  it('.list declares exactly one of a background step or a border — never both, never a shadow', () => {
+    const rule = requireRule(readCss(), LIST_RULE, 'the scrolling list')
+    const hasBackground = /background\s*:/i.test(rule.body)
+    // border-radius is a corner, not a separator — excluded so a rounded surface step
+    // (background only) doesn't get counted as also declaring a border.
+    const hasBorder = /\bborder(?!-radius)(-\w+)?\s*:/i.test(rule.body)
+    expect(hasBackground !== hasBorder, 'expected exactly one of background or border on .list').toBe(true)
+    expect(rule.body).not.toMatch(/box-shadow\s*:/i)
+  })
+})

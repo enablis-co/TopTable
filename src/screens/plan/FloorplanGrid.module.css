@@ -3,7 +3,7 @@
  * surrounding canvas area its flex:1/min-height:0 and 18px/22px breathing room (the handoff's
  * "Container"); this class is what the handoff calls the panel inside it — a full-height
  * --surface card the SVG/grid content sits on, 10px padding per the handoff (off the spacing
- * scale, and authoritative for it regardless — see the plan's A3).
+ * scale, and authoritative for it regardless ).
  */
 .floorplan {
   height: 100%;
@@ -35,12 +35,24 @@
    .canvas and .floorplanArea both have to resolve to a definite height first for this to have
    anything bounded to scroll within. floorplan.test.ts checks overflow-y is never pinned to
    hidden or scroll, which would either clip a tall plan permanently or show a bar even when
-   everything fits. */
+   everything fits.
+
+   Review fix (TT-38): a selected table's non-scaling ring stroke overshoots its own table by a
+   fraction of a pixel at most sizes (`.round`/`.svg` are `overflow: visible` on purpose — see
+   PlanTable.module.css and TableRing.module.css) — harmless everywhere `.grid`'s own
+   `justify-content: safe center` leaves slack, but the grid is top-aligned with none above it,
+   so the top row's overshoot had nowhere to go and clipped flush against this box's own edge. A
+   few px of padding gives it that room. This is also the box `useElementSize` measures
+   (FloorplanGrid.tsx) — nothing else needs to change to keep `fitFloorplan` honest:
+   `ResizeObserver`'s `contentRect` already reports the padding-excluded content box, so the
+   measured width and height shrink by this padding on their own rather than the fit having to
+   subtract it. */
 .gridScroll {
   flex: 1;
   min-height: 0;
   overflow-x: auto;
   overflow-y: auto;
+  padding: var(--s-1);
 }
 
 /* Restates base.css's global :focus-visible — the same convention Button.module.css and
@@ -50,19 +62,20 @@
   outline-offset: 2px;
 }
 
-/* auto-fit, not a fixed repeat(N, …): a fixed column count can only ever overflow below its
-   own minimum width, never wrap — which is why a narrow viewport used to scroll the whole row
-   sideways instead of adding rows (TT-11). auto-fit reads the container's real width instead,
-   wrapping extra tables onto new rows as it narrows. `--floorplan-columns` (FloorplanGrid.tsx,
-   from roundTableColumns in ./floorplan) now bounds max-width rather than the column count: an
-   auto-fit `1fr` track keeps absorbing free space with no ceiling of its own, so this is what
-   stops fewer-than-the-cap tables growing past the per-table maximum on a wide screen. The
-   200px here is that maximum and must match the 112px floor's counterpart below, or the cap
-   stops matching the ceiling it exists to enforce. */
+/* TT-38: `auto-fit` only ever wrapped by width and left height to `.gridScroll`'s own scrollbar,
+   which is the defect this ticket exists to fix. `--floorplan-columns` and `--table-size`
+   (FloorplanGrid.tsx, from `fitFloorplan`) are recomputed from the box's measured width and
+   height on every resize, so a fixed `repeat(N, …)` here is not the old defect returning: the
+   count and size behind it are live, not a cap on top of a still-elastic track.
+
+   A bare `--table-size` track, not `minmax(0, var(--table-size))`: `minmax(0, …)` lets the grid
+   compress every track below that value whenever the tracks don't all fit, which would silently
+   defeat fitFloorplan's own floor — the one case this matters, a box too small to hold `count`
+   tables even at the floor, is exactly when a fixed track is supposed to overflow into
+   `.gridScroll`'s own scrollbar instead of shrinking. floorplanStyles.test.ts guards this. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  max-width: calc(var(--floorplan-columns, 1) * 200px + (var(--floorplan-columns, 1) - 1) * var(--s-4));
+  grid-template-columns: repeat(var(--floorplan-columns, 1), var(--table-size, 200px));
   gap: var(--s-4);
   /* `safe center`, not plain `center`: centres the row while it fits, but falls back to start
      alignment once it overflows its own box, so the first table stays reachable rather than

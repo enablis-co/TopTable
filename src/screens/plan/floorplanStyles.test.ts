@@ -39,6 +39,7 @@ const ROUND_HEADING = /\.round\s+\.heading\s*\{/
 const ROUND_OCCUPANCY = /\.round\s+\.occupancy\s*\{/
 const TOP_FACE_HOVER = /\.top\s+\.face:hover:not\(:disabled\)\s*\{/
 const FACE_FOCUS_VISIBLE = /\.table\s+\.face:focus-visible\s*\{/
+const ROUND_FACE_FOCUS_VISIBLE = /\.round\s+\.face:focus-visible\s*\{/
 // (0,4,0): .table, .face, :hover and :not(:disabled) each count, beating Button.module.css's
 // .quiet:hover:not(:disabled) at (0,3,0) regardless of source order.
 const FACE_HOVER = /\.table\s+\.face:hover:not\(:disabled\)\s*\{/
@@ -341,6 +342,20 @@ describe('PlanTable.module.css — .round .face lays the number and fill count i
     expect(heading.body).toMatch(/font-family\s*:\s*var\(--font-mono\)/i)
     expect(occupancy.body).toMatch(/font-family\s*:\s*var\(--font-mono\)/i)
   })
+
+  // Review (TT-38): `.round` itself went `overflow: visible` for the ring's stroke, which
+  // stopped containing these two as a side effect — text wider than the shrunk table now had
+  // nowhere to go but outside the circle. Each declares its own clip instead, so the ring's
+  // overflow stays untouched.
+  it('.round .heading and .round .occupancy each declare overflow: hidden and white-space: nowrap, so a fill count wider than a shrunk table clips at its own edge instead of spilling past the ring', () => {
+    const css = readCss()
+    const heading = requireRule(css, ROUND_HEADING, '.round .heading')
+    const occupancy = requireRule(css, ROUND_OCCUPANCY, '.round .occupancy')
+    expect(heading.body).toMatch(/overflow\s*:\s*hidden/i)
+    expect(heading.body).toMatch(/white-space\s*:\s*nowrap/i)
+    expect(occupancy.body).toMatch(/overflow\s*:\s*hidden/i)
+    expect(occupancy.body).toMatch(/white-space\s*:\s*nowrap/i)
+  })
 })
 
 describe('PlanTable.module.css — --table-number-ink/--table-count-ink, one distinct pair per state (TT-15)', () => {
@@ -371,9 +386,71 @@ describe('PlanTable.module.css — .round contains its own content instead of st
     expect(rule.body).toMatch(/min-height\s*:\s*0\b/i)
   })
 
-  it('declares overflow: hidden, so content taller than the circle is contained rather than crossing its curve', () => {
+  // TT-38: zeroed so the ring's SVG is exactly the size fitFloorplan measured it as — .table's
+  // own --s-3 padding would otherwise leave it 24px narrower than the track, and the 22px floor
+  // wrong with it.
+  it('declares padding: 0', () => {
     const rule = requireRule(readCss(), /\.round\s*\{/, '.round')
-    expect(rule.body).toMatch(/overflow\s*:\s*hidden/i)
+    expect(rule.body).toMatch(/padding\s*:\s*0\b/i)
+  })
+
+  // TT-38: a non-scaling stroke (TableRing.module.css) holds a constant CSS width as the table
+  // shrinks, so its outer edge can sit outside the viewBox at small sizes — overflow: hidden
+  // here would clip it into the flat spot ringGeometry.ts's ringRadius was tuned to avoid.
+  it('declares overflow: visible, not hidden', () => {
+    const rule = requireRule(readCss(), /\.round\s*\{/, '.round')
+    expect(rule.body).toMatch(/overflow\s*:\s*visible/i)
+    expect(rule.body).not.toMatch(/overflow\s*:\s*hidden/i)
+  })
+})
+
+describe('FloorplanGrid.module.css — the grid track count and size are read from custom properties, not generated (TT-38)', () => {
+  const GRID_CSS_PATH = join(DIR, 'FloorplanGrid.module.css')
+
+  function readGridCss(): string {
+    return readFileSync(GRID_CSS_PATH, 'utf8')
+  }
+
+  it('.grid declares grid-template-columns from --floorplan-columns and --table-size', () => {
+    const rule = requireRule(readGridCss(), /\.grid\s*\{/, '.grid')
+    expect(rule.body).toMatch(/grid-template-columns\s*:.*var\(--floorplan-columns/i)
+    expect(rule.body).toMatch(/var\(--table-size/i)
+  })
+
+  // A `minmax(0, …)` track lets the grid compress every column below --table-size whenever they
+  // don't all fit, which would silently defeat fitFloorplan's own floor.
+  it('does not wrap the table-size track in minmax(0, …)', () => {
+    const rule = requireRule(readGridCss(), /\.grid\s*\{/, '.grid')
+    expect(rule.body).not.toMatch(/minmax\(\s*0/i)
+  })
+
+  it('no longer declares auto-fit — the column count is computed by fitFloorplan (floorplanFit.ts), not the browser', () => {
+    expect(stripComments(readGridCss())).not.toMatch(/auto-fit/i)
+  })
+})
+
+describe('TableRing.module.css — the ring and body strokes hold a constant CSS width as the table scales (TT-38, handoff rule 8)', () => {
+  const RING_CSS_PATH = join(DIR, 'TableRing.module.css')
+
+  function readRingCss(): string {
+    return readFileSync(RING_CSS_PATH, 'utf8')
+  }
+
+  it('.ring and .body both declare vector-effect: non-scaling-stroke', () => {
+    const css = readRingCss()
+    const ring = requireRule(css, /\.ring\s*\{/, '.ring')
+    const body = requireRule(css, /\.body\s*\{/, '.body')
+    expect(ring.body).toMatch(/vector-effect\s*:\s*non-scaling-stroke/i)
+    expect(body.body).toMatch(/vector-effect\s*:\s*non-scaling-stroke/i)
+  })
+
+  // An outermost <svg> clips its own content by default, ahead of and regardless of .round's own
+  // overflow (PlanTable.module.css) — a shrunk table's non-scaling stroke overshoots the SVG's
+  // own box before it ever reaches .round's, so .round { overflow: visible } alone does not stop
+  // the clip.
+  it('.svg declares overflow: visible, so the SVG element itself does not clip an overshooting stroke', () => {
+    const rule = requireRule(readRingCss(), /\.svg\s*\{/, '.svg')
+    expect(rule.body).toMatch(/overflow\s*:\s*visible/i)
   })
 })
 
@@ -424,9 +501,17 @@ describe('PlanTable.module.css — the placing face neutralises the shared butto
     const rule = requireRule(readCss(), FACE_BASE, '.table .face')
     expect(rule.selector).toMatch(/\.table/)
   })
+
+  // TT-38: border-box sizing spends the shared button's 1px border on layout even though its
+  // colour is already transparent — on a round table that shrank the ring's SVG inside
+  // fitFloorplan's own floor, which assumes the SVG fills .round exactly.
+  it('declares border-width: 0, not only a transparent colour', () => {
+    const rule = requireRule(readCss(), FACE_BASE, '.table .face')
+    expect(rule.body).toMatch(/border-width\s*:\s*0\b/i)
+  })
 })
 
-describe('PlanTable.module.css — the face\'s focus ring is inset, since .round clips an outline drawn outside the element (TT-12)', () => {
+describe('PlanTable.module.css — the shared focus ring is inset by default (TT-12)', () => {
   it('a .face:focus-visible rule exists and declares a negative outline-offset', () => {
     const rule = requireRule(readCss(), FACE_FOCUS_VISIBLE, '.table .face:focus-visible')
     expect(rule.body).toMatch(/outline-offset\s*:\s*-\d/)
@@ -436,6 +521,26 @@ describe('PlanTable.module.css — the face\'s focus ring is inset, since .round
     const css = stripComments(readCss())
     expect(css).not.toMatch(/outline\s*:\s*none/i)
     expect(css).not.toMatch(/outline\s*:\s*0\b/i)
+  })
+})
+
+// Review (TT-38): `.round` stopped clipping (overflow: visible, needed for the ring's own
+// stroke), so the shared rule's inset offset is no longer right for a round table — a circle
+// with an inset ring reads as a square drawn inside it. This override draws the ring outside
+// instead, at the same specificity as the shared rule, so source order alone decides.
+describe("PlanTable.module.css — a round table's focus ring overrides the shared inset with an outset one", () => {
+  it('.round .face:focus-visible declares a positive outline-offset', () => {
+    const rule = requireRule(readCss(), ROUND_FACE_FOCUS_VISIBLE, '.round .face:focus-visible')
+    expect(rule.body).toMatch(/outline-offset\s*:\s*(?!-)[\d.]/)
+  })
+
+  it('is declared after the shared .table .face:focus-visible rule, so it wins the specificity tie', () => {
+    const css = stripComments(readCss())
+    const sharedIndex = css.search(FACE_FOCUS_VISIBLE)
+    const roundIndex = css.search(ROUND_FACE_FOCUS_VISIBLE)
+    expect(sharedIndex, 'expected the shared .table .face:focus-visible rule').toBeGreaterThanOrEqual(0)
+    expect(roundIndex, 'expected a .round .face:focus-visible rule').toBeGreaterThanOrEqual(0)
+    expect(roundIndex).toBeGreaterThan(sharedIndex)
   })
 })
 
