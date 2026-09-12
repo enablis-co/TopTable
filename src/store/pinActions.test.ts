@@ -144,6 +144,48 @@ describe('setGuests and importScenario clear pins; setRoom does not', () => {
   })
 })
 
+describe('clearPins (TT-37)', () => {
+  it('empties every pin and leaves guests, room, event and scenario untouched', () => {
+    useTopTableStore.getState().setEventName('Priya and Tom, 14 March')
+    useTopTableStore.getState().importScenario('adding-up', [makeGuest('g-1'), makeGuest('g-2')])
+    useTopTableStore.getState().pinGuest('g-1', 'round-1')
+    useTopTableStore.getState().pinGuest('g-2', 'round-2')
+
+    useTopTableStore.getState().clearPins()
+
+    const state = useTopTableStore.getState()
+    expect(state.pins).toEqual([])
+    expect(state.event).toEqual({ name: 'Priya and Tom, 14 March' })
+    expect(state.room).toEqual(ADDING_UP_ROOM)
+    expect(state.guests.map((g) => g.id)).toEqual(['g-1', 'g-2'])
+    expect(state.scenario).toBe('adding-up')
+  })
+
+  it('is a no-op, and does not throw, when the pin list is already empty', () => {
+    useTopTableStore.getState().setGuests([makeGuest('g-1')])
+    expect(useTopTableStore.getState().pins).toEqual([])
+
+    expect(() => useTopTableStore.getState().clearPins()).not.toThrow()
+
+    expect(useTopTableStore.getState().pins).toEqual([])
+  })
+
+  it('a clear survives a reload the same way a pin does', async () => {
+    useTopTableStore.getState().setGuests([makeGuest('g-1')])
+    useTopTableStore.getState().pinGuest('g-1', 'round-1')
+    useTopTableStore.getState().clearPins()
+
+    vi.resetModules()
+    const { useTopTableStore: reloaded } = await import('./store')
+
+    expect(reloaded.getState().pins).toEqual([])
+  })
+
+  it('STORAGE_VERSION is unchanged at 4 — clearPins is a new action, not a new stored field (AC10)', () => {
+    expect(STORAGE_VERSION).toBe(4)
+  })
+})
+
 describe('a store from before pins existed', () => {
   async function freshStore() {
     vi.resetModules()

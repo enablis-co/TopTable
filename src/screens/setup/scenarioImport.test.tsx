@@ -58,7 +58,7 @@ function makeGuests(count: number): Guest[] {
 function renderSetupScreen() {
   return render(
     <NavigationContext.Provider value={{ tab: 'setup', goTo: () => {} }}>
-      <SetupScreen />
+      <SetupScreen allocated={false} clearAllocation={() => {}} />
     </NavigationContext.Provider>,
   )
 }

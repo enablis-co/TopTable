@@ -121,8 +121,9 @@ function renderPlanScreen(goTo: (tab: string) => void = () => {}) {
   )
 }
 
-// The store's full key set today: five data fields plus ten actions. Asserting the exact
-// set, not a substring scan, is what catches a future seat/plan/violation key creeping in.
+// The store's full key set today: five data fields plus eleven actions (TT-37 added
+// clearPins). Asserting the exact set, not a substring scan, is what catches a future
+// seat/plan/violation key creeping in.
 const EXPECTED_STORE_KEYS = [
   'event',
   'room',
@@ -139,6 +140,7 @@ const EXPECTED_STORE_KEYS = [
   'removeGuest',
   'pinGuest',
   'unpinGuest',
+  'clearPins',
 ].sort()
 
 beforeEach(() => {

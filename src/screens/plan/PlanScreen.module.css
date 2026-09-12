@@ -35,19 +35,23 @@
   min-height: 0;
 }
 
-/* Auto-allocate moves here from the old .actions row above the header (TT-13) to this row's
-   right edge (handoff rule 2, A13 in the plan): the primary action stays on the canvas rather
-   than the top bar, so the shell never has to know this screen's handlers. PlanHeader's own
-   root is flex: 1 so its internal space-between (capacity block vs stat pair) still has the
-   canvas's full width to work across, with this button as a third, non-growing item beside it —
-   a deliberate change from PlanHeader.module.css's plainly-stated flex: none, which describes
-   the header sitting alone in a column and does not anticipate a sibling in a row. */
+/* Auto-allocate moved here from the old .actions row above the header (TT-13): the primary
+   action stays on the canvas rather than the top bar. PlanHeader itself is flex: auto, not
+   none, because it now shares this row with Auto-allocate and ClearControls rather than
+   sitting alone (PlanHeader.module.css).
+
+   TT-37: justify-content: flex-end, because ClearControls wraps to a line of its own with
+   nothing else on it, and the default flex-start would leave it flush against the sidebar
+   instead of under Auto-allocate. */
 .canvasHeader {
   flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--s-4);
+  justify-content: flex-end;
+  /* TT-37: row-gap tighter than column-gap, so the wrapped ClearControls line reads as part
+     of this header rather than a separate section. */
+  gap: var(--s-3) var(--s-4);
 }
 
 .allocate {

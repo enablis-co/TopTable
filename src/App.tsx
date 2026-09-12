@@ -14,6 +14,10 @@ import { PlanScreen } from './screens/plan/PlanScreen'
  * on Plan itself, or leaving for Guests and coming back would silently discard the allocation.
  * Setup reads it to report the plan's status (KB-6); Plan reads and sets it. Not persisted
  * (docs/state.md): a derived plan is never stored, only whether one has been asked for.
+ *
+ * Setup also *clears* it (TT-37): importing a scenario replaces the guest list the flag
+ * describes, so the flag has to reset with it or the new list renders as though it had already
+ * been auto-allocated. `clearAllocation` is handed down for exactly that call site.
  */
 export default function App() {
   const [allocated, setAllocated] = useState(false)
@@ -35,7 +39,14 @@ function CurrentScreen({ allocated, setAllocated }: CurrentScreenProps) {
 
   switch (tab) {
     case 'setup':
-      return <SetupScreen allocated={allocated} />
+      return (
+        <SetupScreen
+          allocated={allocated}
+          clearAllocation={() => {
+            setAllocated(false)
+          }}
+        />
+      )
     case 'guests':
       return <GuestsScreen />
     case 'plan':

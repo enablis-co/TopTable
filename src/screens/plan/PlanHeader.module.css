@@ -27,9 +27,13 @@
  * --t-figure-xl), so .canvasHeader now wraps the button below once the canvas cannot offer both;
  * flex-wrap below is the release valve for whatever still doesn't fit inside that floor — .stats
  * moves to its own line rather than crushing the headline further.
+ *
+ * TT-37: flex: auto rather than flex: 1, because a zero basis let .canvasHeader's line-fit
+ * test see this box as needing nothing at all, so it never wrapped ClearControls below it.
+ * See ClearControls.module.css's own comment for the other side of this.
  */
 .header {
-  flex: 1;
+  flex: auto;
   min-width: 240px;
   display: flex;
   flex-wrap: wrap;
