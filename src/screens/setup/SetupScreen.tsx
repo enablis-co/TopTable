@@ -38,7 +38,16 @@ import styles from './SetupScreen.module.css'
  * matched exactly. A room that has been started but is short of the top-table minimum is a
  * different state again, and is never silent about it.
  */
-export function SetupScreen({ allocated = false }: { allocated?: boolean }) {
+export function SetupScreen({
+  allocated,
+  clearAllocation,
+}: {
+  allocated: boolean
+  /** Called once an import completes (TT-37), so the flag it resets never outlives the guest
+   * list it described. Required, not defaulted: `allocated` has three writers across two
+   * screens and no other type-level guard against a fourth call site forgetting to reset it. */
+  clearAllocation: () => void
+}) {
   const event = useTopTableStore((s) => s.event)
   const room = useTopTableStore((s) => s.room)
   const guests = useTopTableStore((s) => s.guests)
@@ -80,6 +89,9 @@ export function SetupScreen({ allocated = false }: { allocated?: boolean }) {
     // armed to fire on the next unrelated render and yank focus mid-keystroke.
     focusChangeControl.current = true
     importScenario(id, guests)
+    // TT-37 defect fix: importScenario replaces the guest list `allocated` describes, but
+    // whether the room is allocated is a separate flag lifted to App — nothing else resets it.
+    clearAllocation()
     setRevealed(false)
   }
 

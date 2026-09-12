@@ -193,37 +193,6 @@ describe('roundTableColumns — the column count responds to the table count (hu
   })
 })
 
-// TT-11 fix: a fixed repeat(N, ...) column count can only ever overflow below its own minimum
-// width, never wrap — a narrow viewport used to scroll the whole row sideways instead of
-// adding rows. auto-fit reads the container's real width and wraps instead; --floorplan-columns
-// now bounds max-width so fewer-than-the-cap tables can't grow past the per-table ceiling on a
-// wide screen. auto-fill is specifically wrong here: unlike auto-fit it would leave empty
-// trailing tracks rather than collapsing them, which breaks centering below the table count.
-describe('FloorplanGrid.module.css — .grid wraps by width (auto-fit), capped by --floorplan-columns via max-width', () => {
-  function readFloorplanGridCss(): string {
-    const dir = dirname(fileURLToPath(import.meta.url))
-    return readFileSync(join(dir, 'FloorplanGrid.module.css'), 'utf8')
-  }
-
-  function stripComments(css: string): string {
-    return css.replace(/\/\*[\s\S]*?\*\//g, '')
-  }
-
-  it('declares grid-template-columns as auto-fit with a 112px floor, not auto-fill and not a fixed repeat count', () => {
-    const css = stripComments(readFloorplanGridCss())
-    expect(css).toMatch(/grid-template-columns\s*:\s*repeat\(\s*auto-fit\s*,\s*minmax\(\s*112px/i)
-    expect(css).not.toMatch(/auto-fill/i)
-  })
-
-  it('bounds max-width with --floorplan-columns, so the per-table ceiling still holds below the table count', () => {
-    const css = stripComments(readFloorplanGridCss())
-    const rule = /\.grid\s*\{([^}]*)\}/.exec(css)
-    expect(rule, 'expected a .grid rule in FloorplanGrid.module.css').not.toBeNull()
-    const body = rule?.[1] ?? ''
-    expect(body).toMatch(/max-width\s*:\s*calc\([^)]*var\(--floorplan-columns/i)
-  })
-})
-
 /*
  * Regression, TT-11 review: without `overflow-x: auto`, the round-table grid's own overflow
  * escaped into the document and scrolled the whole page sideways. This guards that

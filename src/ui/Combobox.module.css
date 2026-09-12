@@ -1,0 +1,41 @@
+/*
+ * TT-38. The popup is positioned against this wrapper rather than in normal flow, so it can
+ * escape a scrolling ancestor (the unseated rail's own vertical scrollbox) instead of being
+ * clipped by it.
+ */
+.wrapper {
+  position: relative;
+}
+
+.listbox {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: var(--s-1) 0 0;
+  padding: var(--s-1);
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-control);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.option {
+  padding: var(--s-1) var(--s-2);
+  border-radius: var(--r-control);
+  color: var(--ink);
+  font: var(--t-body);
+  cursor: pointer;
+}
+
+.option:hover,
+.optionActive {
+  background: var(--sunken);
+}
+
+.option span {
+  color: var(--ink-muted);
+}

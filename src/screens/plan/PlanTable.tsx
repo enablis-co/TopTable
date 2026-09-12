@@ -13,6 +13,10 @@ type PlanTableProps = {
   onSelect?: () => void
   /** TT-15. Drives `data-selected` below; the ring's own stroke widens from it (PlanTable.module.css). */
   selected?: boolean
+  /** TT-38. False once `fitFloorplan` has shrunk this table to its floor — the fill count is
+   * hidden, never unmounted, since it is half of this table's accessible name. Defaults true, so
+   * every existing caller (the top table included) keeps rendering it. */
+  showFillCount?: boolean
 }
 
 /**
@@ -66,7 +70,14 @@ type PlanTableProps = {
  * `::after` — generated content participates in Chrome's accessible-name computation but not
  * jsdom's, which would make the two disagree silently.
  */
-export function PlanTable({ slot, occupants, placing, onSelect, selected }: PlanTableProps) {
+export function PlanTable({
+  slot,
+  occupants,
+  placing,
+  onSelect,
+  selected,
+  showFillCount = true,
+}: PlanTableProps) {
   const occupancy = occupancyOf(occupants.guests.length, slot.capacity)
   const isPinned = occupants.pinnedCount > 0
   const isViolating = occupants.inViolation
@@ -85,7 +96,9 @@ export function PlanTable({ slot, occupants, placing, onSelect, selected }: Plan
           <span aria-hidden="true">·</span>{' '}
         </>
       )}
-      <p className={styles.occupancy}>
+      {/* Visually hidden below the floor, never unmounted — this is still half of the
+          accessible name PlanTable.test.tsx and floorplan.test.ts match on (TT-38). */}
+      <p className={cx(styles.occupancy, !showFillCount && 'tt-visually-hidden')}>
         <span className={tabularClass}>{occupants.guests.length}</span> of{' '}
         <span className={tabularClass}>{slot.capacity}</span> seats
       </p>

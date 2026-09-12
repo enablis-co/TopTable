@@ -9,14 +9,17 @@ import { allocate } from '../../domain/allocate'
 import { evaluateRegistered, registeredSeatGuard } from '../../domain/rules/registry'
 import { tablesWithHardViolation } from '../../domain/rules/engine'
 import { isTopTableIncomplete } from '../setup/roomCompleteness'
-import { seatingViewFrom } from './floorplan'
+import { seatingViewFrom, planTotals } from './floorplan'
 import { PlanHeader } from './PlanHeader'
 import { FloorplanGrid } from './FloorplanGrid'
 import { PlanEmpty } from './PlanEmpty'
 import { UnseatedRail } from './UnseatedRail'
 import { ViolationsPanel } from './ViolationsPanel'
 import { TableDetailPanel } from './TableDetailPanel'
+import { ClearControls } from './ClearControls'
 import { Button } from '../../ui'
+import { NO_FILTERS, filterUnseated } from './unseatedFilter'
+import type { UnseatedFilters } from './unseatedFilter'
 import styles from './PlanScreen.module.css'
 
 /**
@@ -36,6 +39,12 @@ import styles from './PlanScreen.module.css'
  * `selectedTableId` is local view state, unlike `allocated`: nothing requires a table selection
  * to survive a tab switch, so it resets on every remount rather than being hoisted to `App`.
  *
+ * `filters` (TT-38) is local view state for the same reason and sits beside it: a trip to
+ * Guests and back clears the unseated rail's search and filters along with the scroll
+ * position, and that is accepted — `allocated` was lifted because losing it destroyed real
+ * work, whereas a search string is cheap to retype. It is never written to `src/store/`
+ * (docs/state.md).
+ *
  * `showFloorplan` is `hasSeats && !topTableIncomplete` (fix to TT-3): a room short of the
  * top-table minimum renders `PlanEmpty` the same as an unconfigured one, just with different
  * copy — `hasSeats` alone used to be the whole gate, and nine tables of eight with no top
@@ -53,11 +62,13 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const pins = useTopTableStore((s) => s.pins)
   const pinGuest = useTopTableStore((s) => s.pinGuest)
   const unpinGuest = useTopTableStore((s) => s.unpinGuest)
+  const clearPins = useTopTableStore((s) => s.clearPins)
   const { goTo } = useNavigation()
 
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  const [filters, setFilters] = useState<UnseatedFilters>(NO_FILTERS)
 
   const railRef = useRef<HTMLDivElement>(null)
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -85,6 +96,17 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const report = useMemo(() => evaluateRegistered(plan), [plan])
   const violatingTableIds = useMemo(() => tablesWithHardViolation(report), [report])
   const seating = useMemo(() => seatingViewFrom(plan, violatingTableIds), [plan, violatingTableIds])
+  // TT-38. Filtered here, not inside UnseatedRail, so the component stays a pure renderer of
+  // exactly the rows it is given — `totalCount` (plan.unseated.length) travels alongside it
+  // for the header's shown/hidden line.
+  const visibleUnseated = useMemo(() => filterUnseated(plan.unseated, filters), [plan.unseated, filters])
+  // TT-38 delta. The combobox's suggestion pool: side/role/needs filters still apply (so a
+  // suggestion is never a guest the active filters would hide) but the search text does not
+  // (so typing doesn't narrow its own suggestion source out from under it).
+  const suggestionPool = useMemo(
+    () => filterUnseated(plan.unseated, { ...filters, query: '' }),
+    [plan.unseated, filters],
+  )
   const selectedGuest = guests.find((guest) => guest.id === selectedGuestId) ?? null
   // `?? null` guards a table that stopped existing after a room edit — the violations panel is
   // the fallback rather than a crash.
@@ -184,6 +206,31 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
     setAnnouncement(`Allocated. ${seatedCount} seated, ${justAllocated.unseated.length} unseated.`)
   }
 
+  // TT-37. "Clear the allocation" is setAllocated(false) and nothing else — PlanScreen:81-84
+  // already falls back to seatPins (pinned guests only) once allocated is false, so there is no
+  // seat-level write to make and nothing new to store. The throwaway seatPins run below is not a
+  // duplicate: this render's `plan` closure still points at the allocated seating until the next
+  // render lands — the same trap handleAllocate's own comment above documents — so the announced
+  // figures have to come from a fresh run rather than from `plan`.
+  function handleClearAllocation() {
+    const cleared = seatPins(room, guests, pins)
+    setAllocated(false)
+    setSelectedGuestId(null)
+    setAnnouncement(
+      `Allocation cleared. ${guests.length - cleared.unseated.length} seated, ${cleared.unseated.length} unseated.`,
+    )
+  }
+
+  function handleClearEverything() {
+    const cleared = seatPins(room, guests, [])
+    setAllocated(false)
+    clearPins()
+    setSelectedGuestId(null)
+    setAnnouncement(
+      `Allocation and pins cleared. ${guests.length - cleared.unseated.length} seated, ${cleared.unseated.length} unseated.`,
+    )
+  }
+
   return (
     <div className={styles.plan}>
       <h1 className="tt-visually-hidden">Plan</h1>
@@ -204,6 +251,11 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
               <Button variant="primary" className={styles.allocate} onClick={handleAllocate}>
                 Auto-allocate
               </Button>
+              <ClearControls
+                pinnedCount={planTotals(guests, seating).pinnedCount}
+                onClearAllocation={handleClearAllocation}
+                onClearEverything={handleClearEverything}
+              />
             </div>
             <div className={styles.floorplanArea}>
               <FloorplanGrid
@@ -217,7 +269,11 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
             </div>
             <div ref={railRef}>
               <UnseatedRail
-                guests={plan.unseated}
+                guests={visibleUnseated}
+                totalCount={plan.unseated.length}
+                filters={filters}
+                onFiltersChange={setFilters}
+                suggestionPool={suggestionPool}
                 selectedGuestId={selectedGuestId}
                 onSelect={handleSelect}
                 headingRef={railHeadingRef}

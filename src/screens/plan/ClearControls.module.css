@@ -1,0 +1,55 @@
+/* TT-37, KB-6 "Plan". Third item in PlanScreen's .canvasHeader, beside PlanHeader (flex: auto)
+   and the Auto-allocate button (flex: none). The confirm prompt anchors against this box once
+   it opens — see .confirm below. */
+.controls {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s-3);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s-3);
+}
+
+/* TT-37: .confirm is absolutely positioned rather than sitting in flow, so a prompt opening or
+   closing never changes the height of .canvasHeader's own flex line and never moves PlanHeader
+   or Auto-allocate. It exists in the DOM only while a prompt is open (ClearControls.tsx), so
+   nothing here ever has to reflow to make room for it. */
+.confirm {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: var(--s-3);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: 320px;
+  /* max-width: 100% clamps .confirm to .controls' own width, which an absolutely positioned
+     child no longer contributes to — .controls is sized by .row (the triggers) instead. */
+  max-width: 100%;
+}
+
+.confirmTitle {
+  margin: 0;
+  font: var(--t-body);
+  color: var(--ink);
+}
+
+.confirmBody {
+  margin: 0;
+  font: var(--t-body);
+  color: var(--ink-muted);
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--s-3);
+}
