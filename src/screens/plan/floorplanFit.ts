@@ -28,9 +28,12 @@ type FitInput = {
 }
 
 /**
- * `width <= 0 || height <= 0` is the unmeasured path: jsdom has no `ResizeObserver` and
- * `getBoundingClientRect` always reads zero there, so this is what `floorplanStyles.test.ts` and
- * every other existing render test exercise, unchanged from the grid's old `auto-fit` behaviour.
+ * `width <= 0 || height <= 0` is the unmeasured path: jsdom has no `ResizeObserver`, so this is
+ * what `floorplanStyles.test.ts` and every other existing render test exercise, permanently. A
+ * real browser also takes this path, briefly — the one frame before `useElementSize`'s observer
+ * first reports a size. `roundTableColumns`'s own cap (`floorplan.ts`) is what keeps that frame
+ * from rendering wider than a typical viewport at `MAX_TABLE_SIZE`; left uncapped, a large guest
+ * list would render every table in one row before the real, box-aware fit took over.
  */
 export function fitFloorplan({ width, height, count, gap }: FitInput): FloorplanFit {
   if (count <= 0) {
@@ -51,16 +54,22 @@ export function fitFloorplan({ width, height, count, gap }: FitInput): Floorplan
     const byHeight = (height - (rows - 1) * gap) / rows
     const size = Math.min(byWidth, byHeight, MAX_TABLE_SIZE)
 
-    // Strictly greater, not >=, so the first (fewest-columns) candidate wins a tie — determinism
-    // the ticket's own test plan requires (fitFloorplan.test.ts: "same input twice, same output").
-    if (size > bestSize) {
+    // `>=`, not `>`: once several column counts all reach MAX_TABLE_SIZE (a box generous enough
+    // that the cap, not the box, is what's binding), every one of them ties on `size` and the
+    // tie-break is what decides the shape. Scanning columns ascending and keeping the *last*
+    // equal-or-better candidate means the most columns among the tied ones wins — the widest,
+    // shortest arrangement the box can hold at the cap, closest to what an auto-fit grid would
+    // have given, rather than the fewest columns and the tallest, narrowest one. Still fully
+    // deterministic (fitFloorplan.test.ts: "same input twice, same output") — the ordering of
+    // the scan, not insertion order of anything external, decides every tie.
+    if (size >= bestSize) {
       bestSize = size
       bestColumns = columns
     }
   }
 
   // Computed from the unclamped size, before the floor below replaces it — reversed, the floor
-  // would erase the fact that the fit wanted something smaller (D4).
+  // would erase the fact that the fit wanted something smaller.
   const showsFillCount = bestSize > MIN_TABLE_SIZE
   const size = Math.max(bestSize, MIN_TABLE_SIZE)
 

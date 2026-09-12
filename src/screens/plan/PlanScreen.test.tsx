@@ -1328,11 +1328,11 @@ describe('PlanScreen — Escape still clears the selection while a filter is act
  * TT-38 delta plan (re-scoped 5 -> 13 points), §D3/§D6 — D9, D12, D13. Written from the plan's
  * contract for the search combobox and its suggestion pool, without opening UnseatedRail.tsx,
  * Combobox.tsx or unseatedSuggestions.ts. The combobox's own keyboard behaviour is covered in
- * Combobox.test.tsx; what belongs here is the two-handler interaction §D4 calls out by name:
+ * Combobox.test.tsx; what belongs here is the two-handler interaction the plan calls out by name:
  * `PlanScreen`'s existing document-level Escape (which clears the rail's guest selection, TT-12)
  * sits behind the combobox's own Escape (which only dismisses its suggestion popup), and the
  * `stopPropagation()` the plan puts on the popup-closing Escape is what keeps the first keystroke
- * from reaching both handlers at once (D12).
+ * from reaching both handlers at once.
  */
 
 describe('PlanScreen — Escape closes the suggestion list before it ever reaches the rail selection (TT-38, D12/D13)', () => {

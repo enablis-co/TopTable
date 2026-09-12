@@ -243,12 +243,22 @@
    pixel offset, which would drift off the ring's centre at a different rendered radius. Colour
    comes from --table-number-ink/--table-count-ink (not --ring-*: tableRingStyles.test.ts's
    set-equality guard is a TableRing.module.css contract, and nothing here is read by that file). */
+/* Review (TT-38): `.round`'s own `overflow: visible` (above, needed so the ring's stroke isn't
+   clipped) stopped containing these two as a side effect — between the fill-count floor and
+   roughly 90px, "0 of 8 seats" no longer fits this box's own width and, with nothing left to
+   contain it, spilled outside the circle instead of wrapping inside it. `overflow: hidden` and
+   `white-space: nowrap`, scoped to each text element rather than to `.round`, clip only the text
+   at its own box edge without touching the ring's stroke again — floorplanStyles.test.ts guards
+   both declarations. */
 .round .heading {
   position: absolute;
   left: 0;
   right: 0;
   top: 47.9%;
   transform: translateY(-50%);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-family: var(--font-mono);
   color: var(--table-number-ink);
 }
@@ -259,6 +269,9 @@
   right: 0;
   top: 64.9%;
   transform: translateY(-50%);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 10px;
   /* Review, TT-15: the handoff's "Fill count — 10px mono" names the whole fill count as mono,
      not just the digits — .heading two rules above already sets this, this rule did not, so
@@ -301,10 +314,20 @@
   background: var(--slate);
 }
 
-/* .round clips an outline drawn outside the element (overflow: hidden, above) — so this ring is
-   inset. floorplanStyles.test.ts asserts the negative offset; only the browser pass can confirm
-   it is visible. */
+/* Review (TT-38): the inset offset below used to exist because `.round` clipped an outline
+   drawn outside the element (`overflow: hidden`) — that's gone now (see `.round`, above, and
+   `.svg`, TableRing.module.css), so a round table gets its own override just below, drawn
+   outside the ring instead of inset inside it, where it would read as a square drawn inside a
+   circle. `.top`'s rounded-rect face was never the reason this offset existed and clips
+   nothing either way, so it keeps this shared rule as its default. floorplanStyles.test.ts
+   asserts both offsets; only the browser pass can confirm either is visible. */
 .table .face:focus-visible {
   outline: 2px solid var(--slate);
   outline-offset: -3px;
+}
+
+/* Same specificity as the rule above (0,3,0: a class, a class, a pseudo-class each), so this
+   must stay declared after it to win for a round table's face. */
+.round .face:focus-visible {
+  outline-offset: 2px;
 }

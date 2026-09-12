@@ -12,9 +12,9 @@
   height: auto;
   /* TT-38: the browser clips an outermost <svg>'s own content to its box by default, ahead of
      and regardless of `.round`'s own overflow (PlanTable.module.css) — a shrunk table's
-     non-scaling stroke overshoots that box before it ever reaches `.round`'s. A selected
-     table's 9px stroke clips at 3, 6, 9 and 12 o'clock at any size below the viewBox's own
-     94px; floorplanStyles.test.ts guards this declaration. */
+     non-scaling stroke overshoots that box before it ever reaches `.round`'s, so a selected
+     table clips at 3, 6, 9 and 12 o'clock once the ring is drawn smaller than its own viewBox.
+     floorplanStyles.test.ts guards this declaration. */
   overflow: visible;
 }
 

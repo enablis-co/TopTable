@@ -4,8 +4,8 @@ import { RING } from './ringGeometry'
 import { roundTableColumns } from './floorplan'
 
 /**
- * TT-38 delta plan, §D4/§D6 — "The floorplan fits the height it is given rather than
- * scrolling, by scaling its tables down" (D1) and the floor at a 22px rendered radius (D2/D3).
+ * TT-38: "The floorplan fits the height it is given rather than scrolling, by scaling its
+ * tables down", and the floor at the rendered radius the handoff publishes.
  * Written from the plan's contract for `fitFloorplan` without opening floorplanFit.ts: the
  * function signature, the unmeasured-path fallback, the per-column scan and the
  * showsFillCount-before-flooring order are all given there, not inferred from the file.
@@ -79,6 +79,27 @@ describe('fitFloorplan — a wide, short box picks more columns than a narrow, t
   })
 })
 
+describe('fitFloorplan — among column counts that tie at MAX_TABLE_SIZE, the most columns wins, not the fewest', () => {
+  it('"Small and cosy" (4 round tables) in a wide, short box comes back 4-across, not 2×2', () => {
+    // 2, 3 and 4 columns all cap at MAX_TABLE_SIZE in this box — a fewest-columns tie-break
+    // would keep 2 (a 2×2 grid with hundreds of px of width left empty); this asserts the
+    // widest of the tied shapes instead, which is what an auto-fit grid would have given.
+    const result = fitFloorplan({ width: 1300, height: 500, count: 4, gap: 16 })
+
+    expect(result.size).toBe(MAX_TABLE_SIZE)
+    expect(result.columns).toBe(4)
+    expect(result.rows).toBe(1)
+  })
+
+  it('a box that ties every column count at the cap returns one row, the widest tied shape', () => {
+    const result = fitFloorplan({ width: 4000, height: 4000, count: 6, gap: 16 })
+
+    expect(result.size).toBe(MAX_TABLE_SIZE)
+    expect(result.columns).toBe(6)
+    expect(result.rows).toBe(1)
+  })
+})
+
 describe('fitFloorplan — 26 tables in a short window come back at or above the floor, never below', () => {
   it('a comfortably wide but short box never returns a size under MIN_TABLE_SIZE', () => {
     const result = fitFloorplan({ width: 2000, height: 150, count: 26, gap: 8 })
@@ -86,7 +107,7 @@ describe('fitFloorplan — 26 tables in a short window come back at or above the
     expect(result.size).toBeGreaterThanOrEqual(MIN_TABLE_SIZE)
   })
 
-  it('a box too short to hold 26 tables even at the floor still returns exactly the floor, not smaller (D5)', () => {
+  it('a box too short to hold 26 tables even at the floor still returns exactly the floor, not smaller', () => {
     const result = fitFloorplan({ width: 2000, height: 10, count: 26, gap: 8 })
 
     expect(result.size).toBe(MIN_TABLE_SIZE)
@@ -94,7 +115,7 @@ describe('fitFloorplan — 26 tables in a short window come back at or above the
   })
 })
 
-describe('fitFloorplan — showsFillCount is decided before the floor is applied (A2)', () => {
+describe('fitFloorplan — showsFillCount is decided before the floor is applied', () => {
   it('is false once the unclamped fit wants the floor or smaller, even though size itself is floored back up to it', () => {
     // Reversed, the floor would erase the fact that the fit wanted smaller — the plan's own
     // warning for exactly this ordering.
@@ -121,7 +142,7 @@ describe('fitFloorplan — showsFillCount is decided before the floor is applied
   })
 })
 
-describe('fitFloorplan — rows × size + gaps never exceeds the given height, unless the size is already at the floor (D5)', () => {
+describe('fitFloorplan — rows × size + gaps never exceeds the given height, unless the size is already at the floor', () => {
   function heightBudget(result: ReturnType<typeof fitFloorplan>, gap: number): number {
     return result.rows * result.size + Math.max(0, result.rows - 1) * gap
   }
@@ -134,7 +155,7 @@ describe('fitFloorplan — rows × size + gaps never exceeds the given height, u
     expect(heightBudget(result, gap)).toBeLessThanOrEqual(900)
   })
 
-  it('is allowed to be exceeded only when the floor itself could not be honoured otherwise (D5, "a floor, not a guarantee")', () => {
+  it('is allowed to be exceeded only when the floor itself could not be honoured otherwise — a floor, not a guarantee (TT-38)', () => {
     const gap = 8
     const result = fitFloorplan({ width: 2000, height: 10, count: 26, gap })
 

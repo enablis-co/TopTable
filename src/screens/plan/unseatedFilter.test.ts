@@ -106,7 +106,7 @@ describe('filterUnseated — search matches the same way the guest list does (C3
   })
 })
 
-describe('filterUnseated — side (C4)', () => {
+describe('filterUnseated — side', () => {
   it('filters to guests on the named side', () => {
     const guests = [
       makeGuest('g-1', { side: 'bride' }),
@@ -142,7 +142,7 @@ describe('filterUnseated — role, over all twelve roles (C5, KB-3, KB-4)', () =
   })
 })
 
-describe('filterUnseated — search and all three filters combine (C7)', () => {
+describe('filterUnseated — search and all three filters combine', () => {
   it('a guest shows only if they satisfy the search and every active filter at once', () => {
     const guests = [
       makeGuest('g-1', { name: 'Ana Ferreira', side: 'bride', role: 'bridesmaid', allergies: ['nuts'] }),

@@ -39,6 +39,7 @@ const ROUND_HEADING = /\.round\s+\.heading\s*\{/
 const ROUND_OCCUPANCY = /\.round\s+\.occupancy\s*\{/
 const TOP_FACE_HOVER = /\.top\s+\.face:hover:not\(:disabled\)\s*\{/
 const FACE_FOCUS_VISIBLE = /\.table\s+\.face:focus-visible\s*\{/
+const ROUND_FACE_FOCUS_VISIBLE = /\.round\s+\.face:focus-visible\s*\{/
 // (0,4,0): .table, .face, :hover and :not(:disabled) each count, beating Button.module.css's
 // .quiet:hover:not(:disabled) at (0,3,0) regardless of source order.
 const FACE_HOVER = /\.table\s+\.face:hover:not\(:disabled\)\s*\{/
@@ -341,6 +342,20 @@ describe('PlanTable.module.css — .round .face lays the number and fill count i
     expect(heading.body).toMatch(/font-family\s*:\s*var\(--font-mono\)/i)
     expect(occupancy.body).toMatch(/font-family\s*:\s*var\(--font-mono\)/i)
   })
+
+  // Review (TT-38): `.round` itself went `overflow: visible` for the ring's stroke, which
+  // stopped containing these two as a side effect — text wider than the shrunk table now had
+  // nowhere to go but outside the circle. Each declares its own clip instead, so the ring's
+  // overflow stays untouched.
+  it('.round .heading and .round .occupancy each declare overflow: hidden and white-space: nowrap, so a fill count wider than a shrunk table clips at its own edge instead of spilling past the ring', () => {
+    const css = readCss()
+    const heading = requireRule(css, ROUND_HEADING, '.round .heading')
+    const occupancy = requireRule(css, ROUND_OCCUPANCY, '.round .occupancy')
+    expect(heading.body).toMatch(/overflow\s*:\s*hidden/i)
+    expect(heading.body).toMatch(/white-space\s*:\s*nowrap/i)
+    expect(occupancy.body).toMatch(/overflow\s*:\s*hidden/i)
+    expect(occupancy.body).toMatch(/white-space\s*:\s*nowrap/i)
+  })
 })
 
 describe('PlanTable.module.css — --table-number-ink/--table-count-ink, one distinct pair per state (TT-15)', () => {
@@ -496,7 +511,7 @@ describe('PlanTable.module.css — the placing face neutralises the shared butto
   })
 })
 
-describe('PlanTable.module.css — the face\'s focus ring is inset, since .round clips an outline drawn outside the element (TT-12)', () => {
+describe('PlanTable.module.css — the shared focus ring is inset by default (TT-12)', () => {
   it('a .face:focus-visible rule exists and declares a negative outline-offset', () => {
     const rule = requireRule(readCss(), FACE_FOCUS_VISIBLE, '.table .face:focus-visible')
     expect(rule.body).toMatch(/outline-offset\s*:\s*-\d/)
@@ -506,6 +521,26 @@ describe('PlanTable.module.css — the face\'s focus ring is inset, since .round
     const css = stripComments(readCss())
     expect(css).not.toMatch(/outline\s*:\s*none/i)
     expect(css).not.toMatch(/outline\s*:\s*0\b/i)
+  })
+})
+
+// Review (TT-38): `.round` stopped clipping (overflow: visible, needed for the ring's own
+// stroke), so the shared rule's inset offset is no longer right for a round table — a circle
+// with an inset ring reads as a square drawn inside it. This override draws the ring outside
+// instead, at the same specificity as the shared rule, so source order alone decides.
+describe("PlanTable.module.css — a round table's focus ring overrides the shared inset with an outset one", () => {
+  it('.round .face:focus-visible declares a positive outline-offset', () => {
+    const rule = requireRule(readCss(), ROUND_FACE_FOCUS_VISIBLE, '.round .face:focus-visible')
+    expect(rule.body).toMatch(/outline-offset\s*:\s*(?!-)[\d.]/)
+  })
+
+  it('is declared after the shared .table .face:focus-visible rule, so it wins the specificity tie', () => {
+    const css = stripComments(readCss())
+    const sharedIndex = css.search(FACE_FOCUS_VISIBLE)
+    const roundIndex = css.search(ROUND_FACE_FOCUS_VISIBLE)
+    expect(sharedIndex, 'expected the shared .table .face:focus-visible rule').toBeGreaterThanOrEqual(0)
+    expect(roundIndex, 'expected a .round .face:focus-visible rule').toBeGreaterThanOrEqual(0)
+    expect(roundIndex).toBeGreaterThan(sharedIndex)
   })
 })
 

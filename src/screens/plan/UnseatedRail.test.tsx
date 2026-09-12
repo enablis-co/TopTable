@@ -225,7 +225,7 @@ describe('UnseatedRail — the search field and the three selects are reachable 
   })
 })
 
-describe('UnseatedRail — typing in the search field narrows the visible rows (C3)', () => {
+describe('UnseatedRail — typing in the search field narrows the visible rows', () => {
   it('narrows to the guest matching the query and hides the one that does not', async () => {
     const user = userEvent.setup()
     const allGuests = [makeGuest('g-1', { name: 'Ana Ferreira' }), makeGuest('g-2', { name: 'Ben Ojo' })]
@@ -247,7 +247,7 @@ function containsStandaloneNumber(text: string, value: number): boolean {
   return new RegExp(`(?<!\\d)${value}(?!\\d)`).test(text)
 }
 
-describe('UnseatedRail — the count states shown and hidden only once a filter narrows the list (C9)', () => {
+describe('UnseatedRail — the count states shown and hidden only once a filter narrows the list', () => {
   it('reads the plain total, with no mention of hiding anything, when no filter is active', () => {
     renderRail({ guests: makeGuests(5) })
 
@@ -278,7 +278,7 @@ describe('UnseatedRail — the count states shown and hidden only once a filter 
   })
 })
 
-describe('UnseatedRail — three distinct body states, not two (C8)', () => {
+describe('UnseatedRail — three distinct body states, not two', () => {
   it('reads "Everyone has a seat." — the existing empty-rail copy — when there is nothing unseated at all', () => {
     renderRail({ guests: [], totalCount: 0 })
 
@@ -304,7 +304,7 @@ describe('UnseatedRail — three distinct body states, not two (C8)', () => {
   })
 })
 
-describe('UnseatedRail — one action clears every filter (C10)', () => {
+describe('UnseatedRail — one action clears every filter', () => {
   it('the Clear filters button is absent while no filter is active', () => {
     renderRail({ guests: makeGuests(3) })
 
@@ -334,9 +334,9 @@ describe('UnseatedRail — one action clears every filter (C10)', () => {
 })
 
 /*
- * TT-38 delta plan (re-scoped 5 -> 13 points), §D3/§D6 — D13/D14, A4. Written from the ticket's
- * own note ("Anything other than `guest` is worth marking, and the eight protocol roles most of
- * all") and the plan's A4 ("One marker treatment for every role other than `guest`... a
+ * TT-38. Written from the ticket's own note ("Anything other than `guest` is worth marking, and
+ * the eight protocol roles most of all") — one marker treatment for every role other than
+ * `guest`... a
  * rationale, not a second treatment"), without opening UnseatedRail.tsx.
  *
  * `bridesmaid` sits in `OTHER_ROLES`, not `PROTOCOL_ROLES` (src/domain/types.ts) — a build that
@@ -349,14 +349,69 @@ describe('UnseatedRail — one action clears every filter (C10)', () => {
  * one must not. Regex matchers throughout, per that guidance.
  */
 
-describe('UnseatedRail — a guest holding any role other than "guest" carries that role as a marker on their tile (D13)', () => {
+/*
+ * Review: the scroll-restore listeners used to bind once, on mount, to whatever `<ul>` existed
+ * at the time — but the list is one arm of a three-way conditional (empty rail / no matches /
+ * the list), so filtering to nothing and clearing the filter again replaces it with a different
+ * DOM node. A mount-only binding never notices, and every placement after that round trip
+ * silently lost the restore. This fails without the fix: it drives the rail through exactly
+ * that round trip, scrolls the *node left standing afterwards*, and proves a later placement
+ * still restores it.
+ */
+describe('UnseatedRail — the scroll-restore listeners rebind after the list is replaced', () => {
+  it('restores scroll on the <ul> that remains after a filter-to-nothing-then-clear round trip', () => {
+    const guestsFull = makeGuests(5)
+    const headingRef = createRef<HTMLHeadingElement>()
+
+    function withProps(guests: Guest[], filters: UnseatedFilters) {
+      return (
+        <UnseatedRail
+          guests={guests}
+          totalCount={5}
+          filters={filters}
+          onFiltersChange={vi.fn()}
+          selectedGuestId={null}
+          onSelect={vi.fn()}
+          headingRef={headingRef}
+        />
+      )
+    }
+
+    const { rerender } = render(withProps(guestsFull, NO_FILTERS))
+
+    // Filter to nothing: the <ul> unmounts in favour of "No one matches those filters."
+    const nothingMatches: UnseatedFilters = { ...NO_FILTERS, query: 'zzz-nothing-matches' }
+    rerender(withProps([], nothingMatches))
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+
+    // Clear the filter: a *new* <ul> mounts. This is the node every later assertion targets.
+    rerender(withProps(guestsFull, NO_FILTERS))
+    const currentList = screen.getByRole('list')
+
+    currentList.scrollTop = 40
+    currentList.dispatchEvent(new Event('scroll'))
+
+    // Placing a guest: the same filters object, one fewer guest — the arming heuristic's own
+    // signature for a placement (untouched by this fix; see the component's doc comment).
+    rerender(withProps(guestsFull.slice(1), NO_FILTERS))
+
+    // jsdom never scrolls on focus the way a real browser does, so this line stands in for
+    // that reset before the restore is asserted.
+    currentList.scrollTop = 0
+    currentList.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+
+    expect(currentList.scrollTop).toBe(40)
+  })
+})
+
+describe('UnseatedRail — a guest holding any role other than "guest" carries that role as a marker on their tile', () => {
   it('a protocol role, "best man", is marked', () => {
     renderRail({ guests: [makeGuest('g-1', { name: 'Danny Whitaker', role: 'best man' })] })
 
     expect(screen.getByRole('button', { name: /^Danny Whitaker\s+Best man$/ })).toBeInTheDocument()
   })
 
-  it('"bridesmaid" — an OTHER_ROLES role, not a protocol one — is marked too, not only the eight protocol roles (A4)', () => {
+  it('"bridesmaid" — an OTHER_ROLES role, not a protocol one — is marked too, not only the eight protocol roles', () => {
     renderRail({ guests: [makeGuest('g-1', { name: 'Priya Shah', role: 'bridesmaid' })] })
 
     expect(screen.getByRole('button', { name: /^Priya Shah\s+Bridesmaid$/ })).toBeInTheDocument()

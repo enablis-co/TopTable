@@ -3,7 +3,7 @@
  * surrounding canvas area its flex:1/min-height:0 and 18px/22px breathing room (the handoff's
  * "Container"); this class is what the handoff calls the panel inside it — a full-height
  * --surface card the SVG/grid content sits on, 10px padding per the handoff (off the spacing
- * scale, and authoritative for it regardless — see the plan's A3).
+ * scale, and authoritative for it regardless ).
  */
 .floorplan {
   height: 100%;
@@ -35,12 +35,24 @@
    .canvas and .floorplanArea both have to resolve to a definite height first for this to have
    anything bounded to scroll within. floorplan.test.ts checks overflow-y is never pinned to
    hidden or scroll, which would either clip a tall plan permanently or show a bar even when
-   everything fits. */
+   everything fits.
+
+   Review fix (TT-38): a selected table's non-scaling ring stroke overshoots its own table by a
+   fraction of a pixel at most sizes (`.round`/`.svg` are `overflow: visible` on purpose — see
+   PlanTable.module.css and TableRing.module.css) — harmless everywhere `.grid`'s own
+   `justify-content: safe center` leaves slack, but the grid is top-aligned with none above it,
+   so the top row's overshoot had nowhere to go and clipped flush against this box's own edge. A
+   few px of padding gives it that room. This is also the box `useElementSize` measures
+   (FloorplanGrid.tsx) — nothing else needs to change to keep `fitFloorplan` honest:
+   `ResizeObserver`'s `contentRect` already reports the padding-excluded content box, so the
+   measured width and height shrink by this padding on their own rather than the fit having to
+   subtract it. */
 .gridScroll {
   flex: 1;
   min-height: 0;
   overflow-x: auto;
   overflow-y: auto;
+  padding: var(--s-1);
 }
 
 /* Restates base.css's global :focus-visible — the same convention Button.module.css and
@@ -51,11 +63,10 @@
 }
 
 /* TT-38: `auto-fit` only ever wrapped by width and left height to `.gridScroll`'s own scrollbar,
-   which is the defect this ticket exists to fix — 26 tables at a 112px floor ran to five rows
-   with most of them off-screen. `--floorplan-columns` and `--table-size` (FloorplanGrid.tsx, from
-   `fitFloorplan`) are recomputed from the box's measured width and height on every resize, so a
-   fixed `repeat(N, …)` here is not the old defect returning: the count and size behind it are
-   live, not a cap on top of a still-elastic track.
+   which is the defect this ticket exists to fix. `--floorplan-columns` and `--table-size`
+   (FloorplanGrid.tsx, from `fitFloorplan`) are recomputed from the box's measured width and
+   height on every resize, so a fixed `repeat(N, …)` here is not the old defect returning: the
+   count and size behind it are live, not a cap on top of a still-elastic track.
 
    A bare `--table-size` track, not `minmax(0, var(--table-size))`: `minmax(0, …)` lets the grid
    compress every track below that value whenever the tracks don't all fit, which would silently

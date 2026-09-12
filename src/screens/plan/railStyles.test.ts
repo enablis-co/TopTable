@@ -126,11 +126,14 @@ describe('UnseatedRail.module.css — the brand rules hold for this file too', (
 const LIST_RULE = /(?<!\.rail\s)(?<![\w-])\.list\s*\{/
 
 describe('UnseatedRail.module.css — the list is height-bounded, never free to grow into the floorplan', () => {
-  it('.list declares overflow-y: auto and a max-height, and no longer scrolls horizontally', () => {
+  // Asserting the absence of overflow-x: auto would claim more than it proves: alongside
+  // overflow-y: auto a visible x computes to auto anyway, so the list can still scroll
+  // sideways whatever this rule omits. What actually keeps it from doing so is the wrap,
+  // asserted in its own case below.
+  it('.list declares overflow-y: auto and a max-height', () => {
     const rule = requireRule(readCss(), LIST_RULE, 'the scrolling list')
     expect(rule.body).toMatch(/overflow-y\s*:\s*auto/i)
     expect(rule.body).toMatch(/max-height\s*:/i)
-    expect(rule.body).not.toMatch(/overflow-x\s*:\s*auto/i)
   })
 
   it('the max-height is a clamp, so the bound flexes with viewport height rather than sitting at one fixed figure', () => {

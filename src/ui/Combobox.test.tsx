@@ -8,10 +8,10 @@ import { Combobox } from './Combobox'
  * TT-38 delta plan, §D4/§D6 — an editable ARIA 1.2 combobox with list autocomplete, written
  * from the plan's behavioural contract without opening Combobox.tsx: the ARIA attributes, the
  * exact accessible-name shape ("Danny Whitaker name"), the key bindings and the
- * `stopPropagation()` guard against `PlanScreen`'s document-level Escape handler (D12) are all
+ * `stopPropagation()` guard against `PlanScreen`'s document-level Escape handler are all
  * given there.
  *
- * §D4 does not give this component's TypeScript prop signature the way it does for
+ * The plan did not give this component's TypeScript prop signature the way it does for
  * `fitFloorplan` and `suggestionsFrom` — only its behaviour. `label`/`value`/`onChange`/
  * `suggestions`/`labelHidden` below follow the shape already established by `TextField` and
  * `PillInput` in this same folder (a controlled `value`/`onChange` pair, `suggestions` as a
@@ -181,8 +181,28 @@ describe('Combobox — ArrowDown moves the active option while focus stays on th
   })
 })
 
-describe('Combobox — ArrowUp from the first option returns to the typed text, not to an empty descendant', () => {
-  it('clears aria-activedescendant to absent, not to an empty string', async () => {
+describe('Combobox — ArrowUp steps back through the options, and off the top to the typed text', () => {
+  it('moves to the previous option rather than jumping straight to the typed text', async () => {
+    const user = userEvent.setup()
+    render(
+      <ControlledCombobox
+        suggestions={[
+          { value: 'Anna Field', kind: 'name' },
+          { value: 'Anthony Cole', kind: 'name' },
+          { value: 'Annie Barnes', kind: 'name' },
+        ]}
+      />,
+    )
+    await user.type(input(), 'An')
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}')
+    expect(activeOption()).toHaveAccessibleName('Annie Barnes name')
+
+    await user.keyboard('{ArrowUp}')
+
+    expect(activeOption()).toHaveAccessibleName('Anthony Cole name')
+  })
+
+  it('clears aria-activedescendant to absent, not to an empty string, from the first option', async () => {
     const user = userEvent.setup()
     render(<ControlledCombobox suggestions={[{ value: 'Anna Field', kind: 'name' }]} />)
     await user.type(input(), 'An')
@@ -218,7 +238,7 @@ describe('Combobox — Enter commits the active option and closes the list', () 
   })
 })
 
-describe('Combobox — Escape closes the list leaving the value; a second Escape clears it', () => {
+describe('Combobox — Escape dismisses the list and does nothing else', () => {
   it('the first Escape closes the popup without touching the typed text', async () => {
     const user = userEvent.setup()
     render(<ControlledCombobox suggestions={[{ value: 'Anna Field', kind: 'name' }]} />)
@@ -231,7 +251,10 @@ describe('Combobox — Escape closes the list leaving the value; a second Escape
     expect(input()).toHaveValue('An')
   })
 
-  it('a second Escape, with the popup already closed, clears the value', async () => {
+  // One keystroke doing two unrelated things: with the list already closed, Escape used to
+  // clear the field as well as reaching PlanScreen's own handler, so dismissing suggestions and
+  // then pressing Escape again wiped a search the person had not asked to lose.
+  it('a second Escape, with the popup already closed, leaves the typed text alone', async () => {
     const user = userEvent.setup()
     render(<ControlledCombobox suggestions={[{ value: 'Anna Field', kind: 'name' }]} />)
     await user.type(input(), 'An')
@@ -239,11 +262,11 @@ describe('Combobox — Escape closes the list leaving the value; a second Escape
 
     await user.keyboard('{Escape}')
 
-    expect(input()).toHaveValue('')
+    expect(input()).toHaveValue('An')
   })
 })
 
-describe('Combobox — the Escape that closes the popup does not reach a document-level Escape handler (D12)', () => {
+describe('Combobox — the Escape that closes the popup does not reach a document-level Escape handler', () => {
   it('stops the closing Escape from bubbling to a document keydown listener', async () => {
     const user = userEvent.setup()
     const documentListener = vi.fn()
@@ -283,5 +306,51 @@ describe('Combobox — Tab closes the list without committing a highlighted opti
 
     expect(input()).toHaveValue('An')
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+})
+
+// The primary interaction for most people, and the one the keyboard cases above never touch.
+// The mousedown handler exists so the input is not blurred before the click lands — without it
+// the blur closes the popup and the click has nothing left to hit.
+describe('Combobox — clicking a suggestion commits it', () => {
+  it('sets the value from the clicked option and closes the popup', async () => {
+    const user = userEvent.setup()
+    render(
+      <ControlledCombobox
+        suggestions={[
+          { value: 'Anna Field', kind: 'name' },
+          { value: 'Anthony Cole', kind: 'name' },
+        ]}
+      />,
+    )
+    await user.type(input(), 'An')
+
+    await user.click(screen.getByRole('option', { name: 'Anthony Cole name' }))
+
+    expect(input()).toHaveValue('Anthony Cole')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+})
+
+describe('Combobox — an active option that stops matching is released, not left dangling', () => {
+  it('drops aria-activedescendant rather than naming an option that no longer renders', async () => {
+    const user = userEvent.setup()
+    render(
+      <ControlledCombobox
+        suggestions={[
+          { value: 'Anna Field', kind: 'name' },
+          { value: 'Anthony Cole', kind: 'name' },
+        ]}
+      />,
+    )
+    await user.type(input(), 'An')
+    await user.keyboard('{ArrowDown}{ArrowDown}')
+    expect(activeOption()).toHaveAccessibleName('Anthony Cole name')
+
+    // Narrowing the query to one match strands the held index past the end of the pool.
+    await user.type(input(), 'na')
+
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+    expect(input().hasAttribute('aria-activedescendant')).toBe(false)
   })
 })

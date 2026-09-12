@@ -50,17 +50,22 @@ export function Combobox({ label, labelHidden = false, placeholder, value, onCha
 
   const expanded = open && filtered.length > 0
 
+  // `active` is state while `filtered` is derived from props, so a pool that narrows underneath
+  // a held index would leave aria-activedescendant naming an option that no longer exists.
+  // Every read goes through this, so the two can never disagree within one render.
+  const activeIndex = active < filtered.length ? active : -1
+
   function optionId(index: number): string {
     return `${listboxId}-option-${index}`
   }
 
   useEffect(() => {
-    if (active < 0) return
-    const node = listRef.current?.children[active]
+    if (activeIndex < 0) return
+    const node = listRef.current?.children[activeIndex]
     if (node instanceof HTMLElement) {
       node.scrollIntoView?.({ block: 'nearest' })
     }
-  }, [active])
+  }, [activeIndex])
 
   function close() {
     setOpen(false)
@@ -82,14 +87,16 @@ export function Combobox({ label, labelHidden = false, placeholder, value, onCha
         setActive(filtered.length > 0 ? 0 : -1)
         return
       }
-      setActive((current) => Math.min(current + 1, filtered.length - 1))
+      setActive(Math.min(activeIndex + 1, filtered.length - 1))
       return
     }
 
     if (event.key === 'ArrowUp') {
       if (!expanded) return
       event.preventDefault()
-      setActive(-1)
+      // Steps back one, the way PillInput's own option list does. -1 is the typed text, so it
+      // is only reachable from the first option rather than from anywhere in the list.
+      setActive(activeIndex <= 0 ? -1 : activeIndex - 1)
       return
     }
 
@@ -108,23 +115,25 @@ export function Combobox({ label, labelHidden = false, placeholder, value, onCha
     }
 
     if (event.key === 'Enter') {
-      if (active >= 0) {
+      if (activeIndex >= 0) {
         event.preventDefault()
-        commit(active)
+        commit(activeIndex)
       }
       return
     }
 
     if (event.key === 'Escape') {
+      // Dismisses the list and nothing else. Stopping propagation is load-bearing rather than
+      // defensive: PlanScreen registers a document-level keydown that clears the rail's guest
+      // selection on Escape, so without this, dismissing the popup would also throw away the
+      // guest the person had just chosen. Guarded in Combobox.test.tsx.
+      //
+      // With the list closed the key is left alone, so it reaches that handler — clearing the
+      // field as well would make one keystroke do two unrelated things.
       if (expanded) {
-        // TT-38: load-bearing, not defensive. PlanScreen registers a document-level keydown
-        // that clears the rail's guest selection on Escape; without stopping it here, dismissing
-        // this popup would also clear that selection. Guarded in Combobox.test.tsx.
         event.stopPropagation()
         close()
-        return
       }
-      onChange('')
     }
   }
 
@@ -146,7 +155,7 @@ export function Combobox({ label, labelHidden = false, placeholder, value, onCha
         aria-autocomplete="list"
         // undefined, never '' — an empty string is still a real attribute value and would
         // assert an active option that does not exist. Combobox.test.tsx asserts it is absent.
-        aria-activedescendant={active >= 0 ? optionId(active) : undefined}
+        aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
         aria-describedby={hintId}
         onChange={(event) => {
           onChange(event.target.value)
@@ -163,8 +172,8 @@ export function Combobox({ label, labelHidden = false, placeholder, value, onCha
               key={`${option.kind}-${option.value}`}
               id={optionId(index)}
               role="option"
-              aria-selected={index === active}
-              className={cx(styles.option, index === active && styles.optionActive)}
+              aria-selected={index === activeIndex}
+              className={cx(styles.option, index === activeIndex && styles.optionActive)}
               onMouseDown={(event) => {
                 event.preventDefault()
               }}

@@ -173,7 +173,10 @@ describe('token guards', () => {
   it('has no reference to the retired --space- or --text- token scale', () => {
     const offenders: string[] = []
     for (const file of STYLE_AND_MARKUP_FILES) {
-      const content = stripComments(read(file))
+      // Deliberately NOT stripped, unlike the two guards above. Those resolve references, where
+      // a comment naming one is prose. This is a blanket sweep for a retired scale, and a
+      // commented-out declaration still using it is a real leftover rather than an explanation.
+      const content = read(file)
       if (/--space-/.test(content) || /--text-/.test(content)) {
         offenders.push(toSrcRelative(file))
       }

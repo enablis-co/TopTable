@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import type { Ref } from 'react'
 import { Button, Combobox, Select, Tag, cx, tabularClass } from '../../ui'
 import { OTHER_ROLES, PROTOCOL_ROLES } from '../../domain/types'
@@ -59,7 +59,7 @@ type UnseatedRailProps = {
  * "Unseated" (UnseatedRail.test.tsx asserts this by name).
  *
  * The header and the search/filter row sit outside the scrolling list, so they stay visible
- * while the list scrolls (C2) as a structural fact — no `position: sticky`, which jsdom
+ * while the list scrolls as a structural fact — no `position: sticky`, which jsdom
  * cannot see and which is fragile inside a flex column. `UnseatedRail.module.css` bounds the
  * list's own height; this component only ever renders it, never measures it.
  *
@@ -77,7 +77,7 @@ type UnseatedRailProps = {
  *
  * TT-38, C11 — a browser-only finding (jsdom does no layout, so nothing in the suite can see
  * this): `PlanScreen`'s `handlePlace` moves focus to the first remaining row after a placement
- * (A6; that call is out of scope to edit here), and every browser scrolls a scrollable
+ * (that call is out of scope to edit here), and every browser scrolls a scrollable
  * ancestor to bring a newly focused element into view by default. Once the list scrolls
  * (TT-38's own change), that first row is routinely off-screen, so a placement was silently
  * scrolling the list back to the top — exactly the reset C11 rules out. Fixed here, not by
@@ -86,6 +86,15 @@ type UnseatedRailProps = {
  * scroll position on the one `focusin` that immediately follows a same-filter drop in guest
  * count — the signature of a placement, never of ordinary Tab navigation or of a filter
  * narrowing the list.
+ *
+ * Review: the `<ul>` below is one arm of a three-way conditional (the empty-rail and
+ * no-matches states render a `<p>` instead), so it unmounts and a fresh node mounts every time
+ * the rail crosses in or out of those states. A `useEffect` bound to a ref only ever runs
+ * against whichever node existed when it last ran, so the listeners have to live on a callback
+ * ref instead — it fires on every mount and unmount of the element itself, not just the
+ * component's, and re-binds to whichever `<ul>` is actually current. UnseatedRail.test.tsx
+ * guards this by filtering the list empty, clearing the filter and proving the restore still
+ * fires on the node that replaces it.
  *
  * TT-38 delta: the search field is now `Combobox`, offering suggestions from `suggestionPool`
  * (names, then tags), and each row that carries a role other than `guest` marks it with a
@@ -115,7 +124,7 @@ export function UnseatedRail({
   // when this render is a same-filter drop in guest count (a placement), and consumed by the
   // very next `focusin` inside the list — which is exactly the one `handlePlace`'s
   // subsequent `firstRemaining.focus()` call raises.
-  const listRef = useRef<HTMLUListElement>(null)
+  const listNodeRef = useRef<HTMLUListElement | null>(null)
   const scrollTopRef = useRef(0)
   const restoreOnNextFocusRef = useRef(false)
   const previousGuestCountRef = useRef(guests.length)
@@ -127,26 +136,31 @@ export function UnseatedRail({
     previousFiltersRef.current = filters
   })
 
-  useEffect(() => {
-    const list = listRef.current
-    if (!list) return
-
-    function handleScroll() {
-      scrollTopRef.current = list!.scrollTop
-    }
-    function handleFocusIn() {
-      if (!restoreOnNextFocusRef.current) return
-      restoreOnNextFocusRef.current = false
-      list!.scrollTop = scrollTopRef.current
-    }
-
-    list.addEventListener('scroll', handleScroll)
-    list.addEventListener('focusin', handleFocusIn)
-    return () => {
-      list.removeEventListener('scroll', handleScroll)
-      list.removeEventListener('focusin', handleFocusIn)
-    }
+  // Bodies close only over refs, never over props or state, so these two are stable for the
+  // component's whole lifetime — `setListRef` below can depend on them without ever changing
+  // identity itself.
+  const handleListScroll = useCallback(() => {
+    const list = listNodeRef.current
+    if (list) scrollTopRef.current = list.scrollTop
   }, [])
+
+  const handleListFocusIn = useCallback(() => {
+    if (!restoreOnNextFocusRef.current) return
+    restoreOnNextFocusRef.current = false
+    const list = listNodeRef.current
+    if (list) list.scrollTop = scrollTopRef.current
+  }, [])
+
+  const setListRef = useCallback(
+    (node: HTMLUListElement | null) => {
+      listNodeRef.current?.removeEventListener('scroll', handleListScroll)
+      listNodeRef.current?.removeEventListener('focusin', handleListFocusIn)
+      listNodeRef.current = node
+      node?.addEventListener('scroll', handleListScroll)
+      node?.addEventListener('focusin', handleListFocusIn)
+    },
+    [handleListScroll, handleListFocusIn],
+  )
 
   return (
     <div className={styles.rail}>
@@ -235,7 +249,7 @@ export function UnseatedRail({
       ) : guests.length === 0 ? (
         <p className={styles.empty}>No one matches those filters.</p>
       ) : (
-        <ul className={styles.list} ref={listRef}>
+        <ul className={styles.list} ref={setListRef}>
           {guests.map((guest) => (
             <li key={guest.id}>
               <Button
