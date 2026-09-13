@@ -1,4 +1,4 @@
-import type { Ref } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { scenarioById } from '../../domain/scenarios'
 import { capacityFor } from '../../domain/capacity'
 import type { Guest, RoomConfig } from '../../domain/types'
@@ -8,11 +8,10 @@ import { normaliseRoom } from '../../domain/seating'
 import { planTotals, type SeatingView } from './floorplan'
 import styles from './PlanHeader.module.css'
 
-/** TT-16. Bundled into one prop rather than five loose ones — PlanHeader already took five,
- *  and these five only make sense together. */
-type ScoreStatProps = {
-  /** `null` when no soft rule had an opportunity to be satisfied — never 0. */
-  value: number | null
+/** TT-16. What every interactive header stat needs to wire its own toggle — bundled so a stat's
+ *  props only ever travel together, the way `PlanHeader`'s own five props stopped being worth
+ *  passing loose once there were five of them. */
+type StatPanelProps = {
   expanded: boolean
   panelId: string
   onToggle: () => void
@@ -27,7 +26,8 @@ type PlanHeaderProps = {
   /** `plan.unseated.length` — the solver's own figure. Do not re-derive it from `seating`;
    * that produced two counts that could disagree. */
   unseatedCount: number
-  score: ScoreStatProps
+  score: StatPanelProps & { value: number | null }
+  pinned: StatPanelProps
 }
 
 /**
@@ -47,16 +47,49 @@ function Num({ value }: { value: number }) {
   return <span className={tabularClass}>{value}</span>
 }
 
+type StatToggleProps = StatPanelProps & {
+  value: ReactNode
+  label: string
+  hiddenSuffix: string
+}
+
+/**
+ * TT-16. The one control behind both interactive stats — score and Pinned — so the invented
+ * hover/expanded pattern exists in exactly one place. `<span>` children only, never `<p>` — a
+ * button element admits phrasing content only. The `{' '}` boundaries are load-bearing —
+ * name-from-content trims each child before joining, so a bare CSS gap would drop the space and
+ * the name would read "71%Fitscore breakdown". Expanded state is carried by `aria-expanded` and
+ * a background-plus-border-rule step, never colour alone (KB-5): the border rule is what tells
+ * expanded apart from hovered, since both share the same `--sunken` background.
+ */
+function StatToggle(props: StatToggleProps) {
+  // Destructured once: eslint's react-hooks/refs rule treats any object holding a Ref-typed
+  // field as tainted as a whole, and flags every member access off it — not just toggleRef — as
+  // a ref read during render.
+  const { expanded, panelId, onToggle, toggleRef, value, label, hiddenSuffix } = props
+
+  return (
+    <Button
+      variant="quiet"
+      ref={toggleRef}
+      className={styles.statToggle}
+      aria-expanded={expanded}
+      aria-controls={expanded ? panelId : undefined}
+      onClick={onToggle}
+    >
+      <span className={styles.statValue}>{value}</span>{' '}
+      <span className={styles.statLabel}>{label}</span>{' '}
+      <span className="tt-visually-hidden">{hiddenSuffix}</span>
+    </Button>
+  )
+}
+
 /**
  * TT-16. A null score renders "Nothing to score", never a dash or a zero, which would read as a
- * real, low score. Expanded state is carried by `aria-expanded` and the caret's rotation, never
- * colour alone (KB-5). Name is from content, not `aria-label` — the `{' '}` boundary trap in this
- * file's headline comment below applies here too.
+ * real, low score — and no control, since there is nothing to open. Otherwise a `StatToggle`
+ * with the `%` sign outside the tabular span: only the digits are tabular figures.
  */
-function ScoreStat({ score }: { score: ScoreStatProps }) {
-  // Destructured once: eslint's react-hooks/refs rule treats any object holding a Ref-typed field
-  // as tainted as a whole, and flags every member access off it — not just toggleRef — as a ref
-  // read during render.
+function ScoreStat({ score }: { score: PlanHeaderProps['score'] }) {
   const { value, expanded, panelId, onToggle, toggleRef } = score
 
   if (value === null) {
@@ -64,28 +97,59 @@ function ScoreStat({ score }: { score: ScoreStatProps }) {
   }
 
   return (
-    <Button
-      variant="quiet"
-      ref={toggleRef}
-      className={styles.scoreToggle}
-      aria-expanded={expanded}
-      aria-controls={expanded ? panelId : undefined}
-      onClick={onToggle}
-    >
-      <span className={styles.statValue}>
-        <Num value={value} />
-      </span>{' '}
-      <span className={styles.statLabel}>Fit</span>{' '}
-      <span className="tt-visually-hidden">score breakdown</span>
-      <span aria-hidden="true" className={styles.caret} />
-    </Button>
+    <StatToggle
+      expanded={expanded}
+      panelId={panelId}
+      onToggle={onToggle}
+      toggleRef={toggleRef}
+      value={
+        <>
+          <Num value={value} />%
+        </>
+      }
+      label="Fit"
+      hiddenSuffix="score breakdown"
+    />
+  )
+}
+
+/**
+ * TT-16. At zero pinned this is today's inert markup verbatim — no dead control, matching
+ * `ScoreStat`'s own rule for a value with nothing to open. With one or more pinned it is a
+ * `StatToggle` opening the pinned-guests panel.
+ */
+function PinnedStat({ pinnedCount, pinned }: { pinnedCount: number; pinned: StatPanelProps }) {
+  const { expanded, panelId, onToggle, toggleRef } = pinned
+
+  if (pinnedCount === 0) {
+    return (
+      <div className={styles.stat}>
+        <p className={styles.statValue}>
+          <Num value={pinnedCount} />
+        </p>
+        <p className={styles.statLabel}>Pinned</p>
+      </div>
+    )
+  }
+
+  return (
+    <StatToggle
+      expanded={expanded}
+      panelId={panelId}
+      onToggle={onToggle}
+      toggleRef={toggleRef}
+      value={<Num value={pinnedCount} />}
+      label="Pinned"
+      hiddenSuffix="guests"
+    />
   )
 }
 
 /**
  * TT-35, KB-6 "Plan". The canvas header: a capacity headline at `--t-figure-xl` (the largest
- * thing on the screen) plus a right-hand stat row — fit, then pinned, then unseated (TT-16
- * adds the first of those three; PlanScreen.tsx passes it as one bundled `score` prop).
+ * thing on the screen) plus a right-hand stat row — fit, then pinned, then unseated (TT-16 adds
+ * the first two as toggles; `PlanScreen.tsx` passes their wiring as the `score` and `pinned`
+ * props).
  *
  * Reads `capacityFor` directly rather than reusing Setup's `CapacityReadout`, which answers a
  * different question — is the room configured well enough to proceed — and owns its own
@@ -97,7 +161,7 @@ function ScoreStat({ score }: { score: ScoreStatProps }) {
  * shorthands, which reset `font-family` back to sans on any element they land on directly, and
  * an inherited value always loses to `.tt-num`'s own rule applied straight to its own span.
  */
-export function PlanHeader({ scenario, room, guests, seating, unseatedCount, score }: PlanHeaderProps) {
+export function PlanHeader({ scenario, room, guests, seating, unseatedCount, score, pinned }: PlanHeaderProps) {
   const label = scenarioLabel(scenario)
   const { guestCount, pinnedCount } = planTotals(guests, seating)
   // Normalised, matching PlanScreen's gate and FloorplanGrid's own generator (TT-11 review).
@@ -161,12 +225,7 @@ export function PlanHeader({ scenario, room, guests, seating, unseatedCount, sco
       </div>
       <div className={styles.stats}>
         <ScoreStat score={score} />
-        <div className={styles.stat}>
-          <p className={styles.statValue}>
-            <Num value={pinnedCount} />
-          </p>
-          <p className={styles.statLabel}>Pinned</p>
-        </div>
+        <PinnedStat pinnedCount={pinnedCount} pinned={pinned} />
         <div className={styles.stat}>
           <p className={styles.statValue}>
             <Num value={unseatedCount} />

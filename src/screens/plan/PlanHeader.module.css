@@ -91,11 +91,16 @@
   padding-bottom: var(--s-1);
 }
 
+/* Every stat reserves the same 2px at its own foot, filled by .statToggle's border below when a
+   toggle is expanded and left transparent everywhere else — without it, a toggle 2px taller than
+   its plain siblings would pull the row's shared flex-end baseline out from under them the
+   moment it expanded. */
 .stat {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: var(--s-1);
+  border-bottom: 2px solid transparent;
 }
 
 .statValue {
@@ -110,43 +115,38 @@
   color: var(--ink-muted);
 }
 
-/* `background` is a redundant cue behind the caret's rotation: transparent collapsed, `--sunken`
-   expanded, never a filled variant or `--slate` — KB-6 reserves a primary/filled button for
-   Auto-allocate alone. */
-.scoreToggle {
+/* TT-16. Shared by both interactive stats — score and Pinned. The expanded rule below and the
+   hover rule here deliberately share the same `--sunken` background (KB-6 reserves a filled
+   control for Auto-allocate alone, so neither can go further than a wash); the border-bottom is
+   what tells them apart, and .stat's own reserved 2px above is what keeps it from moving the row
+   when it appears. */
+.statToggle {
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: var(--s-1);
   padding: 0;
+  /* Zeroed first, then only the bottom width restored: `Button`'s own `.button` rule sets
+     `border: 1px solid transparent` on all four sides, and this rule used to override just the
+     colour, leaving a phantom 1px on the top and both sides that isn't part of the reserved
+     alignment rule below. That inset the toggle's right-aligned content 1px inside the row's
+     shared right edge while Unseated's plain `.stat` (no border but its own bottom 2px) sat
+     flush — a browser-pass finding, TT-16 review part two. */
+  border-width: 0;
+  border-style: solid;
   border-color: transparent;
+  border-bottom-width: 2px;
   background: transparent;
 }
 
-.scoreToggle[aria-expanded='true'] {
+.statToggle:hover:not(:disabled) {
   background: var(--sunken);
 }
 
-.scoreToggle:hover:not(:disabled) {
+.statToggle[aria-expanded='true'] {
   background: var(--sunken);
-}
-
-/* Shape carries the expanded/collapsed state (KB-5): a right-pointing caret collapsed,
-   rotated to point down when expanded. The background step above is a second, redundant cue —
-   this rotation is what survives grayscale(1), KB-5's own projector test. */
-.caret {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-style: solid;
-  border-width: 4px 0 4px 6px;
-  border-color: transparent transparent transparent var(--ink-muted);
-  transition: transform 120ms ease;
-}
-
-.scoreToggle[aria-expanded='true'] .caret {
-  transform: rotate(90deg);
+  border-bottom-color: var(--ink);
 }
 
 /* TT-16: words, never a figure, when there is nothing to score — no label, no dash, no zero, no
@@ -157,6 +157,7 @@
   flex: none;
   max-width: 9rem;
   margin: 0;
+  border-bottom: 2px solid transparent;
   font: var(--t-caption);
   color: var(--ink-muted);
   text-align: right;

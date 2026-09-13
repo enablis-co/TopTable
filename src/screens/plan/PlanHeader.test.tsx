@@ -18,12 +18,19 @@ import type { ScenarioState } from '../../store/store'
  *
  * Every Guest fixture sets `age` to an AgeBand, never a number.
  *
- * TT-16: `PlanHeader` gained a required `score` prop (A15 — one object carrying `value`,
- * `expanded`, `panelId`, `onToggle` and `toggleRef`), so every render call below gains
+ * TT-16 part one: `PlanHeader` gained a required `score` prop (A15 — one object carrying
+ * `value`, `expanded`, `panelId`, `onToggle` and `toggleRef`), so every render call below gains
  * `score={scoreFixture()}` to satisfy the type. `scoreFixture()` defaults to `value: null`
  * ("Nothing to score", no digits, no control — A14), which cannot interfere with any assertion
  * already in this file: none of them read digits, roles or text that a null score could
  * introduce. Not one existing assertion changes.
+ *
+ * TT-16 part two: the score renders as a percentage and loses its caret glyph, and Pinned
+ * becomes the same kind of toggle. `PlanHeader` gains a required `pinned` prop — `expanded`,
+ * `panelId`, `onToggle` and `toggleRef`, no `value`: the Pinned figure is still derived from
+ * `guests`/`seating` exactly as it always was — so every render call below also gains
+ * `pinned={pinnedFixture()}`. Its default `expanded: false` cannot interfere with any assertion
+ * already in this file for the same reason the score default could not.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -80,6 +87,23 @@ function scoreFixture(overrides: Partial<ScoreFixture> = {}): ScoreFixture {
   }
 }
 
+type PinnedFixture = {
+  expanded: boolean
+  panelId: string
+  onToggle: () => void
+  toggleRef: { current: HTMLButtonElement | null }
+}
+
+function pinnedFixture(overrides: Partial<PinnedFixture> = {}): PinnedFixture {
+  return {
+    expanded: false,
+    panelId: 'pinned-guests-panel',
+    onToggle: () => {},
+    toggleRef: { current: null },
+    ...overrides,
+  }
+}
+
 describe('PlanHeader — the capacity headline (handoff "Canvas header": "78 seats for 70 guests")', () => {
   it('reads "78 seats for 70 guests", seats before guests, for a configured room with nothing seated', () => {
     // Adding up's own room: 9 × 8 + 6 = 78 seats.
@@ -93,6 +117,7 @@ describe('PlanHeader — the capacity headline (handoff "Canvas header": "78 sea
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -114,6 +139,7 @@ describe('PlanHeader — the capacity headline (handoff "Canvas header": "78 sea
         seating={NOTHING_SEATED}
         unseatedCount={0}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -135,6 +161,7 @@ describe('PlanHeader — the seat figure is normalised, agreeing with the grid (
         seating={NOTHING_SEATED}
         unseatedCount={0}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -153,6 +180,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     expect(container.textContent).toContain('8 spare')
@@ -168,6 +196,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         seating={NOTHING_SEATED}
         unseatedCount={78}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     const text = container.textContent ?? ''
@@ -186,6 +215,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         seating={NOTHING_SEATED}
         unseatedCount={80}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -203,6 +233,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     expect(container.querySelector('[data-state="slack"]')).not.toBeNull()
@@ -215,6 +246,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         seating={NOTHING_SEATED}
         unseatedCount={78}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     expect(container.querySelector('[data-state="exact"]')).not.toBeNull()
@@ -232,6 +264,7 @@ describe('PlanHeader — the composition, after the qualifier, separated by a mi
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     const text = container.textContent ?? ''
@@ -253,6 +286,7 @@ describe('PlanHeader — the composition, after the qualifier, separated by a mi
         seating={NOTHING_SEATED}
         unseatedCount={4}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     expect(container.textContent).not.toContain('×')
@@ -268,6 +302,7 @@ describe('PlanHeader — the composition, after the qualifier, separated by a mi
         seating={NOTHING_SEATED}
         unseatedCount={8}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     expect(container.textContent).not.toContain('top table')
@@ -283,6 +318,7 @@ describe('PlanHeader — the composition, after the qualifier, separated by a mi
         seating={NOTHING_SEATED}
         unseatedCount={0}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     expect(container.textContent).not.toMatch(/·/)
@@ -306,6 +342,7 @@ describe('PlanHeader — the scenario segment', () => {
         seating={NOTHING_SEATED}
         unseatedCount={2}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     expect(container.textContent).toContain(name)
@@ -320,6 +357,7 @@ describe('PlanHeader — the scenario segment', () => {
         seating={NOTHING_SEATED}
         unseatedCount={2}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     expect(container.textContent).toContain('Custom')
@@ -334,6 +372,7 @@ describe('PlanHeader — the scenario segment', () => {
         seating={NOTHING_SEATED}
         unseatedCount={2}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
     const text = container.textContent ?? ''
@@ -365,6 +404,7 @@ describe('PlanHeader — the stat pair: pinned, then unseated (handoff "Canvas h
         seating={seating}
         unseatedCount={68}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -389,6 +429,7 @@ describe('PlanHeader — every figure that can change is tabular (KB-5)', () => 
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture()}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -415,6 +456,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -433,6 +475,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -449,6 +492,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture({ value: 82, expanded: false })}
+        pinned={pinnedFixture()}
       />,
     )
     expect(screen.getByRole('button', { name: /82/ })).toHaveAttribute('aria-expanded', 'false')
@@ -461,6 +505,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture({ value: 82, expanded: true })}
+        pinned={pinnedFixture()}
       />,
     )
     expect(screen.getByRole('button', { name: /82/ })).toHaveAttribute('aria-expanded', 'true')
@@ -475,6 +520,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture({ value: 82, expanded: false, panelId: 'the-breakdown-panel' })}
+        pinned={pinnedFixture()}
       />,
     )
     expect(screen.getByRole('button', { name: /82/ })).not.toHaveAttribute('aria-controls')
@@ -487,6 +533,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture({ value: 82, expanded: true, panelId: 'the-breakdown-panel' })}
+        pinned={pinnedFixture()}
       />,
     )
     expect(screen.getByRole('button', { name: /82/ })).toHaveAttribute('aria-controls', 'the-breakdown-panel')
@@ -503,6 +550,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture({ value: 82, onToggle })}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -533,6 +581,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         seating={seating}
         unseatedCount={68}
         score={scoreFixture({ value: null })}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -551,6 +600,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         seating={NOTHING_SEATED}
         unseatedCount={70}
         score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
       />,
     )
 
@@ -563,5 +613,218 @@ describe('PlanHeader — the score stat (TT-16)', () => {
     expect(text).toContain('Adding up')
     expect(text).toContain('Pinned')
     expect(text).toContain('Unseated')
+  })
+})
+
+/**
+ * TT-16 part two. The fit score renders as a percentage and drops its caret glyph.
+ */
+describe('PlanHeader — the score as a percentage, with no caret (TT-16 part two)', () => {
+  const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
+  const guests = makeGuests(70)
+
+  it('a score of 82 renders "82%", with only the digits carrying the tabular class', () => {
+    const { container } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+      />,
+    )
+
+    const toggle = screen.getByRole('button', { name: /82/ })
+    expect(toggle.textContent).toContain('82%')
+    expect(tabularTexts(container)).toContain('82')
+    // The % itself is not part of any tabular-class element's own text.
+    const tabularElements = Array.from(container.querySelectorAll('.tt-num'))
+    for (const element of tabularElements) {
+      expect(element.textContent?.trim()).not.toContain('%')
+    }
+  })
+
+  it('the accessible name contains the figure, the percent sign and "Fit"', () => {
+    render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /82%.*Fit/ })).toBeInTheDocument()
+  })
+
+  it('renders no caret, chevron or triangle glyph anywhere in the header (AC-F2)', () => {
+    const { container } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+      />,
+    )
+
+    // AC-F2 is about the glyph, not about how the deleted implementation happened to render it
+    // (an empty aria-hidden element) — a caret rebuilt as visible text inside an aria-hidden span
+    // would pass an "empty hidden element" check while still rendering the glyph AC-F2 forbids.
+    // So this reads the header's own text for the character, in any of the directions and sizes
+    // a disclosure triangle is drawn with, rather than inspecting any one element's markup.
+    const caretGlyphs = /[▲▴▶▸▼▾◀◂⌃⌄˄˅❮❯]/
+    expect(container.textContent ?? '').not.toMatch(caretGlyphs)
+  })
+
+  it('a null score still renders "Nothing to score", with no figure and no "%" anywhere for it', () => {
+    const { container } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: null })}
+        pinned={pinnedFixture()}
+      />,
+    )
+
+    expect(container.textContent).toContain('Nothing to score')
+    expect(container.textContent).not.toMatch(/\d+\s*%/)
+    expect(screen.queryByRole('button', { name: /fit/i })).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * TT-16 part two. The Pinned stat becomes the same kind of toggle as the score, opening the
+ * pinned-guests panel — but only once there is something to show (AC-P1, AC-P2).
+ */
+describe('PlanHeader — the Pinned stat becomes a toggle too (TT-16 part two)', () => {
+  const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
+  const guests = makeGuests(70)
+
+  function seatingWithOnePinned(): SeatingView {
+    const seatedPair = [guests[0], guests[1]]
+    if (!seatedPair[0] || !seatedPair[1]) {
+      throw new Error('expected two seeded guests')
+    }
+    return {
+      byTableId: {
+        'round-1': occupantsFixture({ guests: seatedGuests([seatedPair[0], seatedPair[1]], true), pinnedCount: 1 }),
+      },
+    }
+  }
+
+  it('with one or more pinned, the Pinned stat is a button named with its figure and "Pinned"', () => {
+    render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={seatingWithOnePinned()}
+        unseatedCount={68}
+        score={scoreFixture()}
+        pinned={pinnedFixture()}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /1/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Pinned/ })).toBeInTheDocument()
+  })
+
+  it('the Pinned button carries aria-expanded and conditional aria-controls', () => {
+    const { rerender } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={seatingWithOnePinned()}
+        unseatedCount={68}
+        score={scoreFixture()}
+        pinned={pinnedFixture({ expanded: false, panelId: 'the-pinned-panel' })}
+      />,
+    )
+    const collapsed = screen.getByRole('button', { name: /Pinned/ })
+    expect(collapsed).toHaveAttribute('aria-expanded', 'false')
+    expect(collapsed).not.toHaveAttribute('aria-controls')
+
+    rerender(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={seatingWithOnePinned()}
+        unseatedCount={68}
+        score={scoreFixture()}
+        pinned={pinnedFixture({ expanded: true, panelId: 'the-pinned-panel' })}
+      />,
+    )
+    const expanded = screen.getByRole('button', { name: /Pinned/ })
+    expect(expanded).toHaveAttribute('aria-expanded', 'true')
+    expect(expanded).toHaveAttribute('aria-controls', 'the-pinned-panel')
+  })
+
+  it('clicking the Pinned button calls its own onToggle exactly once', async () => {
+    const user = userEvent.setup()
+    const onToggle = vi.fn()
+    render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={seatingWithOnePinned()}
+        unseatedCount={68}
+        score={scoreFixture()}
+        pinned={pinnedFixture({ onToggle })}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Pinned/ }))
+
+    expect(onToggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('at zero pinned there is no button, but the figure and label still render', () => {
+    const { container } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture()}
+        pinned={pinnedFixture()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /Pinned/ })).not.toBeInTheDocument()
+    expect(container.textContent).toContain('Pinned')
+    expect(tabularTexts(container)).toContain('0')
+  })
+
+  it('the score toggle and the Pinned toggle are two distinct controls', () => {
+    render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={seatingWithOnePinned()}
+        unseatedCount={68}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+      />,
+    )
+
+    const scoreButton = screen.getByRole('button', { name: /Fit/i })
+    const pinnedButton = screen.getByRole('button', { name: /Pinned/ })
+    expect(scoreButton).not.toBe(pinnedButton)
   })
 })

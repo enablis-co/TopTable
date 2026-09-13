@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { describe, expect, it, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlanScreen } from './PlanScreen'
 import { useTopTableStore } from '../../store/store'
@@ -9,20 +9,26 @@ import { NavigationContext } from '../../shell/navigation'
 
 /**
  * TT-16's third-column state machine, driven through the real `PlanScreen` rather than through
- * any one panel in isolation — the invariant (never two of violations, table detail and
- * breakdown at once) is enforced by two handlers each clearing the other's state, so only an
- * integration test can actually see it hold. Named as its own file so TT-15's `PlanScreen.test.tsx`
- * and `planAllocation.test.tsx` are not touched by TT-16 at all.
+ * any one panel in isolation — the invariant (never two of violations, a table's detail, the
+ * score breakdown and the pinned-guests panel at once) is enforced by handlers that each clear
+ * the others' state, so only an integration test can actually see it hold. Named as its own file
+ * so TT-15's `PlanScreen.test.tsx` and `planAllocation.test.tsx` are not touched by TT-16 at all.
  *
  * Written from the ticket's acceptance criteria. Does not open PlanScreen.tsx,
- * ScoreBreakdownPanel.tsx or PlanHeader.tsx. `renderPlanScreen`/`tables`/`tableLabelled`/
- * `selectTable`/`tableDetailPanel` follow PlanScreen.test.tsx's own conventions.
+ * ScoreBreakdownPanel.tsx, PinnedGuestsPanel.tsx, PlanHeader.tsx or thirdColumn.ts.
+ * `renderPlanScreen`/`tables`/`tableLabelled`/`selectTable`/`tableDetailPanel` follow
+ * PlanScreen.test.tsx's own conventions.
  *
  * TT-16's review: `opportunities` is now a property of the guest list, never of how much of the
  * plan is seated (the fix for the comparability defect the review found). One consequence,
  * checked below where it matters: an unallocated or just-cleared plan whose guest list still
  * carries partner data no longer reads "Nothing to score" — it scores honestly at 0. Null is now
  * reached only by a guest list with no partner data at all.
+ *
+ * Part two adds a fourth column state, the pinned-guests panel, behind a second header toggle.
+ * `pinnedToggle()` matches the visible label "Pinned" with a case-sensitive pattern deliberately:
+ * a table carrying a pin renders a lowercase ", pinned" in its own accessible name (PlanTable),
+ * which a case-insensitive match would also catch.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -88,12 +94,59 @@ function queryScoreToggle(): HTMLElement | null {
   return screen.queryByRole('button', { name: /Fit/i })
 }
 
-/** Exactly one of the three column states is showing: violations, a table's detail, or the
- *  breakdown. */
+// Case-sensitive: a pinned table's own accessible name appends a lowercase ", pinned" (PlanTable),
+// which /Pinned/i would also match. The header's stat label is capitalised "Pinned".
+function pinnedToggle(): HTMLElement {
+  return screen.getByRole('button', { name: /Pinned/ })
+}
+
+function queryPinnedToggle(): HTMLElement | null {
+  return screen.queryByRole('button', { name: /Pinned/ })
+}
+
+function pinnedGuestsPanel(): HTMLElement {
+  const dismiss = screen.getByRole('button', { name: 'Close pinned guests' })
+  let node: HTMLElement | null = screen.getByRole('heading', { name: 'Pinned guests' })
+  while (node && (!node.contains(dismiss) || !node.querySelector('ol, ul, [role="list"]'))) {
+    node = node.parentElement
+  }
+  if (!node) {
+    throw new Error('could not locate the pinned guests panel')
+  }
+  return node
+}
+
+function pinnedGuestNames(): string[] {
+  return within(pinnedGuestsPanel())
+    .getAllByRole('listitem')
+    .map((row) => row.textContent ?? '')
+}
+
+/** Read the Pinned figure directly off the header stat, structurally — the same figure the
+ *  panel's row count must always agree with (D11, AC-P4). Works whether the stat is today's
+ *  inert markup (zero pinned) or the interactive toggle (one or more). */
+function pinnedFigureFromHeader(): number {
+  const label = screen.getByText('Pinned')
+  const container = label.closest('button') ?? label.parentElement
+  if (!container) {
+    throw new Error('could not locate the Pinned stat container')
+  }
+  const valueEl = Array.from(container.querySelectorAll('p, span')).find((el) =>
+    /^\d+$/.test(el.textContent?.trim() ?? ''),
+  )
+  if (!valueEl) {
+    throw new Error('could not find the Pinned figure in the header')
+  }
+  return Number(valueEl.textContent?.trim())
+}
+
+/** Exactly one of the four column states is showing: violations, a table's detail, the score
+ *  breakdown, or the pinned-guests panel. */
 function openColumnStates(): string[] {
   const open: string[] = []
   if (screen.queryByRole('heading', { name: 'Violations' })) open.push('violations')
   if (screen.queryByRole('heading', { name: 'Score breakdown' })) open.push('breakdown')
+  if (screen.queryByRole('heading', { name: 'Pinned guests' })) open.push('pinned')
   if (screen.queryByRole('button', { name: 'Close table detail' })) open.push('table-detail')
   return open
 }
@@ -213,8 +266,8 @@ describe('"Close table detail" always returns to violations, never to a breakdow
   })
 })
 
-describe('never two of the three states at once, across every transition above', () => {
-  it('checks the invariant after every step of a full tour through the state machine', async () => {
+describe('never two of the four states at once, across every transition above', () => {
+  it('checks the invariant after every step of a full tour through all four states', async () => {
     setUpScorableRoom()
     const user = userEvent.setup()
     renderPlanScreen()
@@ -237,6 +290,24 @@ describe('never two of the three states at once, across every transition above',
     expect(openColumnStates().length).toBe(1) // table detail
 
     await selectTable(user, 'Top table') // toggling the same table closed (TT-15)
+    expect(openColumnStates().length).toBe(1) // violations
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates().length).toBe(1) // pinned
+
+    await selectTable(user, 'Table 1')
+    expect(openColumnStates().length).toBe(1) // table detail, closing pinned
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates().length).toBe(1) // pinned again, closing table detail
+
+    await user.click(scoreToggle())
+    expect(openColumnStates().length).toBe(1) // breakdown, closing pinned
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates().length).toBe(1) // pinned, closing breakdown
+
+    await user.click(screen.getByRole('button', { name: 'Close pinned guests' }))
     expect(openColumnStates().length).toBe(1) // violations
   })
 })
@@ -328,6 +399,228 @@ describe('clearing the allocation does not null the score while the guest list s
  * the breakdown is open, so that correction is left untested rather than exercised through a
  * setter no user action can trigger.
  */
+
+describe('clicking Pinned opens and closes the pinned-guests panel', () => {
+  it('shows the pinned panel and removes the violations panel; clicking again restores the violations panel', async () => {
+    setUpScorableRoom()
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates()).toEqual(['pinned'])
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates()).toEqual(['violations'])
+  })
+})
+
+describe('the two stat panels replace each other', () => {
+  it('opening Pinned while the breakdown is open closes the breakdown, and opening the breakdown while Pinned is open closes Pinned', async () => {
+    setUpScorableRoom()
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(scoreToggle())
+    expect(openColumnStates()).toEqual(['breakdown'])
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates()).toEqual(['pinned'])
+
+    await user.click(scoreToggle())
+    expect(openColumnStates()).toEqual(['breakdown'])
+  })
+})
+
+describe('selecting a table while the pinned panel is open', () => {
+  it("shows that table's detail and removes the pinned panel", async () => {
+    setUpScorableRoom()
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates()).toEqual(['pinned'])
+
+    await selectTable(user, 'Table 1')
+
+    expect(openColumnStates()).toEqual(['table-detail'])
+    expect(screen.getByRole('heading', { name: 'Table 1' })).toBeInTheDocument()
+  })
+})
+
+describe('"Close pinned guests" returns the column to the violations panel', () => {
+  it('closes the pinned panel and shows the violations panel, returning focus to the Pinned toggle', async () => {
+    setUpScorableRoom()
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(pinnedToggle())
+    await user.click(screen.getByRole('button', { name: 'Close pinned guests' }))
+
+    expect(openColumnStates()).toEqual(['violations'])
+    expect(pinnedToggle()).toHaveFocus()
+  })
+})
+
+describe('"Close table detail" never returns to a pinned panel left open before', () => {
+  it('returns to violations even though the pinned panel was open before the table was selected', async () => {
+    setUpScorableRoom()
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(pinnedToggle()) // pinned panel open
+    await selectTable(user, 'Table 1') // closes pinned, opens table detail
+    await user.click(screen.getByRole('button', { name: 'Close table detail' }))
+
+    expect(openColumnStates()).toEqual(['violations'])
+    expect(screen.queryByRole('heading', { name: 'Pinned guests' })).not.toBeInTheDocument()
+  })
+})
+
+describe('focus stays on, and returns to, the Pinned toggle', () => {
+  it('is on the toggle after opening the pinned panel, and back on it after "Close pinned guests"', async () => {
+    setUpScorableRoom()
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(pinnedToggle())
+    expect(pinnedToggle()).toHaveFocus()
+
+    await user.click(screen.getByRole('button', { name: 'Close pinned guests' }))
+    expect(pinnedToggle()).toHaveFocus()
+  })
+})
+
+describe('the Pinned toggle stays rendered in the header while a table detail is open', () => {
+  it('the Pinned toggle is still present once a table is selected', async () => {
+    setUpScorableRoom()
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await selectTable(user, 'Table 1')
+
+    expect(queryPinnedToggle()).not.toBeNull()
+  })
+})
+
+describe('the pinned panel lists exactly what the header counts (D11)', () => {
+  it("the panel's row count equals the header's own Pinned figure, both at the start and after a placement changes it", async () => {
+    setUpScorableRoom() // two pinned guests: Partner A at Table 1, Partner B at Top table
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    expect(pinnedFigureFromHeader()).toBe(2)
+
+    await user.click(pinnedToggle())
+    expect(pinnedGuestNames()).toHaveLength(2)
+    expect(pinnedGuestNames().join(' ')).toContain('Partner A')
+    expect(pinnedGuestNames().join(' ')).toContain('Partner B')
+  })
+})
+
+describe('placing a guest while the pinned panel is open adds them to it', () => {
+  it('a newly placed guest appears as a row, and the header figure grows to match', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 2, topTableSeats: 2 })
+    const a = makeGuest('a', { name: 'Partner A', partnerOf: 'b' })
+    const b = makeGuest('b', { name: 'Partner B', partnerOf: 'a' })
+    useTopTableStore.getState().setGuests([a, b])
+    useTopTableStore.getState().pinGuest('a', 'round-1') // b stays unseated
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(pinnedToggle())
+    expect(pinnedGuestNames()).toHaveLength(1)
+    expect(pinnedFigureFromHeader()).toBe(1)
+
+    await user.click(screen.getByRole('button', { name: 'Partner B' }))
+    await user.click(screen.getByRole('button', { name: /^Place Partner B at Table 1/ }))
+
+    expect(pinnedGuestNames()).toHaveLength(2)
+    expect(pinnedGuestNames().join(' ')).toContain('Partner B')
+    expect(pinnedFigureFromHeader()).toBe(2)
+  })
+})
+
+describe('"Clear allocation and pins" while the pinned panel is open', () => {
+  it('returns the column to violations with no empty panel, and the Pinned stat renders no button and reads 0', async () => {
+    setUpScorableRoom()
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates()).toEqual(['pinned'])
+
+    await user.click(screen.getByRole('button', { name: 'Clear allocation and pins' }))
+    await user.click(within(openPrompt()).getByRole('button', { name: 'Clear allocation and pins' }))
+
+    expect(openColumnStates()).toEqual(['violations'])
+    expect(queryPinnedToggle()).toBeNull()
+    expect(pinnedFigureFromHeader()).toBe(0)
+  })
+})
+
+describe('the Pinned toggle still works when the score is null', () => {
+  it('a guest list with no partner data reads "Nothing to score", and the Pinned toggle still opens its panel', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 2, topTableSeats: 2 })
+    const solo = makeGuest('solo', { name: 'Solo Guest' })
+    useTopTableStore.getState().setGuests([solo])
+    useTopTableStore.getState().pinGuest('solo', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    expect(document.body.textContent).toContain('Nothing to score')
+    expect(queryScoreToggle()).toBeNull()
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates()).toEqual(['pinned'])
+    expect(pinnedGuestNames().join(' ')).toContain('Solo Guest')
+  })
+})
+
+/**
+ * AC-C8: a score going null while the pinned panel is open changes nothing about the column or
+ * focus — D6's correction is scoped to the breakdown, and the pinned panel does not read the
+ * score at all, so this is a no-op precisely worth guarding against a future edit that widens
+ * the correction to cover both panels.
+ *
+ * Unlike the breakdown's analogous edge (documented above, left untested), this one does not
+ * need a different tab to reach: nulling the score means editing the guest list, and pins are
+ * untouched by that edit, so the Pinned toggle stays lit throughout and there is no second
+ * correction (D5, pinned count reaching zero) to entangle this one with. `removeGuest` is called
+ * directly on the mounted store rather than through a rendered control, because no control on
+ * this screen edits guest data — the same reason the breakdown's edge was left untested — but
+ * here the guest-list change leaves the pin, and so the panel and the column, untouched, which is
+ * exactly the invariant this test exists to hold.
+ */
+describe('a score going null while the pinned panel is open', () => {
+  it('leaves the column on the pinned panel and focus on the Pinned toggle', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    const a = makeGuest('a', { name: 'Partner A', partnerOf: 'b' })
+    const b = makeGuest('b', { name: 'Partner B', partnerOf: 'a' })
+    const c = makeGuest('c', { name: 'Guest C' })
+    useTopTableStore.getState().setGuests([a, b, c])
+    useTopTableStore.getState().pinGuest('c', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    // A real, non-null score before the panel even opens — same guarantee as setUpScorableRoom,
+    // from the guest list alone (F1), with nobody seated yet.
+    expect(document.body.textContent).not.toContain('Nothing to score')
+    expect(queryScoreToggle()).not.toBeNull()
+
+    await user.click(pinnedToggle())
+    expect(openColumnStates()).toEqual(['pinned'])
+    expect(pinnedToggle()).toHaveFocus()
+
+    act(() => {
+      useTopTableStore.getState().removeGuest('a')
+    })
+
+    expect(document.body.textContent).toContain('Nothing to score')
+    expect(openColumnStates()).toEqual(['pinned'])
+    expect(pinnedToggle()).toHaveFocus()
+    expect(pinnedGuestNames().join(' ')).toContain('Guest C')
+  })
+})
 
 describe('TT-15 regression: the table detail panel behaves exactly as before, alongside the new breakdown', () => {
   it('clicking a table opens its detail, clicking it again dismisses it', async () => {

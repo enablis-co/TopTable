@@ -1,0 +1,72 @@
+/*
+ * TT-16, KB-6 "Plan" third column. Mirrors ScoreBreakdownPanel.module.css's structure —
+ * token-only values, no shadow, no colour outside `--rule` and the ink scale (KB-5). The id
+ * `PlanScreen` needs for `aria-controls` lives on `.wrapper`, not on `Panel` itself.
+ *
+ * `.violations` in PlanScreen.module.css is a fixed width and does not grow, and this list can
+ * reach the guest count rather than the breakdown's handful of dimensions, so the internal
+ * scroll here matters even more than there.
+ */
+.wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.dismiss:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+.subtitle {
+  margin: 0 0 var(--s-3);
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.name {
+  margin: 0 0 var(--s-1);
+  font: var(--t-body);
+  color: var(--ink);
+}
+
+.table {
+  margin: 0;
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
