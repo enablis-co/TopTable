@@ -58,9 +58,21 @@
   flex: none;
 }
 
+/* min-height is a floor, not a preference: `flex: 1` with nothing below it will shrink this box
+   to nothing whenever `.canvas` is handed less height than its header and the unseated strip
+   already spend (a short viewport, or the stacked layout below), and the floorplan panel inside
+   it is `height: 100%` of whatever it gets with no overflow of its own to hide the difference —
+   `.floorplan` and `.round` are deliberately `overflow: visible` so a selected table's ring
+   stroke isn't clipped (FloorplanGrid.module.css, PlanTable.module.css), which means a
+   too-short box does not clip or scroll, it draws its top table pill straight over whatever
+   comes next. 188px is the smallest height that cannot: this box's own 18px padding twice, the
+   panel's 10px twice, the 47px top-table pill, the panel's --s-4 gap, `.gridScroll`'s --s-1
+   padding twice and one round table at fitFloorplan's MIN_TABLE_SIZE floor (61px,
+   floorplanFit.ts). Below that the excess belongs to AppShell's scrolling <main>, which is
+   where it now goes. */
 .floorplanArea {
   flex: 1;
-  min-height: 0;
+  min-height: 188px;
   padding: var(--s-5) var(--s-6);
 }
 
@@ -76,6 +88,25 @@
      rather than two to keep in step. */
   .layout {
     flex-direction: column;
+  }
+
+  /* Stacked, the two parts stop dividing one screen height between them. `.violations` is
+     `flex: none` and a long report is taller than `.layout` ever is, so a `flex: 1` canvas was
+     left with a computed height of exactly zero — and, being `min-height: 0` with nothing
+     clipping it, it drew its header, its buttons and the floorplan's top-table pill on top of
+     the violations text rather than above it. One column wants flow, not a split: the canvas
+     takes its own content height here and the page scrolls. */
+  .canvas {
+    flex: none;
+  }
+
+  /* Which leaves the floorplan with no share of a height to take. `flex: 1` resolves to a zero
+     basis with no free space to grow into once `.canvas` is content-sized, so this needs a
+     height of its own — bounded at both ends, so a short viewport still shows a table and a
+     tall one doesn't push the unseated strip off the bottom of the screen. */
+  .floorplanArea {
+    flex: none;
+    height: clamp(220px, 45vh, 420px);
   }
 
   .violations {

@@ -112,6 +112,32 @@ describe('PlanScreen.module.css — below the breakpoint the two columns stack (
   })
 })
 
+describe('PlanScreen.module.css — the floorplan area keeps room to draw its own contents (browser-pass fix)', () => {
+  it('.floorplanArea declares a min-height floor rather than shrinking to nothing: the panel inside it is height: 100% and deliberately overflow: visible (FloorplanGrid.module.css, PlanTable.module.css), so a box shorter than its own top-table pill draws over what follows instead of clipping or scrolling', () => {
+    const body = ruleBody(readCss(), '.floorplanArea')
+    const declared = /min-height\s*:\s*(\d+)px/.exec(body)
+    expect(declared, 'expected .floorplanArea to declare a min-height in px').not.toBeNull()
+    // 18px padding twice, the panel's 10px twice, the 47px top-table pill, the panel's --s-4
+    // gap, .gridScroll's --s-1 padding twice and one round table at MIN_TABLE_SIZE (61px).
+    expect(Number(declared?.[1])).toBeGreaterThanOrEqual(188)
+  })
+})
+
+describe('PlanScreen.module.css — stacked, the canvas stops dividing one screen height with the violations panel (browser-pass fix)', () => {
+  it('.canvas drops to flex: none inside the @media block — left at flex: 1 against a flex: none violations panel taller than the layout, its computed height is zero and its header, buttons and floorplan draw on top of the violations text', () => {
+    const match = /\.canvas\s*\{([^}]*)\}/.exec(mediaBlockBody(readCss()))
+    expect(match, 'expected a .canvas override inside the @media block').not.toBeNull()
+    expect(match?.[1] ?? '').toMatch(/flex\s*:\s*none/)
+  })
+
+  it('.floorplanArea takes a bounded height of its own there: flex: 1 resolves to a zero basis with no free space to grow into once .canvas is content-sized, so a share of a height is no longer a height', () => {
+    const match = /\.floorplanArea\s*\{([^}]*)\}/.exec(mediaBlockBody(readCss()))
+    expect(match, 'expected a .floorplanArea override inside the @media block').not.toBeNull()
+    expect(match?.[1] ?? '').toMatch(/flex\s*:\s*none/)
+    expect(match?.[1] ?? '').toMatch(/height\s*:\s*clamp\(/)
+  })
+})
+
 describe('PlanScreen.module.css — the brand rules hold for this file too', () => {
   it('declares no box-shadow anywhere in the file', () => {
     expect(stripComments(readCss())).not.toMatch(/box-shadow\s*:/i)
