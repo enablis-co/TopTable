@@ -24,6 +24,11 @@ import type { ScenarioId } from '../scenarios'
  *
  * Written from TT-14's acceptance criteria and this recorded decision. Does not open
  * topTable.rule.ts.
+ *
+ * TT-16: `evaluate` now returns `{ findings, opportunities, missed }` rather than a bare array.
+ * `opportunities` is declared as the non-pinned occupied top-table seats — hard, so it never
+ * scores, but `findings.length <= missed <= opportunities` must still hold (registry.test.ts
+ * guards this across the registry).
  */
 
 const [, , , GROOM, BRIDE] = PROTOCOL_ROLES
@@ -93,7 +98,7 @@ describe('top table — TT-14: an unpinned non-protocol occupant is a violation;
       overflow: [],
     }
 
-    const findings = topTableRule.evaluate({ tables: [table] })
+    const { findings } = topTableRule.evaluate({ tables: [table] })
 
     expect(findings).toHaveLength(1)
     expect(findings[0]?.tableIds).toEqual(['top'])
@@ -107,7 +112,7 @@ describe("top table — TT-14: a pinned occupant is exempt, a deliberate diverge
     const guest = makeGuest('civilian')
     const plan = seatPins(room, [guest], [{ guestId: 'civilian', tableId: 'top' }])
 
-    expect(topTableRule.evaluate({ tables: plan.tables })).toEqual([])
+    expect(topTableRule.evaluate({ tables: plan.tables }).findings).toEqual([])
   })
 })
 
@@ -120,7 +125,7 @@ describe('top table — two protocol holders swapped between seats, both unpinne
     const groomId = `holder-of-${GROOM}`
     const brideId = `holder-of-${BRIDE}`
 
-    const findings = topTableRule.evaluate({ tables: [table] })
+    const { findings } = topTableRule.evaluate({ tables: [table] })
 
     expect(findings).toHaveLength(2)
     expect([...findings.flatMap((finding) => finding.guestIds)].sort()).toEqual([brideId, groomId].sort())
@@ -134,7 +139,7 @@ describe('top table — two protocol holders swapped between seats, both unpinne
     const swapped = swapSeats(topTableSeatedByProtocol(8), groomSeat, brideSeat)
     const pinned = withPinned(swapped, [groomSeat, brideSeat])
 
-    expect(topTableRule.evaluate({ tables: [pinned] })).toEqual([])
+    expect(topTableRule.evaluate({ tables: [pinned] }).findings).toEqual([])
   })
 })
 
@@ -148,7 +153,7 @@ describe('top table — an occupant past the eighth seat fires when unpinned, ho
       seats: [...base.seats, { guest: extra, pinned: false }, null],
     }
 
-    const findings = topTableRule.evaluate({ tables: [tenSeats] })
+    const { findings } = topTableRule.evaluate({ tables: [tenSeats] })
 
     expect(findings).toHaveLength(1)
     expect(findings[0]?.guestIds).toEqual(['seat-nine-guest'])
@@ -164,7 +169,7 @@ describe('top table — an occupant past the eighth seat fires when unpinned, ho
       seats: [...base.seats, { guest: extra, pinned: true }, null],
     }
 
-    expect(topTableRule.evaluate({ tables: [tenSeats] })).toEqual([])
+    expect(topTableRule.evaluate({ tables: [tenSeats] }).findings).toEqual([])
   })
 })
 
@@ -183,7 +188,7 @@ describe('top table — quiet on an empty seat; an unheld role is not a violatio
       overflow: [],
     }
 
-    expect(topTableRule.evaluate({ tables: [table] })).toEqual([])
+    expect(topTableRule.evaluate({ tables: [table] }).findings).toEqual([])
   })
 })
 
@@ -200,7 +205,53 @@ describe('top table — quiet when the room has no top table at all', () => {
     }
 
     expect(() => topTableRule.evaluate({ tables: [roundOnly] })).not.toThrow()
-    expect(topTableRule.evaluate({ tables: [roundOnly] })).toEqual([])
+    expect(topTableRule.evaluate({ tables: [roundOnly] }).findings).toEqual([])
+  })
+})
+
+describe('top table — opportunities counts the non-pinned occupied seats, no more and no less (TT-16)', () => {
+  it('reports 0 when there is no top table at all', () => {
+    const roundOnly: SeatedTable = {
+      id: 'round-1',
+      kind: 'round',
+      number: 1,
+      label: 'Table 1',
+      capacity: 8,
+      seats: new Array(8).fill(null),
+      overflow: [],
+    }
+
+    expect(topTableRule.evaluate({ tables: [roundOnly] }).opportunities).toBe(0)
+  })
+
+  it('reports 0 for a top table whose every occupant is pinned', () => {
+    const table = withPinned(topTableSeatedByProtocol(8), [0, 1, 2, 3, 4, 5, 6, 7])
+
+    expect(topTableRule.evaluate({ tables: [table] }).opportunities).toBe(0)
+  })
+
+  it('counts every unpinned occupied seat and excludes empty seats and pinned occupants', () => {
+    // Eight seats: two occupied-and-unpinned, one occupied-and-pinned, five empty.
+    const table: SeatedTable = {
+      id: 'top',
+      kind: 'top',
+      number: null,
+      label: 'Top table',
+      capacity: 8,
+      seats: [
+        { guest: makeGuest('a'), pinned: false },
+        { guest: makeGuest('b'), pinned: false },
+        { guest: makeGuest('c'), pinned: true },
+        null,
+        null,
+        null,
+        null,
+        null,
+      ],
+      overflow: [],
+    }
+
+    expect(topTableRule.evaluate({ tables: [table] }).opportunities).toBe(2)
   })
 })
 
@@ -220,7 +271,7 @@ describe('top table — quiet on the real top table allocate produces for each s
       const { meta, guests } = readScenario(id)
       const plan = allocate(meta.tables, guests, [])
 
-      expect(topTableRule.evaluate({ tables: plan.tables })).toEqual([])
+      expect(topTableRule.evaluate({ tables: plan.tables }).findings).toEqual([])
     },
   )
 
@@ -231,6 +282,6 @@ describe('top table — quiet on the real top table allocate produces for each s
 
     if (!top) throw new Error("expected Adding up's room to carry a top table")
     expect(top.capacity).toBe(6)
-    expect(topTableRule.evaluate({ tables: [top] })).toEqual([])
+    expect(topTableRule.evaluate({ tables: [top] }).findings).toEqual([])
   })
 })

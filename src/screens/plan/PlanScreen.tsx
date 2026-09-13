@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useTopTableStore } from '../../store/store'
 import { useNavigation } from '../../shell/navigation'
@@ -8,6 +8,7 @@ import { normaliseRoom, seatPins, tablesInRoom } from '../../domain/seating'
 import { allocate } from '../../domain/allocate'
 import { evaluateRegistered, registeredSeatGuard } from '../../domain/rules/registry'
 import { tablesWithHardViolation } from '../../domain/rules/engine'
+import { scorePlan } from '../../domain/rules/score'
 import { isTopTableIncomplete } from '../setup/roomCompleteness'
 import { seatingViewFrom, planTotals } from './floorplan'
 import { PlanHeader } from './PlanHeader'
@@ -16,6 +17,7 @@ import { PlanEmpty } from './PlanEmpty'
 import { UnseatedRail } from './UnseatedRail'
 import { ViolationsPanel } from './ViolationsPanel'
 import { TableDetailPanel } from './TableDetailPanel'
+import { ScoreBreakdownPanel } from './ScoreBreakdownPanel'
 import { ClearControls } from './ClearControls'
 import { Button } from '../../ui'
 import { NO_FILTERS, filterUnseated } from './unseatedFilter'
@@ -69,6 +71,13 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
   const [filters, setFilters] = useState<UnseatedFilters>(NO_FILTERS)
+  // TT-16. Local view state, matching selectedTableId's own reasoning above: nothing requires
+  // the breakdown to survive a tab switch. At most one of selectedTableId and breakdownOpen is
+  // ever set — enforced by handleSelectTable/handleToggleBreakdown below, not by render order —
+  // so the third column never shows two of its three states at once.
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
+  const breakdownPanelId = useId()
+  const scoreToggleRef = useRef<HTMLButtonElement>(null)
 
   const railRef = useRef<HTMLDivElement>(null)
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -94,6 +103,20 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
     [allocated, room, guests, pins, seatGuard],
   )
   const report = useMemo(() => evaluateRegistered(plan), [plan])
+  // TT-16. Derived from the same report the violations panel reads, so the score and the
+  // violations list can never disagree about which plan they describe.
+  const planScore = useMemo(() => scorePlan(report), [report])
+  // TT-16 (review). A score going null clears the breakdown rather than leaving it open for a
+  // later score to re-open unbidden. No control on this screen reaches that today — clear,
+  // auto-allocate, place and release all change the seating, never the guest list, so
+  // opportunities never drops to zero within one mount (planScoreColumn.test.tsx, "clearing the
+  // allocation does not null the score…"). Kept for a future in-place guest edit, which would.
+  // Adjusted during render, React's own pattern for reacting to a value changing between renders
+  // without an effect: it re-renders once, before the browser paints, rather than committing the
+  // stale screen and correcting it a tick later.
+  if (planScore.score === null && breakdownOpen) {
+    setBreakdownOpen(false)
+  }
   const violatingTableIds = useMemo(() => tablesWithHardViolation(report), [report])
   const seating = useMemo(() => seatingViewFrom(plan, violatingTableIds), [plan, violatingTableIds])
   // TT-38. Filtered here, not inside UnseatedRail, so the component stays a pure renderer of
@@ -146,9 +169,27 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   }
 
   // TT-15. Clicking the already-selected table again dismisses its detail panel, matching
-  // handleSelect's own toggle above.
+  // handleSelect's own toggle above. TT-16: also closes the breakdown, so selecting a table
+  // while it is open swaps the column to that table's detail rather than opening both.
   function handleSelectTable(tableId: string) {
     setSelectedTableId((current) => (current === tableId ? null : tableId))
+    setBreakdownOpen(false)
+  }
+
+  // TT-16. Opens or closes the breakdown and, symmetrically with handleSelectTable above,
+  // clears any open table detail — the third column holds at most one of the two. Focus is
+  // left on the toggle in both directions: opening keeps it there by not moving it, and
+  // handleDismissBreakdown below returns it explicitly.
+  function handleToggleBreakdown() {
+    setBreakdownOpen((current) => !current)
+    setSelectedTableId(null)
+  }
+
+  // TT-16. The breakdown's own close control. Unlike handleRelease's fallback focus above, the
+  // toggle is already mounted and stays mounted, so no flushSync is needed before focusing it.
+  function handleDismissBreakdown() {
+    setBreakdownOpen(false)
+    scoreToggleRef.current?.focus()
   }
 
   function handlePlace(tableId: string) {
@@ -247,6 +288,13 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 guests={guests}
                 seating={seating}
                 unseatedCount={plan.unseated.length}
+                score={{
+                  value: planScore.score,
+                  expanded: breakdownOpen,
+                  panelId: breakdownPanelId,
+                  onToggle: handleToggleBreakdown,
+                  toggleRef: scoreToggleRef,
+                }}
               />
               <Button variant="primary" className={styles.allocate} onClick={handleAllocate}>
                 Auto-allocate
@@ -289,6 +337,15 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                   setSelectedTableId(null)
                 }}
                 dismissButtonRef={dismissButtonRef}
+              />
+            ) : breakdownOpen && planScore.score !== null ? (
+              // TT-16. Guarded on a non-null score so the one render between a score going null
+              // and the render-phase correction above clearing breakdownOpen falls back to the
+              // violations panel rather than rendering an empty list.
+              <ScoreBreakdownPanel
+                id={breakdownPanelId}
+                dimensions={planScore.dimensions}
+                onDismiss={handleDismissBreakdown}
               />
             ) : (
               <ViolationsPanel report={report} />

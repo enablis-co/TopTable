@@ -109,3 +109,55 @@
   font: var(--t-label);
   color: var(--ink-muted);
 }
+
+/* `background` is a redundant cue behind the caret's rotation: transparent collapsed, `--sunken`
+   expanded, never a filled variant or `--slate` — KB-6 reserves a primary/filled button for
+   Auto-allocate alone. */
+.scoreToggle {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s-1);
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.scoreToggle[aria-expanded='true'] {
+  background: var(--sunken);
+}
+
+.scoreToggle:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+/* Shape carries the expanded/collapsed state (KB-5): a right-pointing caret collapsed,
+   rotated to point down when expanded. The background step above is a second, redundant cue —
+   this rotation is what survives grayscale(1), KB-5's own projector test. */
+.caret {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-style: solid;
+  border-width: 4px 0 4px 6px;
+  border-color: transparent transparent transparent var(--ink-muted);
+  transition: transform 120ms ease;
+}
+
+.scoreToggle[aria-expanded='true'] .caret {
+  transform: rotate(90deg);
+}
+
+/* TT-16: words, never a figure, when there is nothing to score — no label, no dash, no zero, no
+   control. max-width keeps it wrapping to two lines rather than widening `.stats`, which is
+   `flex: none` and never yields — this is the widest variant of the header the browser pass has
+   to check. */
+.scoreAbsent {
+  flex: none;
+  max-width: 9rem;
+  margin: 0;
+  font: var(--t-caption);
+  color: var(--ink-muted);
+  text-align: right;
+}

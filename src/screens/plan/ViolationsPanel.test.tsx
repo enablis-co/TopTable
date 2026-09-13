@@ -28,7 +28,10 @@ function makeViolation(overrides: Partial<Violation> = {}): Violation {
 }
 
 function makeReport(violations: Violation[], ruleCount: number): RuleReport {
-  return { violations, ruleCount }
+  // TT-16: RuleReport gained `outcomes`, a required field alongside `violations` and `ruleCount`.
+  // No test in this file reads it — every assertion below is unchanged from before TT-16 — so an
+  // empty array is enough to satisfy the type.
+  return { violations, ruleCount, outcomes: [] }
 }
 
 function tabularTexts(container: HTMLElement): string[] {
