@@ -112,6 +112,48 @@ describe('PlanScreen.module.css — below the breakpoint the two columns stack (
   })
 })
 
+/**
+ * Browser-pass defect. Below the breakpoint the two columns are stacked, so `.violations` sits
+ * *beneath* `.canvas` rather than beside it — and `.plan`'s `height: 100%` then makes the two
+ * ration one viewport's height between them. `.violations` is `flex: none` and takes its content
+ * height first; `.canvas` is free to shrink to nothing and gets what is left, which at a short
+ * viewport was less than `.canvasHeader` alone. Its own children have floors and did not shrink
+ * with it, so they overflowed the canvas box and painted over the panel below — the floorplan
+ * card's "Top table · N of 8 seats" row landing on the unseated strip's search and filter row.
+ * Side by side the same overflow had nowhere to collide, which is why it only showed stacked.
+ */
+describe('PlanScreen.module.css — stacked, the page grows and scrolls rather than rationing one viewport height between the two panels', () => {
+  it('.plan drops its height: 100% inside the @media block — that fixed budget is what the two stacked panels were fighting over', () => {
+    const body = mediaBlockBody(readCss())
+    const match = /\.plan\s*\{([^}]*)\}/.exec(body)
+    expect(match, 'expected a .plan override inside the @media block').not.toBeNull()
+    expect(match?.[1] ?? '').toMatch(/height\s*:\s*auto/)
+  })
+
+  it('.plan still declares height: 100% outside the block — side by side, that is what gives the floorplan a definite height to scroll inside of', () => {
+    expect(ruleBody(readCss(), '.plan')).toMatch(/height\s*:\s*100%/)
+  })
+
+  it('.floorplanArea gets a definite height once stacked: .floorplan is height: 100% and fitFloorplan measures this box, so a content-derived height would make the two chase each other', () => {
+    const body = mediaBlockBody(readCss())
+    const match = /\.floorplanArea\s*\{([^}]*)\}/.exec(body)
+    expect(match, 'expected a .floorplanArea override inside the @media block').not.toBeNull()
+    expect(match?.[1] ?? '').toMatch(/height\s*:\s*\d+(\.\d+)?(vh|px)/)
+  })
+
+  it('that height carries a min-height floor, so a short viewport scrolls the page rather than crushing the floorplan below one round table at MIN_TABLE_SIZE', () => {
+    const body = mediaBlockBody(readCss())
+    const match = /\.floorplanArea\s*\{([^}]*)\}/.exec(body)
+    const declarations = match?.[1] ?? ''
+    const floor = /min-height\s*:\s*(\d+)px/.exec(declarations)
+    expect(floor, 'expected a px min-height on the stacked .floorplanArea').not.toBeNull()
+    // 61px (MIN_TABLE_SIZE) for one round table, plus this area's own 18px padding, the
+    // floorplan card's 10px padding, the 47px top-table row, the 16px gap between the two and
+    // .gridScroll's own 4px padding — all doubled where they apply to both edges.
+    expect(Number(floor?.[1])).toBeGreaterThanOrEqual(61 + 36 + 20 + 47 + 16 + 8)
+  })
+})
+
 describe('PlanScreen.module.css — the brand rules hold for this file too', () => {
   it('declares no box-shadow anywhere in the file', () => {
     expect(stripComments(readCss())).not.toMatch(/box-shadow\s*:/i)

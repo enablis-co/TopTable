@@ -73,9 +73,49 @@
 
 @media (max-width: 720px) {
   /* Same breakpoint as SetupScreen.module.css's .withRail, so the app has one collapse point
-     rather than two to keep in step. */
+     rather than two to keep in step.
+
+     Stacked, the whole model above changes, and not only the direction of one flex container.
+     Side by side, `.plan`'s `height: 100%` is what makes "one screen, the floorplan scrolls
+     inside it" possible: the canvas and the violations column each get the full height, and
+     `.canvas`'s `min-height: 0` lets the canvas give way so the overflow lands in
+     `.gridScroll`'s own scrollbar rather than the document's.
+
+     Stacked, that same pair turns into a fight. The two columns now share one viewport's
+     height between them, `.violations` is `flex: none` and takes its content height first, and
+     `.canvas` — free to shrink to nothing — gets whatever is left, which at a short viewport is
+     less than `.canvasHeader` alone. Its children have floors of their own and do not shrink
+     with it, so they overflowed the canvas box and painted straight over the panel stacked
+     below: the floorplan card's top-table row landing on top of the unseated strip's search
+     row and filters. Sideways that overflow had nowhere to collide — the sibling was beside
+     it, not beneath — which is why this only ever showed below the breakpoint.
+
+     So the fix is to stop rationing a fixed height at all once stacked. `.plan` goes back to
+     `height: auto` and the column simply grows, with AppShell's `.main` (`overflow: auto`)
+     scrolling the page. `.canvas` and `.layout` need no override of their own: with no
+     definite height above them there is no free space to distribute and nothing is asked to
+     shrink, so `flex: 1` and `min-height: 0` both go quiet on their own. */
+  .plan {
+    height: auto;
+  }
+
   .layout {
     flex-direction: column;
+  }
+
+  /* The one thing that does need saying explicitly. `.floorplan` is `height: 100%` and
+     `.gridScroll` inside it is `flex: 1; min-height: 0` (FloorplanGrid.module.css), so the
+     floorplan needs a definite height to fill — and `fitFloorplan` needs a measured one that
+     does not depend on what it itself renders. Left to flow, this box's height would come from
+     its content, its content's size would come from `useElementSize`'s measurement of this box,
+     and the two would chase each other. A viewport-relative height breaks that circle: it is
+     fixed before anything inside it renders. The `min-height` floor is what keeps it usable on
+     a short viewport — below roughly this, the area cannot hold the top-table row, the gap and
+     a single round table at `MIN_TABLE_SIZE` (floorplanFit.ts), and the page scrolls instead. */
+  .floorplanArea {
+    flex: none;
+    height: 48vh;
+    min-height: 260px;
   }
 
   .violations {
