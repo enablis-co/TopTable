@@ -1,0 +1,77 @@
+/*
+ * TT-16, KB-6 "Plan" third column. Mirrors TableDetailPanel.module.css's structure — token-only
+ * values, no shadow, no colour outside `--rule` and the ink scale (KB-5). The id `PlanScreen`
+ * needs for `aria-controls` lives on `.wrapper`, not on `Panel` itself — `src/ui/`'s `Panel`
+ * takes `title`, `actions`, `children` and `className`, and no `id`.
+ *
+ * `.violations` in PlanScreen.module.css is a fixed width and does not grow, so this panel has
+ * to scroll internally rather than push that column taller once the six remaining KB-2 soft
+ * rules (TT-17 to TT-22) add more dimensions than fit in view. `.wrapper` and `.body` stretch to
+ * the column's own height; `.list` is the one element that scrolls.
+ */
+.wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.dismiss:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+.subtitle {
+  margin: 0 0 var(--s-3);
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* No `--hard`/`--soft` colour and no dotted or dashed left border here — a dimension at 100% is
+   not a violation, and ViolationsPanel.module.css's own comment already records why one shape
+   must not mean two things. A plain hairline is the only separator a row gets. */
+.row {
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rule {
+  margin: 0 0 var(--s-1);
+  font: var(--t-body);
+  color: var(--ink);
+}
+
+.figures {
+  margin: 0;
+  font: var(--t-figure);
+  color: var(--ink-muted);
+}

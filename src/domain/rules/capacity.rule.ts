@@ -5,8 +5,14 @@ import type { Finding, SeatingRule } from './contract'
  * not `overflow.length > 0` — the two are equivalent under `SeatedTable`'s invariant that
  * `seats.length === capacity`, but the first states the rule KB-2 gives and the second states
  * the encoding.
+ *
+ * `opportunities` is every table judged (TT-16); `missed` equals `findings.length` here — every
+ * table over capacity is one chance this rule did not take, one-to-one with the finding it
+ * produces. Being hard, neither ever scores — both are declared honestly anyway, to satisfy the
+ * `findings.length <= missed <= opportunities` invariant every rule holds. No `weight`: hard
+ * rules do not carry one.
  */
-export const rule: SeatingRule = {
+export const rule = {
   id: 'capacity',
   severity: 'hard',
   remedy: 'seating',
@@ -28,6 +34,6 @@ export const rule: SeatingRule = {
       }
     }
 
-    return findings
+    return { findings, opportunities: plan.tables.length, missed: findings.length }
   },
-}
+} satisfies SeatingRule
