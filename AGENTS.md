@@ -138,7 +138,8 @@ rather than raising the model.
 
 **A build instruction naming an issue key starts with `planner`, always.** "Build TT-7", "do TT-12",
 "pick up TT-9" — the key is the whole instruction. It means `planner`, then the developer the plan
-names, then `tester`, then `reviewer`.
+names, then `tester`, then `reviewer` — except an infra ticket, which has nothing a test can cover
+and goes `infra-developer` then `infra-reviewer` instead.
 
 No one should have to add "start with the planner agent". If that sentence is load-bearing, this
 rule is not doing its job.

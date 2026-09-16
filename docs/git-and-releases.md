@@ -36,7 +36,7 @@ Four workflows in [`.github/workflows/`](../.github/workflows):
 
 | Workflow | Runs on | Does |
 |---|---|---|
-| `checks.yml` | Called by the other two | Install, typecheck, lint, test |
+| `checks.yml` | Called by `pull-request.yml` and `main.yml` | Install, typecheck, lint, test |
 | `pull-request.yml` | Pull requests into `main` | Calls `checks.yml` |
 | `main.yml` | Pushes to `main` | Calls `checks.yml`, then releases |
 | `infrastructure.yml` | Pull requests and pushes to `main` that touch `infra/` | Posts a changeset; applies it on merge, gated |
@@ -44,7 +44,8 @@ Four workflows in [`.github/workflows/`](../.github/workflows):
 `checks.yml` is a reusable workflow rather than two copies of the same steps. "The same checks run
 again on merge" is then true by construction, instead of true until somebody edits one of them.
 
-Both read Node from `.nvmrc`, so CI and your machine cannot drift apart.
+`checks.yml` reads Node from `.nvmrc`, so CI and your machine cannot drift apart. `infrastructure.yml`
+runs no Node at all — its steps are `aws` and `gh`, nothing that needs a version pinned.
 
 **A failure blocks the merge only if the check is required.** Add `checks / verify` to the branch
 protection rule for `main`, or "blocks the merge" is a convention rather than a gate. The workflow
