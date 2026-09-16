@@ -1,5 +1,6 @@
 import { cx } from '../ui'
 import { useTopTableStore } from '../store/store'
+import { appVersion } from './appVersion'
 import { TABS, TAB_LABELS, useNavigation } from './navigation'
 import styles from './NavRail.module.css'
 
@@ -14,6 +15,7 @@ import styles from './NavRail.module.css'
 export function NavRail() {
   const { tab, goTo } = useNavigation()
   const guestCount = useTopTableStore((state) => state.guests.length)
+  const version = appVersion()
 
   return (
     <nav aria-label="Sections" className={styles.rail}>
@@ -49,6 +51,21 @@ export function NavRail() {
           </button>
         )
       })}
+      {/* Outside the TABS.map above and not a <button>, so it is not focusable and is not
+          inside a nav row — the three rows' accessible names stay exactly "Setup", "Guests",
+          "Plan" and NavRail.test.tsx passes untouched. No aria-hidden here, unlike the
+          current-state dot and the guest count on the rows above: those are supplementary
+          readouts next to a row's own name, but the version has no other name to hide behind
+          and is the first thing anyone reporting a defect will be asked for. The inner <span>
+          gives the value its own text node, separate from the visually-hidden prefix, so the
+          visible and accessible text is exactly the version string — don't inline the two, or
+          a tidy-up will break the exact-text query this stamp is matched on. */}
+      {version !== null && (
+        <p className={styles.version}>
+          <span className="tt-visually-hidden">Version </span>
+          <span>{version}</span>
+        </p>
+      )}
     </nav>
   )
 }

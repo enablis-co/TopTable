@@ -68,3 +68,18 @@
   font: var(--t-figure);
   color: var(--chrome-ink-faint);
 }
+
+/* Pinned to the bottom of the rail's flex column rather than following the last row
+   (KB-6's shell sketch has no divider above this and adding one would invent a design
+   element the ticket did not ask for). `margin: auto 0 0` does two jobs in one
+   declaration: the `auto` top margin is what pins it, and the `0` sides/bottom clear the
+   UA <p> margin that src/ui/base.css resets for h1-h3 and body but not for p. No
+   tabularClass / tt-num here even though this is a changing figure: this rule sets the
+   `font` shorthand, and src/ui/tokens.test.ts fails a tt-num element whose rule also sets
+   `font` — the nav .count above relies on --t-figure's own mono family the same way. */
+.version {
+  margin: auto 0 0;
+  padding: 8px 11px 4px;
+  font: var(--t-figure);
+  color: var(--chrome-ink);
+}

@@ -38,7 +38,7 @@ Four workflows in [`.github/workflows/`](../.github/workflows):
 |---|---|---|
 | `checks.yml` | Called by `pull-request.yml` and `main.yml` | Install, typecheck, lint, test |
 | `pull-request.yml` | Pull requests into `main` | Calls `checks.yml` |
-| `main.yml` | Pushes to `main` | Calls `checks.yml`, then releases |
+| `main.yml` | Pushes to `main` | Calls `checks.yml`, works out the version, then tags and releases *and* publishes the site |
 | `infrastructure.yml` | Pull requests and pushes to `main` that touch `infra/` | Posts a changeset; applies it on merge, gated |
 
 `checks.yml` is a reusable workflow rather than two copies of the same steps. "The same checks run
@@ -83,6 +83,12 @@ version tag already pointing at `HEAD` and stops if it finds one.
 Releases are serialised through a `concurrency` group, so two merges landing together cannot both
 read the same latest tag and compute the same next version.
 
+**The version calculation is its own job.** `version` runs once, after `checks`, and outputs the
+version either way: the tag already on the commit if there is one, the next tag if not. Both
+`release` and `publish` (below) read that one output, so they cannot disagree about what was
+published, and a tagging failure in `release` does not stop `publish` from going out — `publish`
+does not depend on `release` at all.
+
 ### Minor per merge, rather than read from the commits
 
 Conventional commits would give `feat:` and `fix:` to bump from, but our commit format leads with
@@ -96,3 +102,55 @@ commit meant.
 `package.json` stays at `0.0.0`. The alternative is a workflow that commits a version bump to
 `main`, which retriggers the workflow that just ran and needs a `[skip ci]` convention to break the
 loop. One source of truth, and no commits authored by CI on the default branch.
+
+## Publishing `main`
+
+`publish` (`main.yml`) is gated on `checks` the same way `release` is, and takes its version from
+the same `version` job. It builds `dist/` with `VITE_APP_VERSION` set to that version, syncs it to
+the live bucket in three passes, invalidates CloudFront, waits for that to complete, and then
+confirms the live site is serving the build it just pushed. Every value it needs — the bucket, the
+distribution id, the region, the site URL and the publish role's ARN — comes from the `production`
+GitHub Actions environment; see `infra/README.md`'s environments table for what each one holds and
+how it is set. Nothing account-specific is written into the workflow. See KB-7 for why the pipeline
+is shaped this way; the workflow's own inline comments carry the same detail at the point of danger.
+
+**Three sync passes:**
+
+1. `dist/assets/` (content-hashed) to `assets/`, `--cache-control 'public, max-age=31536000,
+   immutable'`, no `--delete`.
+2. Everything else — `index.html`, `favicon.svg`, `mark.svg`, `robots.txt`, `scenarios/*.json` —
+   `--cache-control 'no-cache'`, excluding `assets/*` and `tt-*/*`, with `--delete`.
+3. `dist/assets/` again, this time with `--delete` and no cache-control change, run only after the
+   invalidation below has completed.
+
+**Re-running `publish` on a commit that already published is harmless, though not a no-op.**
+`version` resolves to the existing tag and the build reproduces byte-identical hashed assets — but
+a fresh checkout gives every file in `dist/` a current mtime, so `aws s3 sync` re-uploads all of it
+regardless of whether the bytes changed. Same bytes, same headers, so still harmless. What is
+accurate: both `--delete` passes find nothing new to remove, and the invalidation refreshes the
+same six paths.
+
+### Publishing runbook — checks after a merge
+
+The suite cannot see a `.yml` workflow at all, so none of this is covered by `npm run verify`. Run
+these once, after the first merge that includes a change to `publish`, or whenever the workflow
+itself is suspect. Every one observes the deployed site, never the workflow that produced it — in
+the idiom of `infra/README.md`'s `V`-checks.
+
+| # | Check | Expected |
+|---|---|---|
+| P1 | The `main` run's job list | `checks`, `version`, `release`, `publish`. `publish` started only after `checks` succeeded |
+| P2 | `curl -sS https://toptable.enablis.tech/` | `200`, and the bundle filename matches `dist/index.html` from the same commit |
+| P3 | The bottom of the left nav rail, in a browser | Reads the version the `version` job resolved, in white, in mono |
+| P4 | `curl -sSI https://toptable.enablis.tech/index.html` | `cache-control: no-cache` |
+| P5 | `curl -sSI https://toptable.enablis.tech/assets/<hashed>.js` | `cache-control: public, max-age=31536000, immutable` |
+| P6 | `curl -sSI` on `/favicon.svg`, `/mark.svg`, `/robots.txt`, `/scenarios/adding-up.json` | `no-cache` on all four |
+| P7 | `curl -sS https://toptable.enablis.tech/robots.txt` | `200`, still contains `Disallow: /tt-` |
+| P8 | Before the merge, upload a throwaway `tt-0/index.html`; after it, `curl -sSI https://toptable.enablis.tech/tt-0/`; then delete it | `200`, not `404` — the production publish did not delete it |
+| P9 | Re-run the same `main` run from the Actions UI | `release` skipped, `publish` green, site unchanged, no second tag |
+| P10 | `gh secret list` for the repository and each environment; `grep -rn 'AKIA' .` | Nothing |
+| P11 | `grep -n 'toptable-site\|enablis.tech\|arn:aws' .github/workflows/main.yml` | No match — every value comes from the environment |
+
+**P8 is the one that earns its place.** Until previews (TT-43) exist there is no real preview to
+lose, which makes a throwaway `tt-0/` prefix the only evidence available that a production publish
+leaves other prefixes alone.

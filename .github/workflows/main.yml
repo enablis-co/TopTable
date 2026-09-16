@@ -5,7 +5,9 @@ on:
     branches: [main]
 
 # One release at a time. Two merges landing together must not both read the same latest
-# tag and compute the same next version.
+# tag and compute the same next version, and must not both publish out of order. This
+# group now serialises three things: the version calculation, the tagging, and the
+# publish — not just the release.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -16,28 +18,35 @@ jobs:
   checks:
     uses: ./.github/workflows/checks.yml
 
-  release:
+  # Works out the version once, so `release` and `publish` cannot disagree about it. A
+  # tagging failure must not stop the site going out, which is why this is its own job
+  # rather than something `publish` waits on `release` for.
+  version:
     needs: checks
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tagged: ${{ steps.version.outputs.tagged }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Work out the next version
+      - name: Work out the version
         id: version
         run: |
           set -euo pipefail
 
           # Re-running this workflow on a commit that already carries a tag must not
-          # produce a second one.
+          # produce a second one — and publish still needs a version to build with.
           existing=$(git tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' | head -1)
           if [ -n "$existing" ]; then
             echo "$existing already points at this commit. Nothing to release."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "tagged=true" >> "$GITHUB_OUTPUT"
+            echo "version=$existing" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -60,14 +69,26 @@ jobs:
           fi
 
           echo "Releasing $next, up from ${latest:-no previous tag}."
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "tagged=false" >> "$GITHUB_OUTPUT"
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: [checks, version]
+    # A re-run on an already-tagged commit shows as skipped rather than green-but-idle.
+    if: needs.version.outputs.tagged != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Tag and release
-        if: steps.version.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEXT: ${{ steps.version.outputs.next }}
+          NEXT: ${{ needs.version.outputs.version }}
         run: |
           set -euo pipefail
 
@@ -78,3 +99,170 @@ jobs:
           git push origin "refs/tags/$NEXT"
 
           gh release create "$NEXT" --title "$NEXT" --generate-notes
+
+  # Builds and publishes the live site. Does not depend on `release` — a tagging failure
+  # must not stop the site going out, and both jobs take the same version from `version`
+  # so they cannot disagree about what was published.
+  publish:
+    needs: [checks, version]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      # Shares a name the AWS SDK's web-identity credential provider reads from the
+      # environment. Benign here: AWS_WEB_IDENTITY_TOKEN_FILE is never set, so that
+      # provider never activates. This copy exists only so the guard step below can
+      # read it as a shell variable; the credentials step further down reads
+      # ${{ vars.AWS_ROLE_ARN }} directly, not this env var.
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      S3_BUCKET: ${{ vars.S3_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+      SITE_URL: ${{ vars.SITE_URL }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Confirm the environment supplied every value
+        run: |
+          set -euo pipefail
+
+          # Before credentials: an empty role ARN fails configure-aws-credentials with a
+          # message that does not name the missing variable as the cause.
+          missing=()
+          for name in AWS_REGION AWS_ROLE_ARN S3_BUCKET CLOUDFRONT_DISTRIBUTION_ID SITE_URL; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "The production environment did not supply: ${missing[*]}." >&2
+            echo "See docs/git-and-releases.md for what each variable holds." >&2
+            exit 1
+          fi
+
+          # infra/hosting.yaml's own Rules block already forces the whole stack into
+          # us-east-1; check the value here too, so a misconfigured environment fails
+          # with a readable message instead of somewhere inside a sync.
+          if [ "$AWS_REGION" != 'us-east-1' ]; then
+            echo "AWS_REGION is '$AWS_REGION', but the stack only exists in us-east-1." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_APP_VERSION: ${{ needs.version.outputs.version }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Publish the hashed assets, immutable for a year
+        run: |
+          set -euo pipefail
+
+          # No tt-* exclude needed: this pass is scoped to the assets/ prefix, and a
+          # preview's objects live at tt-nn/assets/..., which is not under it.
+          #
+          # No --delete here: removing the previous build's assets before the new
+          # index.html is live would leave the still-served, no-cache old index
+          # naming hashes that no longer exist — a blank page with no error (KB-7's
+          # white screen). The previous build's stale assets are pruned by a later
+          # pass, only after the invalidation below confirms the new index is live.
+          aws s3 sync dist/assets/ "s3://$S3_BUCKET/assets/" \
+            --cache-control 'public, max-age=31536000, immutable' \
+            --no-progress
+
+      - name: Publish everything unhashed, no-cache — index last
+        run: |
+          set -euo pipefail
+
+          # --exclude 'tt-*/*' is the only thing stopping this --delete from removing
+          # every open pull request's preview. `*` matches `/` in these patterns, so it
+          # also covers tt-16/assets/... .
+          #
+          # --exclude 'assets/*' is the only thing stopping this pass from overwriting
+          # the previous pass's immutable headers with no-cache. Nothing errors if it is
+          # dropped — the bucket just quietly stops caching.
+          #
+          # Deliberately no --exclude 'robots.txt': exclude patterns apply to the source
+          # as well as the delete, so that would stop robots.txt being *uploaded*, not
+          # just stop it being deleted. It already survives --delete because it lives in
+          # dist/.
+          aws s3 sync dist/ "s3://$S3_BUCKET/" \
+            --cache-control 'no-cache' \
+            --exclude 'assets/*' \
+            --exclude 'tt-*/*' \
+            --delete --no-progress
+
+      - name: Invalidate the unhashed paths
+        run: |
+          set -euo pipefail
+
+          # Hashed assets are deliberately absent: a new build has new names, and the
+          # immutable year is the point of never needing to invalidate them.
+          id=$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths '/' '/index.html' '/favicon.svg' '/mark.svg' '/robots.txt' '/scenarios/*' \
+            --query 'Invalidation.Id' --output text)
+
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$id"
+
+      - name: Prune the previous build's stale assets
+        run: |
+          set -euo pipefail
+
+          # Ordering rule, the other direction from "index last": assets are never
+          # older than the index that names them (the first pass, above, uploads
+          # this build's assets before index.html can reference them) and never
+          # newer either — nothing under assets/ is removed until the invalidation
+          # above confirms the new index is the one being served.
+          aws s3 sync dist/assets/ "s3://$S3_BUCKET/assets/" --delete --no-progress
+
+      - name: Confirm the site serves the build that was just published
+        run: |
+          set -euo pipefail
+
+          bundle=$(grep -o 'assets/index-[A-Za-z0-9_-]*\.js' dist/index.html | head -1)
+
+          # SITE_URL already ends in a slash (the stack output is a Sub onto DomainName
+          # with a trailing '/'); do not append another.
+          body=$(curl -fsS "$SITE_URL")
+
+          if ! printf '%s' "$body" | grep -q "$bundle"; then
+            echo "The live site does not reference $bundle." >&2
+            exit 1
+          fi
+
+          if ! printf '%s' "$body" | grep -q '<div id="root">'; then
+            echo "The live site did not return the app shell." >&2
+            exit 1
+          fi
+
+          {
+            echo "Published $VERSION to $SITE_URL"
+            echo "Bundle: $bundle"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report the bucket root
+        if: failure()
+        run: |
+          # Non-recursive: a recursive listing would print every open preview's keys.
+          # Deliberately not `aws sts get-caller-identity` — that would put the AWS
+          # account id in a public log, which commit c0f373c removed from
+          # infra/README.md on purpose.
+          aws s3 ls "s3://$S3_BUCKET/" || true
