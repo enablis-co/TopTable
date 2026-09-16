@@ -9,6 +9,13 @@ import type { Guest } from '../../domain/types'
  * GuestHoverCard.tsx or GuestHoverCard.module.css. C20 ("never covers the seat it describes")
  * is not testable here — jsdom does no layout — and is verified by a browser pass instead
  * (docs/engineering-standards.md).
+ *
+ * TT-36 defect addendum (top-clip fix). `top`/`left`/`right` are computed from a measured card
+ * height, and jsdom's getBoundingClientRect always reports zero height, so no positioning
+ * assertion belongs in this file — that arithmetic is pinned in hoverCardPosition.test.ts
+ * instead, against a real viewport argument. This file only confirms the zero-measured-height
+ * path renders content correctly rather than throwing, looping or hiding it (D9's regression
+ * guard for the surrounding component).
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -138,5 +145,37 @@ describe('GuestHoverCard — named for the guest it describes, as an accessible 
     renderCard(guest)
 
     expect(document.getElementById('summary-1')).toBeInTheDocument()
+  })
+})
+
+describe('GuestHoverCard — the height-measurement path degrades to zero without throwing, looping or hiding content (TT-36 addendum, D9 regression guard)', () => {
+  it('renders every field even though jsdom reports an unmeasurable (zero) card height', () => {
+    const guest = makeGuest('g-1', { name: 'Danny Whitaker', role: 'best man', allergies: ['nuts'] })
+
+    renderCard(guest)
+
+    // If the height-measurement effect could not cope with a zero measurement, the card would
+    // either fail to render its content or throw during the layout effect — either way this
+    // query would not find it.
+    expect(screen.getByText('Danny Whitaker')).toBeInTheDocument()
+    expect(screen.getByText('Allergies')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /Danny Whitaker/ })).toBeInTheDocument()
+  })
+
+  it('re-rendering with the same props settles rather than looping — the equality guard on the measured height converges', () => {
+    const guest = makeGuest('g-1', { name: 'Priya Shah' })
+    const fields = guestSummaryFields(guest, [guest])
+
+    const { rerender } = render(
+      <GuestHoverCard id="summary-1" guest={guest} fields={fields} anchor={FAKE_ANCHOR} />,
+    )
+    expect(screen.getByText('Priya Shah')).toBeInTheDocument()
+
+    // A re-render with an unchanged, still-zero measured height must not hang or blow past a
+    // render limit — if the effect looped instead of converging under its equality guard, this
+    // rerender call would be where that shows up.
+    rerender(<GuestHoverCard id="summary-1" guest={guest} fields={fields} anchor={FAKE_ANCHOR} />)
+
+    expect(screen.getByText('Priya Shah')).toBeInTheDocument()
   })
 })
