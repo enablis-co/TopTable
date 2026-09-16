@@ -50,6 +50,21 @@ operator's is a different string.
      --region us-east-1
    ```
 
+   **On the first apply this command will report failure, and the stack will be fine.** Its
+   waiter polls a fixed number of times and the certificate wait outlasts it, so it exits
+   non-zero with "Failed to create/update the stack" while CloudFormation carries on
+   server-side. The command is not driving the stack; killing it or letting it exit changes
+   nothing. Confirm which happened before reacting — the stack status, and whether anything
+   actually failed:
+   ```
+   aws cloudformation describe-stacks --stack-name toptable-hosting \
+     --query 'Stacks[0].StackStatus' --output text
+   aws cloudformation describe-stack-events --stack-name toptable-hosting --max-items 50 \
+     --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].[LogicalResourceId,ResourceStatusReason]'
+   ```
+   `CREATE_IN_PROGRESS` with no `FAILED` events is the waiter timing out. Carry on at step 2.
+   A real failure names a resource; go to "Recovering a failed apply".
+
 2. **Read the nameservers from the zone, not from the stack.** While step 1 is still
    running, in another terminal:
    ```
