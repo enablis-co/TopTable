@@ -51,9 +51,10 @@
   --ring-stroke-width: 7px;
   /* TT-44. Chairs sit at ringRadius 42.5, outside bodyRadius 34 — drawn on the canvas
      background, not on any occupancy state's ring body — so one set of defaults here covers
-     every occupancy state; only data-violation (below) needs its own. */
+     every occupancy state; only data-violation (below) needs its own. An empty chair is
+     `fill: none` (TableRing.module.css) — a real hollow, not a colour — so there is no
+     `--ring-chair-empty-fill` to declare here. */
   --ring-chair-fill: var(--slate);
-  --ring-chair-empty-fill: var(--surface);
   --ring-chair-stroke: var(--rule-strong);
 }
 
@@ -149,9 +150,10 @@
   --ring-pin: var(--slate);
   --table-number-ink: var(--hard-deep);
   --table-count-ink: var(--hard-deep);
-  /* TT-44. A violating table's chairs join its material rather than staying slate. */
+  /* TT-44. A violating table's occupied chairs join its material rather than staying slate; an
+     empty chair stays hollow (`fill: none`, TableRing.module.css) so the occupied/empty shape
+     difference survives here too, where --hard and --hard-wash are both real, opaque fills. */
   --ring-chair-fill: var(--hard);
-  --ring-chair-empty-fill: var(--hard-wash);
   --ring-chair-stroke: var(--hard);
 }
 

@@ -56,9 +56,12 @@ function topSlot(overrides: Partial<TableSlot> = {}): TableSlot {
   return { id: 'top', kind: 'top', number: null, label: 'Top table', capacity: 8, ...overrides }
 }
 
+// `seats` defaults to `[]`, not to `guests` — a per-seat array built from `guests` directly
+// would encode "the first n seats are occupied", which is exactly the compacted model C5 exists
+// to forbid (review, TT-44). Every test below that cares about chair occupancy overrides
+// `seats` explicitly, via `occupantsFromPattern` (below) or directly.
 function makeOccupants(overrides: Partial<TableOccupants> = {}): TableOccupants {
-  const guests = overrides.guests ?? []
-  return { guests, seats: guests, pinnedCount: 0, inViolation: false, ...overrides }
+  return { guests: [], seats: [], pinnedCount: 0, inViolation: false, ...overrides }
 }
 
 function renderTable(slot: TableSlot, occupants: TableOccupants): HTMLElement {
@@ -566,5 +569,47 @@ describe('PlanTable — chairs survive the scale floor, or drop cleanly rather t
     expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
     expect(table.textContent).toContain('5')
     expect(table.textContent).toMatch(/0\s*of\s*80\s*seats/i)
+  })
+})
+
+/**
+ * Regression, review (TT-44). The ring circle used to render only while chairs were hidden
+ * (`!showChairs`), which meant `--ring-stroke`/`--ring-stroke-width` — the properties that carry
+ * the occupancy, violation AND selected states (PlanTable.module.css) — had nothing left to
+ * paint on every KB-3 scenario, since all three seat 8 a table and chairs always show at that
+ * count: selecting a table became invisible. jsdom applies no CSS (docs/engineering-standards.md,
+ * "what the suite cannot see"), so this cannot assert the stroke actually widens on screen — but
+ * it can assert the element those properties paint is never missing, which is the exact defect
+ * that shipped: the ring was omitted from the DOM entirely, not merely painted with the wrong
+ * value.
+ */
+describe('PlanTable — a plain ring circle is always present behind the chairs, so the selected/violation outline always has something to paint (regression, TT-44 review)', () => {
+  function svgCircles(table: HTMLElement): Element[] {
+    const svg = table.querySelector('svg')
+    if (!svg) {
+      throw new Error('expected a round table to render an <svg>')
+    }
+    return Array.from(svg.querySelectorAll('circle'))
+  }
+
+  it('at a size where chairs render, the svg still carries one circle besides the body, the pin and the chairs themselves', () => {
+    const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
+    const chairs = table.querySelectorAll('[data-seat-index]')
+    expect(chairs.length).toBeGreaterThan(0)
+
+    // ring + body + one circle per chair; this table carries no pin.
+    expect(svgCircles(table)).toHaveLength(2 + chairs.length)
+  })
+
+  it('at the scale floor, where chairs drop, the same ring circle is still there — the dashed fallback never lost it either', () => {
+    const table = renderTableSized(
+      roundSlot({ number: 5, label: 'Table 5', capacity: 80 }),
+      occupantsFromPattern(new Array(80).fill(false)),
+      MIN_TABLE_SIZE,
+    )
+    expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
+
+    // ring + body, no chairs, no pin.
+    expect(svgCircles(table)).toHaveLength(2)
   })
 })

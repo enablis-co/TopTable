@@ -587,17 +587,27 @@ describe('TableRing.module.css — an occupied chair and an empty chair differ b
     return readFileSync(RING_CSS_PATH, 'utf8')
   }
 
-  it('.chairOccupied and .chairEmpty each set fill from a different custom property', () => {
+  /**
+   * Review, TT-44: the original version of this test only checked that the two rules named
+   * different custom properties, which would still pass if both properties happened to resolve
+   * to the same, or a merely near-identical, colour — exactly what happened here (a near-white
+   * `--ring-chair-empty-fill` that only read as hollow next to `--paper` by accident, and read
+   * as nothing of the sort once the violation material made both fills real, opaque colours:
+   * `--hard` and `--hard-wash`). A property-name difference is not a shape difference. This
+   * asserts the actual shape instead: `.chairOccupied` is a filled disc (`fill` from a custom
+   * property), `.chairEmpty` is `fill: none` — a real hole, true under every state a --ring-*
+   * property could ever resolve to.
+   */
+  it('.chairOccupied is a filled disc; .chairEmpty is hollow — a shape difference, not just two colours', () => {
     const css = readRingCss()
     const occupied = requireRule(css, /\.chairOccupied\s*\{/, '.chairOccupied')
     const empty = requireRule(css, /\.chairEmpty\s*\{/, '.chairEmpty')
 
     const occupiedFill = /fill\s*:\s*(var\([^)]+\))/i.exec(occupied.body)?.[1]
-    const emptyFill = /fill\s*:\s*(var\([^)]+\))/i.exec(empty.body)?.[1]
-
     expect(occupiedFill, 'expected .chairOccupied to declare fill from a custom property').toBeTruthy()
-    expect(emptyFill, 'expected .chairEmpty to declare fill from a custom property').toBeTruthy()
-    expect(occupiedFill).not.toBe(emptyFill)
+
+    expect(empty.body).toMatch(/fill\s*:\s*none\b/i)
+    expect(empty.body).not.toMatch(/fill\s*:\s*var\(/i)
   })
 
   it("both chair rules keep their outline visible at the scale floor — vector-effect: non-scaling-stroke, TT-38's geometry-scales-strokes-do-not rule", () => {

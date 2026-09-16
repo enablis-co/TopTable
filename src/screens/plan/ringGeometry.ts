@@ -90,14 +90,26 @@ export function chairPositions(seats: number): Chair[] {
 /**
  * The `4.5` cap is not arbitrary: `RING.ringRadius + 4.5 === RING.centre`, so a chair's outer
  * edge lands exactly on the viewBox edge — the same budget `ringRadius` itself was tuned
- * against (see the comment on `RING` above). `0.38` of the inter-centre arc keeps adjacent
- * chairs from touching at any seat count.
+ * against (see the comment on `RING` above).
+ *
+ * `0.38` of the inter-centre arc-length is what keeps adjacent chairs from touching. The true
+ * collision distance between two neighbours is the *chord*, `2 · ringRadius · sin(π / seats)`,
+ * which `sin(x) < x` makes strictly tighter than this arc-length figure — but `0.76` of the
+ * arc-length (twice `0.38`, since two radii meet at the midpoint) stays under that chord for
+ * every seat count this file is ever asked to draw, `ringGeometry.test.ts` checks well past it.
+ *
+ * There is deliberately no separate floor on the result below the `4.5` cap (review, TT-44): a
+ * floor that stays constant while `seats` keeps growing is exactly what let chairs overlap
+ * above 88 seats before this fix — the radius stayed pinned at the floor while the true chord
+ * between centres kept shrinking, and the two crossed. `chairRadius` has to shrink continuously
+ * with `seats` for the non-overlap property to hold; `chairsVisibleAt` below is what decides
+ * when the result is too small to be worth drawing at all.
  */
 export function chairRadius(seats: number): number {
   if (seats <= 0) return 0
 
   const arc = (0.38 * (2 * Math.PI * RING.ringRadius)) / seats
-  return Math.min(4.5, Math.max(1.5, arc))
+  return Math.min(4.5, arc)
 }
 
 /** TT-44 (C7): the clean drop for a seat count dense enough that a chair would render as a blur. */

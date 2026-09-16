@@ -7,7 +7,7 @@ type TableRingProps = {
   /** TT-44 (C5, C6). Index `i` is the id of the guest in seat `i`, or `null` when that seat is
    * empty — never "the first k seats", since a seating rule can leave a gap earlier than a
    * guest seated later at the same table. */
-  occupiedSeats: readonly (string | null)[]
+  seatGuestIds: readonly (string | null)[]
   tableSize: number
 }
 
@@ -26,7 +26,7 @@ type TableRingProps = {
  * data-occupancy/data-violation state sets (PlanTable.module.css); this file has no state of its
  * own and reads only its own props.
  */
-export function TableRing({ seats, pinned, occupiedSeats, tableSize }: TableRingProps) {
+export function TableRing({ seats, pinned, seatGuestIds, tableSize }: TableRingProps) {
   const showChairs = chairsVisibleAt(seats, tableSize)
   const { dash, gap } = seatRingDash(seats)
   const chairSize = chairRadius(seats)
@@ -38,16 +38,20 @@ export function TableRing({ seats, pinned, occupiedSeats, tableSize }: TableRing
       aria-hidden="true"
       focusable="false"
     >
-      {!showChairs && (
-        <circle
-          className={styles.ring}
-          cx={RING.centre}
-          cy={RING.centre}
-          r={RING.ringRadius}
-          fill="none"
-          strokeDasharray={`${dash} ${gap}`}
-        />
-      )}
+      {/* Review, TT-44: this circle used to render only when `!showChairs`. Every KB-3 scenario
+          seats 8 a table, so chairs always render, and `--ring-stroke`/`--ring-stroke-width` —
+          which carry the occupancy, violation AND selected states (PlanTable.module.css) — had
+          nothing left to paint: selecting a table became invisible. Keeping this circle always
+          drawn, solid rather than dashed once chairs take over the individual seat marks, gives
+          those three states a ring to paint again in the gaps between chairs. */}
+      <circle
+        className={styles.ring}
+        cx={RING.centre}
+        cy={RING.centre}
+        r={RING.ringRadius}
+        fill="none"
+        strokeDasharray={showChairs ? undefined : `${dash} ${gap}`}
+      />
       <circle className={styles.body} cx={RING.centre} cy={RING.centre} r={RING.bodyRadius} />
       {pinned && (
         <circle
@@ -59,7 +63,7 @@ export function TableRing({ seats, pinned, occupiedSeats, tableSize }: TableRing
       )}
       {showChairs &&
         chairPositions(seats).map((chair) => {
-          const guestId = occupiedSeats[chair.seatIndex] ?? null
+          const guestId = seatGuestIds[chair.seatIndex] ?? null
           return (
             <circle
               key={chair.seatIndex}

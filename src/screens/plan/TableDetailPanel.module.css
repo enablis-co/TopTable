@@ -61,13 +61,16 @@
   min-width: 0;
 }
 
-/* TT-44, KB-6 "Table detail". The second line: role, tags, social type. Left inset is the
-   seat-number span's own rendered width (the tabular-figure "1" through "26" never exceeds two
-   characters) plus the left group's gap, so the text aligns under the name rather than under
-   the seat number, expressed in the same tokens rather than a new literal. */
+/* TT-44, KB-6 "Table detail". The second line: role, tags, social type. Left inset
+   approximates the seat number's own rendered width (`--s-4`, roughly two tabular-mono digits
+   at the row's body size) plus the left group's own gap (`--s-2`), so the text sits under the
+   name rather than under the number. Not `1ch`: that unit resolves against *this* rule's own
+   font (`--t-label`, Plex Sans) rather than the seat number's mono font at a different size, so
+   it measured the wrong character's width entirely (review, TT-44) — token composition avoids
+   depending on a sibling rule's font to get a value right. */
 .facts {
-  margin: 2px 0 0;
-  padding-left: calc(1ch + var(--s-2));
+  margin: var(--s-1) 0 0;
+  padding-left: calc(var(--s-4) + var(--s-2));
   font: var(--t-label);
   color: var(--ink-muted);
 }

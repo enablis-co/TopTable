@@ -46,11 +46,14 @@
   fill: var(--ring-pin);
 }
 
-/* TT-44, KB-5 "colour never carries meaning alone": occupied and empty chairs differ in fill
-   (a different --ring-chair-* property each) and both keep a stroke, so the pair still reads
-   under grayscale(1) once the fill difference alone would not. non-scaling-stroke matches
-   TT-38's rule that geometry scales and stroke weights do not — it is what keeps an empty
-   chair's outline visible at the floor. */
+/* TT-44, KB-5 "colour never carries meaning alone", A2 "hollow vs filled": occupied is a filled
+   disc, empty a hollow ring — a real shape difference, not two colours filed under the same
+   name (review, TT-44: a near-white `--ring-chair-empty-fill` only read as hollow next to
+   `--paper` by accident, and read as nothing of the sort under the violation material, where
+   both `--hard` and `--hard-wash` are equally opaque). Both keep the same stroke, so the shape
+   difference survives grayscale(1) even where the fill difference would not on its own.
+   non-scaling-stroke matches TT-38's rule that geometry scales and stroke weights do not — it
+   is what keeps an empty chair's outline visible at the floor. */
 .chairOccupied {
   fill: var(--ring-chair-fill);
   stroke: var(--ring-chair-stroke);
@@ -59,7 +62,7 @@
 }
 
 .chairEmpty {
-  fill: var(--ring-chair-empty-fill);
+  fill: none;
   stroke: var(--ring-chair-stroke);
   stroke-width: 1px;
   vector-effect: non-scaling-stroke;

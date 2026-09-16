@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { RING, seatRingDash, chairPositions, chairRadius, chairsVisibleAt } from './ringGeometry'
-import { MIN_TABLE_SIZE } from './floorplanFit'
+import { MAX_TABLE_SIZE, MIN_TABLE_SIZE } from './floorplanFit'
 
 /**
  * TT-35. `seatRingDash` is pure geometry — no rendering, no store — so it is exercised directly
@@ -160,7 +160,12 @@ describe('chairPositions/chairRadius — every chair sits on the ring, evenly sp
     }
   })
 
-  it.each([4, 8, 12, 20, 30])(
+  // Review, TT-44: 89 is the exact seat count at which the old, floored `chairRadius` (clamped
+  // to a constant 1.5 above ~68 seats, rather than shrinking further) first exceeded the true
+  // gap between adjacent centres — the floor stayed put while the real chord kept shrinking, and
+  // the two crossed. 60/89/120/200 cover well either side of that crossing; 30 and below already
+  // passed under the old code and stay here as the low-end anchor.
+  it.each([4, 8, 12, 20, 30, 60, 89, 120, 200])(
     'adjacent chairs for %i seats never overlap: centre-to-centre distance exceeds twice the chair radius',
     (n) => {
       const positions = chairPositions(n)
@@ -201,6 +206,22 @@ describe('chairsVisibleAt — chairs survive the scale floor, or drop cleanly ra
 
   it('80 seats drop cleanly at MIN_TABLE_SIZE, rather than blurring into a ring', () => {
     expect(chairsVisibleAt(80, MIN_TABLE_SIZE)).toBe(false)
+  })
+
+  /**
+   * Review, TT-44: under the old, floored `chairRadius`, the rendered chair diameter stopped
+   * shrinking with `seats` once `seats` passed roughly 68 (the radius pinned at its 1.5 floor),
+   * so `chairsVisibleAt` reduced to a pure function of `renderedSize` past that point — density
+   * alone could never drop a table's chairs at the top of the scale, and a 200-seat table at
+   * `MAX_TABLE_SIZE` would still draw 200 overlapping circles. `chairRadius` no longer has that
+   * floor, so a seat count dense enough drops the chairs even at the largest table size the
+   * floorplan ever renders.
+   */
+  it('a seat count dense enough drops the chairs even at MAX_TABLE_SIZE — density alone, not merely a small render, triggers the drop', () => {
+    expect(chairsVisibleAt(200, MAX_TABLE_SIZE)).toBe(false)
+    // Contrast: a merely large table (not degenerately dense) still shows chairs at that same
+    // size, so the drop above is really about `seats`, not a blanket cutoff on `renderedSize`.
+    expect(chairsVisibleAt(100, MAX_TABLE_SIZE)).toBe(true)
   })
 
   it('is false for a degenerate zero or negative seat count, whatever the rendered size, rather than throwing', () => {

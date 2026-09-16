@@ -89,7 +89,7 @@ export function PlanTable({
   const isViolating = occupants.inViolation
   // TT-44 (C5): length from `slot.capacity`, not `occupants.seats.length`, so the shared
   // `EMPTY_TABLE` (whose `seats` is always `[]`) still renders a full ring of empty chairs.
-  const occupiedSeats = Array.from(
+  const seatGuestIds = Array.from(
     { length: slot.capacity },
     (_, i) => occupants.seats[i]?.guest.id ?? null,
   )
@@ -100,7 +100,7 @@ export function PlanTable({
         <TableRing
           seats={slot.capacity}
           pinned={isPinned}
-          occupiedSeats={occupiedSeats}
+          seatGuestIds={seatGuestIds}
           tableSize={tableSize}
         />
       )}

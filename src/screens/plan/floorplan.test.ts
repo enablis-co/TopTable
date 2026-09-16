@@ -52,9 +52,12 @@ function makeGuests(count: number): Guest[] {
   return Array.from({ length: count }, (_, index) => makeGuest(`g-${index}`))
 }
 
+// `seats` defaults to `[]`, not to `guests` — a per-seat array built from `guests` directly
+// would encode "the first n seats are occupied", which is exactly the compacted model C5 exists
+// to forbid (review, TT-44). Nothing in this file reads a fixture's `seats` without overriding
+// it, so the empty default costs nothing and claims nothing about seat order.
 function occupantsFixture(overrides: Partial<TableOccupants> = {}): TableOccupants {
-  const guests = overrides.guests ?? []
-  return { guests, seats: guests, pinnedCount: 0, inViolation: false, ...overrides }
+  return { guests: [], seats: [], pinnedCount: 0, inViolation: false, ...overrides }
 }
 
 describe('occupancyOf — the three states, and the degenerate zero-capacity table', () => {
