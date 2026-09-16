@@ -19,6 +19,11 @@ type FloorplanGridProps = {
    * under `placing` for the same click, never both at once. */
   onSelect?: (tableId: string) => void
   selectedTableId?: string | null
+  /** TT-36. Threaded straight through to every `PlanTable` — see that file's own doc comment. */
+  summaryGuestId?: string | null
+  summaryId?: string
+  onGuestHover?: (guestId: string, element: Element) => void
+  onGuestHoverEnd?: (guestId: string) => void
 }
 
 type GridStyle = CSSProperties & { '--floorplan-columns': number; '--table-size': string }
@@ -46,6 +51,10 @@ export function FloorplanGrid({
   onPlace,
   onSelect,
   selectedTableId,
+  summaryGuestId,
+  summaryId,
+  onGuestHover,
+  onGuestHoverEnd,
 }: FloorplanGridProps) {
   const slots = tablesInRoom(room)
   const topSlot = slots.find((slot) => slot.kind === 'top')
@@ -74,6 +83,10 @@ export function FloorplanGrid({
             placing={placingFor(topSlot.id, placingGuestName, onPlace)}
             onSelect={() => onSelect?.(topSlot.id)}
             selected={topSlot.id === selectedTableId}
+            summaryGuestId={summaryGuestId}
+            summaryId={summaryId}
+            onGuestHover={onGuestHover}
+            onGuestHoverEnd={onGuestHoverEnd}
           />
         </ul>
       )}
@@ -99,6 +112,10 @@ export function FloorplanGrid({
                 selected={slot.id === selectedTableId}
                 showFillCount={fit.showsFillCount}
                 tableSize={fit.size}
+                summaryGuestId={summaryGuestId}
+                summaryId={summaryId}
+                onGuestHover={onGuestHover}
+                onGuestHoverEnd={onGuestHoverEnd}
               />
             ))}
           </ul>

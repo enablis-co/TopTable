@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { describe, expect, it, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlanScreen } from './PlanScreen'
 import { useTopTableStore } from '../../store/store'
@@ -831,6 +831,47 @@ describe('PlanScreen — Escape and the guest summary (C9)', () => {
 
     await user.keyboard('{Escape}')
     expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveAttribute('aria-pressed', 'false')
+  })
+})
+
+describe('PlanScreen — hovering or focusing an occupied chair on the floorplan shows that guest\'s summary (C2, C8)', () => {
+  it('hovering an occupied chair renders a summary naming its guest', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    const chair = screen.getByRole('button', { name: /Guest g-0/ })
+    await user.hover(chair)
+
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+  })
+
+  it('moving the pointer away closes it', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    const chair = screen.getByRole('button', { name: /Guest g-0/ })
+    await user.hover(chair)
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+
+    await user.unhover(chair)
+    expect(screen.queryByRole('group', { name: /Guest g-0/ })).not.toBeInTheDocument()
+  })
+
+  it('an empty chair opens no summary at all — there is no guest to summarise', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    renderPlanScreen()
+
+    const table = tableLabelled('Table 1')
+    const emptyChair = within(table).getByRole('button', { name: /^Seat 1, empty$/ })
+    fireEvent.focus(emptyChair)
+
+    expect(screen.queryByRole('group', { name: /^Summary for/ })).not.toBeInTheDocument()
   })
 })
 

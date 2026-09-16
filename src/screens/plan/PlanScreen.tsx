@@ -387,6 +387,10 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 onPlace={handlePlace}
                 onSelect={handleSelectTable}
                 selectedTableId={selectedId}
+                summaryGuestId={summary?.guestId ?? null}
+                summaryId={summaryId}
+                onGuestHover={handleGuestHover}
+                onGuestHoverEnd={handleGuestHoverEnd}
               />
             </div>
             <div ref={railRef}>

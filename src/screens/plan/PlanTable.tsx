@@ -1,7 +1,10 @@
+import { useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { Button, cx, tabularClass } from '../../ui'
 import type { TableSlot } from '../../domain/seating'
 import { occupancyOf, type TableOccupants } from './floorplan'
 import { MAX_TABLE_SIZE } from './floorplanFit'
+import { initialSeatIndex, nextSeatIndex } from './chairNavigation'
 import { TableRing } from './TableRing'
 import { TopTableRow } from './TopTableRow'
 import styles from './PlanTable.module.css'
@@ -23,6 +26,14 @@ type PlanTableProps = {
    * (C7). Defaults to `MAX_TABLE_SIZE`, matching how `showFillCount` already defaults to `true`,
    * so the top table and every existing test caller keep chairs. */
   tableSize?: number
+  /** TT-36. Which guest's hover summary, if any, is currently open — see `UnseatedRail`'s own
+   * copy of these same four props for the full rationale. All optional: a caller that hasn't
+   * wired the summary up gets a table with no hover or focus behaviour on its chairs beyond the
+   * roving tabindex itself. */
+  summaryGuestId?: string | null
+  summaryId?: string
+  onGuestHover?: (guestId: string, element: Element) => void
+  onGuestHoverEnd?: (guestId: string) => void
 }
 
 /**
@@ -75,10 +86,16 @@ type PlanTableProps = {
  * invalid content for a button element and would join its accessible name via name-from-content;
  * staying outside the button is what keeps this file's whole "no aria-label displaces the
  * visible text" guarantee true regardless of what a chair itself carries. The top table's own
- * middot separator
- * (below) stays a real `aria-hidden` element inside the button, not a CSS `::after` — generated
- * content participates in Chrome's accessible-name computation but not jsdom's, which would make
- * the two disagree silently.
+ * middot separator (below) stays a real `aria-hidden` element inside the button, not a CSS
+ * `::after` — generated content participates in Chrome's accessible-name computation but not
+ * jsdom's, which would make the two disagree silently.
+ *
+ * TT-36: `activeSeatIndex` is local state, seeded once from `initialSeatIndex` and never
+ * re-derived — `FloorplanGrid` keys every table by `slot.id`, so this state survives this
+ * component's own re-renders and is what makes C12 ("a table remembers the chair it was left
+ * on") true. Arrow/Home/End on a chair move it (`nextSeatIndex`) and move DOM focus to match;
+ * hovering or focusing an occupied chair also opens its guest's summary, exactly as a rail row
+ * does (`onGuestHover`/`onGuestHoverEnd`).
  */
 export function PlanTable({
   slot,
@@ -88,16 +105,62 @@ export function PlanTable({
   selected,
   showFillCount = true,
   tableSize = MAX_TABLE_SIZE,
+  summaryGuestId = null,
+  summaryId,
+  onGuestHover,
+  onGuestHoverEnd,
 }: PlanTableProps) {
   const occupancy = occupancyOf(occupants.guests.length, slot.capacity)
   const isPinned = occupants.pinnedCount > 0
   const isViolating = occupants.inViolation
   // TT-44 (C5): length from `slot.capacity`, not `occupants.seats.length`, so the shared
   // `EMPTY_TABLE` (whose `seats` is always `[]`) still renders a full ring of empty chairs.
-  const seatGuestIds = Array.from(
-    { length: slot.capacity },
-    (_, i) => occupants.seats[i]?.guest.id ?? null,
-  )
+  const guestsBySeat = Array.from({ length: slot.capacity }, (_, i) => occupants.seats[i]?.guest ?? null)
+  const seatGuestIds = guestsBySeat.map((guest) => guest?.id ?? null)
+
+  // TT-36 (C10, C12). Seeded once — see the file's own doc comment for why this never
+  // re-derives on a later render. Clamped defensively against the table's *current* capacity: a
+  // room edit that shrinks this table after the state was seeded must not leave the stored index
+  // pointing past the last seat, which would leave no chair carrying `tabIndex={0}` at all (C10).
+  const [activeSeatIndex, setActiveSeatIndex] = useState(() => initialSeatIndex(occupants.seats))
+  const safeActiveSeatIndex = Math.min(activeSeatIndex, Math.max(0, slot.capacity - 1))
+
+  function handleSeatFocus(seatIndex: number, element: Element) {
+    setActiveSeatIndex(seatIndex)
+    const guestId = seatGuestIds[seatIndex] ?? null
+    if (guestId !== null) onGuestHover?.(guestId, element)
+  }
+
+  // The blurring chair is the one this render's own closure still calls "active" — focus moving
+  // to a *different* chair inside this same table goes through `handleSeatKeyDown` below, which
+  // updates `activeSeatIndex` and moves DOM focus in the same synchronous pass, so React has not
+  // yet re-rendered (and rebound this handler) by the time the old chair's blur fires.
+  function handleSeatBlur() {
+    const guestId = seatGuestIds[safeActiveSeatIndex] ?? null
+    if (guestId !== null) onGuestHoverEnd?.(guestId)
+  }
+
+  function handleSeatKeyDown(event: KeyboardEvent<SVGCircleElement>) {
+    const next = nextSeatIndex(safeActiveSeatIndex, slot.capacity, event.key)
+    if (next === null) return
+
+    event.preventDefault()
+    setActiveSeatIndex(next)
+    const target = event.currentTarget.ownerSVGElement?.querySelector<SVGCircleElement>(
+      `[data-seat-index="${next}"]`,
+    )
+    target?.focus()
+  }
+
+  function handleSeatHover(seatIndex: number, element: Element) {
+    const guestId = seatGuestIds[seatIndex] ?? null
+    if (guestId !== null) onGuestHover?.(guestId, element)
+  }
+
+  function handleSeatHoverEnd(seatIndex: number) {
+    const guestId = seatGuestIds[seatIndex] ?? null
+    if (guestId !== null) onGuestHoverEnd?.(guestId)
+  }
 
   const faceContent = (
     <>
@@ -140,9 +203,37 @@ export function PlanTable({
           paint rule: .table's container-type makes it a stacking context, so these
           position:absolute, z-index:auto siblings paint in tree order, under the button's own
           positioned heading/occupancy text (PlanTable.module.css). */}
-      {slot.kind === 'top' && <TopTableRow seats={slot.capacity} seatGuestIds={seatGuestIds} />}
+      {slot.kind === 'top' && (
+        <TopTableRow
+          seats={slot.capacity}
+          seatGuestIds={seatGuestIds}
+          guestsBySeat={guestsBySeat}
+          activeSeatIndex={safeActiveSeatIndex}
+          onSeatFocus={handleSeatFocus}
+          onSeatBlur={handleSeatBlur}
+          onSeatKeyDown={handleSeatKeyDown}
+          onSeatHover={handleSeatHover}
+          onSeatHoverEnd={handleSeatHoverEnd}
+          summaryGuestId={summaryGuestId}
+          summaryId={summaryId}
+        />
+      )}
       {slot.kind === 'round' && (
-        <TableRing seats={slot.capacity} pinned={isPinned} seatGuestIds={seatGuestIds} tableSize={tableSize} />
+        <TableRing
+          seats={slot.capacity}
+          pinned={isPinned}
+          seatGuestIds={seatGuestIds}
+          guestsBySeat={guestsBySeat}
+          tableSize={tableSize}
+          activeSeatIndex={safeActiveSeatIndex}
+          onSeatFocus={handleSeatFocus}
+          onSeatBlur={handleSeatBlur}
+          onSeatKeyDown={handleSeatKeyDown}
+          onSeatHover={handleSeatHover}
+          onSeatHoverEnd={handleSeatHoverEnd}
+          summaryGuestId={summaryGuestId}
+          summaryId={summaryId}
+        />
       )}
       <Button
         variant="quiet"
