@@ -3,19 +3,9 @@ Description: >-
   TT-41 — Top Table hosting: hosted zone, certificate, bucket, distribution,
   IAM roles and alias record for toptable.enablis.tech.
 
-# Two things a future edit must not undo:
-#
-# 1. The hosted zone is retained on delete AND on a replacing update. Its nameservers
-#    are what the `toptable` delegation in the root account points at. Deleting this
-#    stack and re-applying it creates a SECOND zone with different nameservers — the
-#    old zone is still retained but now holds no alias record, and the delegation
-#    points at nothing. Recovering that zone means an IMPORT changeset
-#    (`create-change-set --change-set-type IMPORT`), never a plain create. See
-#    infra/README.md.
-# 2. The distribution's origin is the S3 WEBSITE endpoint on purpose, not the REST
-#    endpoint. The REST endpoint (Bucket.DomainName / Bucket.RegionalDomainName) looks
-#    like the "proper" choice and breaks every pull request preview rather than the
-#    live site, so it passes a casual test. KB-7 has why.
+# Two things a future edit must not undo — the hosted zone's retention (both policies,
+# below) and the distribution's origin (the S3 website endpoint, at the origin below).
+# Both traps, and how to recover from hitting one, are in infra/README.md and KB-7.
 
 Parameters:
   DomainName:
@@ -32,9 +22,22 @@ Parameters:
     Default: enablis-co/TopTable
     Description: owner/repo, used to scope the OIDC trust condition.
 
+# CloudFront reads certificates only from us-east-1, and this template issues its own
+# certificate rather than taking an ARN as a parameter — so a by-hand apply in the wrong
+# region must fail outright rather than merely produce a certificate CloudFront can't use.
+Rules:
+  RegionIsUsEast1:
+    Assertions:
+      - Assert: !Equals [!Ref 'AWS::Region', 'us-east-1']
+        AssertDescription: >-
+          This stack must be deployed in us-east-1: CloudFront only reads certificates
+          from that region, and this template issues its own.
+
 Resources:
   HostedZone:
     Type: AWS::Route53::HostedZone
+    # Both policies, or a replacing update (e.g. DomainName changing) deletes this zone
+    # and hands the delegation a set of nameservers nobody answers to. See infra/README.md.
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
@@ -92,10 +95,8 @@ Resources:
           - !Ref DomainName
         Origins:
           - Id: website
-            # Bucket.WebsiteURL is http://<bucket>.s3-website-us-east-1.amazonaws.com — the
-            # website endpoint. Split/Select strips the scheme, which CustomOriginConfig's
-            # DomainName must not carry. Do NOT swap this for Bucket.DomainName or
-            # Bucket.RegionalDomainName (the REST endpoint) — see the header comment.
+            # The S3 WEBSITE endpoint, not Bucket.DomainName/RegionalDomainName (the REST
+            # endpoint) — that swap breaks previews, not the live site. See infra/README.md.
             DomainName: !Select [1, !Split ['//', !GetAtt Bucket.WebsiteURL]]
             CustomOriginConfig:
               # Website endpoints are HTTP-only; match-viewer would break every HTTPS request.
@@ -189,27 +190,42 @@ Resources:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubRepository}:*'
+                # Narrower than the publish role's, deliberately: this role is only ever
+                # assumed from a job that declares the infra-plan or infra-apply
+                # environment (GitHub issues repo:org/repo:environment:<name> for those),
+                # never from a plain pull_request or push job. Without this, an edit to
+                # the ungated infra-plan job in this same PR could call any action this
+                # role holds — including iam:PutRolePolicy on itself — with no reviewer.
+                # See infra/README.md for the deployment-branch policy that restricts
+                # infra-apply to main on top of this.
+                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubRepository}:environment:infra-*'
       Policies:
         - PolicyName: infra
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
+                # Covers every stack and changeset action this role uses — CloudFormation
+                # resolves changeset actions (Create/Describe/Execute/DeleteChangeSet,
+                # GetTemplateSummary, ListChangeSets) against the STACK's ARN, not a
+                # separate changeset ARN, confirmed with iam simulate-custom-policy against
+                # both ARN shapes (see the pull request description). DescribeStacks and
+                # DescribeStackEvents are scopable the same way and need nothing further.
                 Action: cloudformation:*
                 Resource: !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/toptable-hosting/*'
               - Effect: Allow
-                # Describe/List/Validate take no resource — they cannot be scoped further.
+                # ListStacks and ValidateTemplate take no stack argument at all — confirmed
+                # implicitDeny even against Resource '*' without this statement — so there
+                # is no resource to scope them to.
                 Action:
-                  - cloudformation:Describe*
-                  - cloudformation:List*
+                  - cloudformation:ListStacks
                   - cloudformation:ValidateTemplate
                 Resource: '*'
               - Effect: Allow
+                # Object actions dropped: CloudFormation manages the bucket itself, never
+                # an object in it.
                 Action: s3:*
-                Resource:
-                  - !GetAtt Bucket.Arn
-                  - !Sub '${Bucket.Arn}/*'
+                Resource: !GetAtt Bucket.Arn
               - Effect: Allow
                 # CreateBucket and the ListAllMyBuckets preflight take no resource.
                 Action:
@@ -232,15 +248,40 @@ Resources:
                   - iam:ListAttachedRolePolicies
                 Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/toptable-*'
               - Effect: Allow
-                # Not resource-scopable for creation (CloudFront, ACM and Route 53 do not
-                # support resource-level permissions on the create/request actions this
-                # role needs). The boundary here is the trust policy and the gated
-                # infra-apply environment, not the resource ARN.
+                # Create/request actions only. Confirmed with iam simulate-custom-policy:
+                # each is implicitDeny even when granted on Resource '*' and simulated
+                # against its own resource's ARN, so CloudFront, ACM and Route 53 genuinely
+                # give these no resource to scope to — the boundary is the trust policy
+                # above and the gated infra-apply environment, not the resource ARN.
                 Action:
-                  - cloudfront:*
-                  - acm:*
-                  - route53:*
+                  - cloudfront:CreateDistribution
+                  - acm:RequestCertificate
+                  - route53:CreateHostedZone
+                  - route53:GetChange
                 Resource: '*'
+              - Effect: Allow
+                # Read/update/delete on the three resources this stack creates. Confirmed
+                # scopable with iam simulate-custom-policy (unlike the create actions
+                # above): granting only these three ARNs still allows Get/Update/Delete on
+                # each. Retain is what stops this role deleting the hosted zone in
+                # practice — this scoping is the second line, not the first.
+                Action:
+                  - cloudfront:GetDistribution
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:UpdateDistribution
+                  - cloudfront:DeleteDistribution
+                Resource: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+              - Effect: Allow
+                Action:
+                  - acm:DescribeCertificate
+                  - acm:DeleteCertificate
+                Resource: !Ref Certificate
+              - Effect: Allow
+                Action:
+                  - route53:GetHostedZone
+                  - route53:DeleteHostedZone
+                  - route53:ChangeResourceRecordSets
+                Resource: !Sub 'arn:${AWS::Partition}:route53:::hostedzone/${HostedZone}'
       # No iam:PassRole: nothing in this stack passes a role to a service.
 
 Outputs:
