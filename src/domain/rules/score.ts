@@ -1,16 +1,20 @@
-import { DEFAULT_RULE_WEIGHT } from './contract'
+import type { Severity } from './contract'
+import { defaultWeightFor } from './contract'
 import type { RuleOutcome, RuleReport } from './engine'
 
 /**
- * The plan fit score (TT-16): one number, 0-100, over the soft rules only. Named `score.ts`,
- * which `registry.ts`'s `./*.rule.ts` glob cannot match — the same reason `contract.ts` carries
- * that name.
+ * The plan fit score (TT-16, reworked by TT-46): one number, 0-100, over every registered rule,
+ * hard and soft alike (KB-8 "The arithmetic"). Named `score.ts`, which `registry.ts`'s
+ * `./*.rule.ts` glob cannot match — the same reason `contract.ts` carries that name.
  */
 
 export type ScoreDimension = {
   ruleId: string
   /** The rule's own description. The only label the breakdown has, and the only one it needs. */
   description: string
+  /** Carried onto the dimension so the breakdown can order hard before soft, and label each row,
+   *  with no lookup back to the rule (TT-46). */
+  severity: Severity
   weight: number
   opportunities: number
   /** Chances this rule's opportunities included that this plan did not take — the exact,
@@ -24,13 +28,17 @@ export type ScoreDimension = {
 }
 
 export type PlanScore = {
-  /** 0-100, or null when no soft rule had an opportunity to be satisfied (TT-16). Never 0 for
+  /** 0-100, or null when no rule had an opportunity to be satisfied (TT-16). Never 0 for
    *  "nothing to say". Plainly rounded: 100 means the weighted mean rounds to 100, never that
-   *  the plan has no soft violations — the breakdown's exact missed counts are where a finding
-   *  behind a rounded 100 is visible. There is no cap and no floor. */
+   *  the plan carries no violation — the breakdown's exact missed counts are where a finding
+   *  behind a rounded 100 is visible. There is no cap and no floor. This is never permission to
+   *  publish: that is `isPublishable(report)` in `engine.ts`, a function of the report alone, and
+   *  `PlanScore` deliberately carries no `publishable` field for it to read (TT-46, KB-8 "The
+   *  score is not permission"). */
   score: number | null
-  /** Worst first: weight × (1 − fit) descending, ruleId ascending as tie-break. Only the soft
-   *  rules that scored; a soft rule with no opportunities is not here. */
+  /** Hard dimensions before soft, worst first within each: weight × (1 − fit) descending, ruleId
+   *  ascending as tie-break (TT-46 A9; TT-16's original order kept as the secondary sort). A rule
+   *  with no opportunities, at either severity, is not here. */
   dimensions: readonly ScoreDimension[]
 }
 
@@ -46,21 +54,22 @@ function normaliseCount(value: number): number {
 }
 
 /** A finite value greater than 0 is used as given; anything else — non-finite, zero or
- *  negative — becomes the default. Mirrors the coercion `RuleOutcome.weight`'s doc comment
- *  promises but does not itself perform. */
-function normaliseWeight(value: number): number {
-  return Number.isFinite(value) && value > 0 ? value : DEFAULT_RULE_WEIGHT
+ *  negative — becomes that severity's default. Mirrors the coercion `RuleOutcome.weight`'s doc
+ *  comment promises but does not itself perform. */
+function normaliseWeight(value: number, severity: Severity): number {
+  return Number.isFinite(value) && value > 0 ? value : defaultWeightFor(severity)
 }
 
 function toDimension(outcome: RuleOutcome): ScoreDimension {
   const opportunities = normaliseCount(outcome.opportunities)
   const missed = normaliseCount(outcome.missed)
-  const weight = normaliseWeight(outcome.weight)
+  const weight = normaliseWeight(outcome.weight, outcome.severity)
   const fit = clamp01(1 - missed / opportunities)
 
   return {
     ruleId: outcome.ruleId,
     description: outcome.description,
+    severity: outcome.severity,
     weight,
     opportunities,
     missed,
@@ -68,22 +77,32 @@ function toDimension(outcome: RuleOutcome): ScoreDimension {
   }
 }
 
-/** Worst first: what a person wants when the question is "what cost me". Fully determined by
- *  the data, so it is deterministic regardless of the order the rules were evaluated in — the
- *  same property that makes the sum below order-independent. */
-function worstFirst(a: ScoreDimension, b: ScoreDimension): number {
+/** hard before soft. */
+function severityRank(severity: Severity): number {
+  return severity === 'hard' ? 0 : 1
+}
+
+/** Hard before soft (TT-46 A9), worst first within a severity — what a person wants when the
+ *  question is "what cost me" — ruleId ascending as the final tie-break. Fully determined by the
+ *  data, so it is deterministic regardless of the order the rules were evaluated in — the same
+ *  property that makes the sum below order-independent. */
+function breakdownOrder(a: ScoreDimension, b: ScoreDimension): number {
+  const rankA = severityRank(a.severity)
+  const rankB = severityRank(b.severity)
+  if (rankA !== rankB) return rankA - rankB
+
   const costA = a.weight * (1 - a.fit)
   const costB = b.weight * (1 - b.fit)
-
   if (costA !== costB) return costB - costA
+
   return a.ruleId < b.ruleId ? -1 : a.ruleId > b.ruleId ? 1 : 0
 }
 
 export function scorePlan(report: RuleReport): PlanScore {
   const dimensions = report.outcomes
-    .filter((outcome) => outcome.severity === 'soft' && normaliseCount(outcome.opportunities) > 0)
+    .filter((outcome) => normaliseCount(outcome.opportunities) > 0)
     .map(toDimension)
-    .sort(worstFirst)
+    .sort(breakdownOrder)
 
   if (dimensions.length === 0) {
     return { score: null, dimensions: [] }
