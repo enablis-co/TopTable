@@ -81,6 +81,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Tag and release
         env:
@@ -109,6 +112,11 @@ jobs:
       contents: read
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
+      # Shares a name the AWS SDK's web-identity credential provider reads from the
+      # environment. Benign here: AWS_WEB_IDENTITY_TOKEN_FILE is never set, so that
+      # provider never activates. This copy exists only so the guard step below can
+      # read it as a shell variable; the credentials step further down reads
+      # ${{ vars.AWS_ROLE_ARN }} directly, not this env var.
       AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
       S3_BUCKET: ${{ vars.S3_BUCKET }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
@@ -131,6 +139,14 @@ jobs:
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "The production environment did not supply: ${missing[*]}." >&2
             echo "See docs/git-and-releases.md for what each variable holds." >&2
+            exit 1
+          fi
+
+          # infra/hosting.yaml's own Rules block already forces the whole stack into
+          # us-east-1; check the value here too, so a misconfigured environment fails
+          # with a readable message instead of somewhere inside a sync.
+          if [ "$AWS_REGION" != 'us-east-1' ]; then
+            echo "AWS_REGION is '$AWS_REGION', but the stack only exists in us-east-1." >&2
             exit 1
           fi
 
@@ -159,9 +175,15 @@ jobs:
 
           # No tt-* exclude needed: this pass is scoped to the assets/ prefix, and a
           # preview's objects live at tt-nn/assets/..., which is not under it.
+          #
+          # No --delete here: removing the previous build's assets before the new
+          # index.html is live would leave the still-served, no-cache old index
+          # naming hashes that no longer exist — a blank page with no error (KB-7's
+          # white screen). The previous build's stale assets are pruned by a later
+          # pass, only after the invalidation below confirms the new index is live.
           aws s3 sync dist/assets/ "s3://$S3_BUCKET/assets/" \
             --cache-control 'public, max-age=31536000, immutable' \
-            --delete --no-progress
+            --no-progress
 
       - name: Publish everything unhashed, no-cache — index last
         run: |
@@ -199,6 +221,17 @@ jobs:
           aws cloudfront wait invalidation-completed \
             --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --id "$id"
+
+      - name: Prune the previous build's stale assets
+        run: |
+          set -euo pipefail
+
+          # Ordering rule, the other direction from "index last": assets are never
+          # older than the index that names them (the first pass, above, uploads
+          # this build's assets before index.html can reference them) and never
+          # newer either — nothing under assets/ is removed until the invalidation
+          # above confirms the new index is the one being served.
+          aws s3 sync dist/assets/ "s3://$S3_BUCKET/assets/" --delete --no-progress
 
       - name: Confirm the site serves the build that was just published
         run: |
