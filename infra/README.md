@@ -5,9 +5,9 @@ website: hosted zone, ACM certificate, S3 bucket, CloudFront distribution, two I
 and the alias record. See KB-7 ("Hosting and deployment") for why it is shaped this way.
 
 **The wait is the design.** A first deploy that sits at `AWS::CertificateManager::Certificate`
-in `CREATE_IN_PROGRESS` is waiting for step 3 below. It is not broken. It does not want
-restarting — restarting risks the failure mode in the first paragraph of "Recovering a
-failed apply" below, where a second hosted zone gets created out from under the first.
+in `CREATE_IN_PROGRESS` is waiting for step 3 below. It is not broken and does not want
+restarting — see step 0's preflight and "Deleting the stack" below for what a restart
+risks and why.
 
 ## The first apply, exactly
 
@@ -16,7 +16,10 @@ This is the one deploy that happens from a laptop. Every apply after it goes thr
 assumes is created by this stack — it does not exist until the stack has been applied
 once.
 
-All commands: `--profile AdministratorAccess-920373033530 --region us-east-1`.
+All commands: `--profile <your-sso-profile> --region us-east-1`, where `<your-sso-profile>`
+is whatever profile resolves to account `920373033530` for you — step 0 confirms that
+rather than naming a profile, because a profile name is one operator's own and a second
+operator's is a different string.
 
 0. **Preflight.**
    ```
@@ -34,12 +37,8 @@ All commands: `--profile AdministratorAccess-920373033530 --region us-east-1`.
    ```
    aws route53 list-hosted-zones-by-name --dns-name toptable.enablis.tech
    ```
-   Must return no zone. **If it returns one, stop.** A zone already exists — from a
-   previous apply of this stack that was later deleted — and the correct move is an
-   **import** changeset (`aws cloudformation create-change-set --change-set-type IMPORT`),
-   never a plain create. Creating a second zone leaves the root-account delegation
-   pointing at nameservers nobody's zone answers to any more; see "Recovering a failed
-   apply" below.
+   Must return no zone. **If it returns one, stop** — see "Deleting the stack" below for
+   what created it and why a plain create here would be wrong.
 
 1. **Apply.**
    ```
@@ -61,9 +60,9 @@ All commands: `--profile AdministratorAccess-920373033530 --region us-east-1`.
    `CREATE_COMPLETE`, which is *after* the certificate validates — exactly the moment
    you need the nameservers for.
 
-3. **Delegate, in the root account.** This needs root-account credentials, which are not
-   available in this session. In the `enablis.tech` hosted zone, create an `NS` record
-   named `toptable` with the four nameservers from step 2, TTL 300.
+3. **Delegate, in the root account.** This needs root-account credentials — a separate
+   login from the account this stack lives in. In the `enablis.tech` hosted zone, create
+   an `NS` record named `toptable` with the four nameservers from step 2, TTL 300.
 
 4. **Verify the delegation before waiting any longer.**
    ```
@@ -106,10 +105,11 @@ All commands: `--profile AdministratorAccess-920373033530 --region us-east-1`.
 `ROLLBACK_COMPLETE` must be deleted before the stack can be created again — CloudFormation
 will not update out of it. `UPDATE_ROLLBACK_FAILED` needs
 `aws cloudformation continue-update-rollback --stack-name toptable-hosting` before anything
-else can proceed. Find the failing resource and why:
+else can proceed. Find the failing resource and why — bounded, so an old failure from a
+previous apply doesn't sit in the table beside the current one:
 
 ```
-aws cloudformation describe-stack-events --stack-name toptable-hosting \
+aws cloudformation describe-stack-events --stack-name toptable-hosting --max-items 50 \
   --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].[LogicalResourceId,ResourceStatusReason]'
 ```
 
@@ -129,6 +129,13 @@ create at that point succeeds, reaches `CREATE_COMPLETE`, and leaves the delegat
 pointing at a zone with no alias record — a deploy that looks like it worked and does not
 resolve.
 
+**The same thing happens without a delete, from changing `DomainName` in
+`infra/parameters.json`.** `UpdateReplacePolicy: Retain` keeps the old zone rather than
+losing it, but the replacement still creates a *new* zone with different nameservers, so
+the delegation ends up pointing at a zone with no alias record — same failure, no stack
+delete involved. In a pull request's changeset comment, `HostedZone | True` in the
+Replacement column is the tell: stop and re-check the delegation plan before merging.
+
 ## The environments and what each holds
 
 Four GitHub Actions environments, not three or two:
@@ -140,25 +147,40 @@ Four GitHub Actions environments, not three or two:
 | `infra-plan` | `AWS_REGION`, `AWS_ROLE_ARN` (infrastructure role), `STACK_NAME` | No |
 | `infra-apply` | Same shape as `infra-plan` | **Yes — required reviewers** |
 
-Only `infra-apply` is gated. A GitHub Actions protected environment holds every job that
-declares it, so:
-
-- Gating `preview` would park every push to an open pull request behind a manual
-  approval before anyone could look at the preview it is meant to unblock.
-- Gating `infra-plan` would deadlock: the changeset job needs the infrastructure role to
-  produce the changeset a reviewer is waiting to read, so it would sit waiting for the
-  same approval its own output is meant to inform.
+Only `infra-apply` is gated. A protected environment holds every job that declares it, so
+gating `preview` would block every open pull request's preview on a manual approval, and
+gating `infra-plan` would deadlock the changeset job waiting on the same approval its own
+output is meant to inform (KB-7).
 
 `infra-plan` and `infra-apply` therefore carry the same values under different names so
-that the read-only changeset job and the gated apply job can each declare the
-environment appropriate to what they do.
+that the changeset job and the gated apply job — which assume the *same* infrastructure
+role — can each declare the environment appropriate to what they do. The environment gate
+is what's gated, not the role: `toptable-infra` holds full read/write over its own
+resources either way, and the changeset job is unprivileged only in what its own steps
+happen to call, never at the IAM layer. See the trust condition on `InfraRole` in
+`infra/hosting.yaml` for the actual control — it binds the role to a job that declares
+either `infra-plan` or `infra-apply`, nothing else.
+
+**Restrict `infra-apply` to `main`, on top of required reviewers.** Required reviewers
+alone does not stop a workflow run *from a non-`main` ref* from targeting the environment;
+a deployment-branch policy does:
+
+```bash
+gh api --method PUT repos/enablis-co/TopTable/environments/infra-apply \
+  --field 'deployment_branch_policy[protected_branches]=false' \
+  --field 'deployment_branch_policy[custom_branch_policies]=true' \
+  --field 'reviewers[][type]=User' --field 'reviewers[][id]=<your-user-id>'
+
+gh api --method POST repos/enablis-co/TopTable/environments/infra-apply/deployment-branch-policies \
+  --field name=main
+```
 
 ```bash
 gh api --method PUT repos/enablis-co/TopTable/environments/production
 gh api --method PUT repos/enablis-co/TopTable/environments/preview
 gh api --method PUT repos/enablis-co/TopTable/environments/infra-plan
-gh api --method PUT repos/enablis-co/TopTable/environments/infra-apply \
-  --field 'reviewers[][type]=User' --field 'reviewers[][id]=<your-user-id>'
+# infra-apply itself is created by the PUT above this block, with its reviewer and its
+# deployment-branch policy set together.
 
 for env in production preview; do
   gh variable set AWS_REGION --env "$env" --body us-east-1
@@ -198,15 +220,32 @@ template that produced it.
 | V14 | Same, on `s3:PutObject` against `toptable-site/*` and `cloudfront:CreateInvalidation` against the distribution | `allowed` |
 | V15 | Read `toptable-publish`'s trust policy | `sub` condition ends `:*`, not narrowed to `refs/heads/main` |
 | V16 | `gh variable list --env <env>` for each of the four environments | Bucket, distribution id, role ARN, site URL and region all present where they should be |
-| V17 | `gh api /repos/enablis-co/TopTable/environments` | Required reviewers on `infra-apply` only |
+| V17 | `gh api /repos/enablis-co/TopTable/environments` | Required reviewers **and** a `main`-only deployment-branch policy on `infra-apply` only |
 | V18 | `gh secret list` (repository and each environment); `grep -rn 'AKIA' .` | No AWS access keys anywhere |
+| V19 | `aws iam simulate-principal-policy` for `toptable-infra` on `cloudformation:ExecuteChangeSet`, `cloudformation:DeleteChangeSet`, `cloudformation:GetTemplateSummary` against the stack ARN | `allowed` for all three |
+| V20 | Read `toptable-infra`'s trust policy | `sub` condition is `repo:enablis-co/TopTable:environment:infra-*` — narrower than the publish role's `:*`, and matching neither a plain `pull_request` nor `push` job |
 
-**V12 is the one that earns its place.** It is the only check that catches the origin
-mistake this template warns about twice. Get the origin wrong (REST endpoint, OAC) and
-V9 still returns 200, because `DefaultRootObject` rescues `/` and only `/`: CloudFront
-hands `/tt-0/` to the S3 REST API, which has no concept of an index document on a
-prefix and 404s. V12 fails the moment the origin is wrong, here, rather than later when
-somebody opens their first real preview under TT-43.
+**V12 is the one that earns its place.** `DefaultRootObject` rescues `/` and only `/`, so
+V9 still returns 200 even with the wrong origin (see the trap comment on the origin in
+`infra/hosting.yaml`). V12 fails the moment the origin is wrong, here, rather than later
+when somebody opens their first real preview under TT-43.
+
+**V19 was run ahead of the first apply, against a hypothetical policy rather than the
+live role — `toptable-infra` does not exist yet, and neither does the stack.**
+`aws iam simulate-custom-policy` accepts a policy document directly, so it does not need
+an existing role. Run against this role's cloudformation statement (see `infra/hosting.yaml`),
+simulating `CreateChangeSet`, `DescribeChangeSet`, `ExecuteChangeSet`, `DeleteChangeSet`,
+`GetTemplateSummary` and `ListChangeSets`:
+
+- Against a **changeset** ARN (`changeSet/<name>/<id>`): `implicitDeny`, all six.
+- Against the **stack** ARN (`stack/toptable-hosting/<id>`): `allowed`, all six.
+
+CloudFormation resolves every one of these actions' resource-level permission against the
+stack the changeset belongs to, not a separate changeset resource — so the policy needs no
+`changeSet/*` resource entry, and the single stack-scoped statement in `infra/hosting.yaml`
+is sufficient. **Re-run V19 for real against the deployed role after the first apply** —
+this only confirms the IAM authorization model, not the policy exactly as CloudFormation
+attaches it.
 
 ## Not built here
 
