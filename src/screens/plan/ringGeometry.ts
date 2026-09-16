@@ -35,9 +35,70 @@ export const RING = Object.freeze({
    * instead — structurally unable to reach the chairs at any seat count or table size, since it
    * never leaves the body's own footprint. `ringGeometry.test.ts` checks the margin on both
    * sides directly rather than trusting that "well inside" holds by eye.
+   *
+   * Review, TT-44 (fourth pass): this radius still crosses two things that live inside the
+   * body — the pin (fixed at `pinOffset`/`pinOffset`, radial distance `pinOffset × √2 ≈ 26.87`,
+   * almost exactly this radius) and the fill-count text (`.round .occupancy` sits `14` units
+   * below centre, well inside `28`). A full circle at this radius passes through both. Only an
+   * *arc* of it is drawn now — see `SELECTION_ARC` below — confined to the part of the circle
+   * that is nowhere near either.
    */
   selectionRadius: 28,
 })
+
+/** TT-44 (fourth pass, review). The selected-state ring's stroke width, in CSS px — exported
+ * so the margin proofs below and `PlanTable.module.css`'s own literal read the same number,
+ * rather than two hand-copies that can drift apart silently (the same failure mode the
+ * `--ring-*` set-equality guard, `tableRingStyles.test.ts`, exists to catch for custom
+ * properties — this binds the *value* the same way). */
+export const SELECTED_SELECTION_STROKE_WIDTH = 3
+
+/**
+ * TT-44 (fourth pass, review). The selected-state ring collided with two things a full circle
+ * at `RING.selectionRadius` inevitably passes through: the pin (fixed at "1:30", angle −45° in
+ * this file's own convention — 0° is 3 o'clock, angle increases clockwise, matching
+ * `chairPositions`) and the fill-count text (`.round .occupancy`, a horizontal band roughly
+ * level with 4-5 and 7-8 o'clock at this radius). Both live in the same radial band the ring
+ * itself sits in, so no *radius* choice dodges them — only an angular one does. This arc stays
+ * in the upper third of the circle, well clear of both:
+ *
+ * - the pin's own angular half-width around −45° is `atan(pinRadius / (pinOffset × √2))
+ *   ≈ 7.65°`, i.e. roughly −52.65° to −37.35° — `endDeg` stops 5.65° short of that at −60°.
+ * - the fill-count text's own crossing angles (where a horizontal line at its height meets the
+ *   circle) are `±30°` and `±150°` — both positive (the text sits *below* centre); this arc
+ *   stays entirely negative (−150° to −60°), the opposite half of the circle.
+ * - the heading number's own crossing angles are close to 0°/±180° (it sits almost exactly
+ *   level with centre); this arc's closest approach, at −60°, is still `28 × sin(60°) ≈ 24`
+ *   units above it.
+ *
+ * `ringGeometry.test.ts` asserts each of these margins from the actual pin and text geometry,
+ * rather than trusting the numbers above to stay true by eye.
+ */
+export const SELECTION_ARC = Object.freeze({
+  startDeg: -150,
+  endDeg: -60,
+})
+
+export type SelectionArc = {
+  startX: number
+  startY: number
+  endX: number
+  endY: number
+}
+
+/** The arc's two endpoints, in the same (cx, cy) terms `chairPositions` uses — an SVG `<path>`
+ * elliptical-arc command needs both explicitly, unlike a `<circle>`'s single radius. */
+export function selectionArcEndpoints(): SelectionArc {
+  const startTheta = (SELECTION_ARC.startDeg * Math.PI) / 180
+  const endTheta = (SELECTION_ARC.endDeg * Math.PI) / 180
+
+  return {
+    startX: RING.centre + RING.selectionRadius * Math.cos(startTheta),
+    startY: RING.centre + RING.selectionRadius * Math.sin(startTheta),
+    endX: RING.centre + RING.selectionRadius * Math.cos(endTheta),
+    endY: RING.centre + RING.selectionRadius * Math.sin(endTheta),
+  }
+}
 
 export type SeatRingDash = {
   dash: number

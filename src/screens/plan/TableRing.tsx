@@ -1,4 +1,11 @@
-import { RING, chairPositions, chairRadius, chairsVisibleAt, seatRingDash } from './ringGeometry'
+import {
+  RING,
+  chairPositions,
+  chairRadius,
+  chairsVisibleAt,
+  seatRingDash,
+  selectionArcEndpoints,
+} from './ringGeometry'
 import styles from './TableRing.module.css'
 
 type TableRingProps = {
@@ -30,6 +37,7 @@ export function TableRing({ seats, pinned, seatGuestIds, tableSize }: TableRingP
   const showChairs = chairsVisibleAt(seats, tableSize)
   const { dash, gap } = seatRingDash(seats)
   const chairSize = chairRadius(seats)
+  const selectionArc = selectionArcEndpoints()
 
   return (
     <svg
@@ -62,18 +70,20 @@ export function TableRing({ seats, pinned, seatGuestIds, tableSize }: TableRingP
       {/* Review, TT-44 (third pass): "selected" needs a mark with real ink on a full table, at
           the scale floor — the chairs' own stroke (below) is too little of it, spread across
           eight tiny dots, and a shared-radius ring is the collision already fixed once. This
-          circle sits well inside the body instead (`RING.selectionRadius`, `ringGeometry.ts`),
-          so it can never reach the chairs regardless of seat count or table size. Always
-          rendered, like `.body` — invisible by default (`--ring-selection-stroke-width: 0` on
-          the base `.table` rule) and given a real width only by `.table[data-selected='true']`.
-          Its colour still has to switch per state so it stays legible against whichever body
-          fill is under it — full's slate needs white, everything else needs a dark tone — the
-          same problem `--table-number-ink` already solves for the visible digits. */}
-      <circle
+          sits well inside the body instead (`RING.selectionRadius`, `ringGeometry.ts`), so it
+          can never reach the chairs regardless of seat count or table size. Always rendered,
+          like `.body` — invisible by default (`--ring-selection-stroke-width: 0` on the base
+          `.table` rule) and given a real width only by `.table[data-selected='true']`. Its
+          colour still has to switch per state so it stays legible against whichever body fill
+          is under it — full's slate needs white, everything else needs a dark tone — the same
+          problem `--table-number-ink` already solves for the visible digits.
+          Review, TT-44 (fourth pass): a full circle at this radius collides with both the pin
+          and the fill-count text (see `RING.selectionRadius`'s own comment) — an *arc*
+          (`SELECTION_ARC`), not a `<circle>`, confined to the part of the circle nowhere near
+          either. */}
+      <path
         className={styles.selection}
-        cx={RING.centre}
-        cy={RING.centre}
-        r={RING.selectionRadius}
+        d={`M ${selectionArc.startX} ${selectionArc.startY} A ${RING.selectionRadius} ${RING.selectionRadius} 0 0 1 ${selectionArc.endX} ${selectionArc.endY}`}
         fill="none"
       />
       {pinned && (

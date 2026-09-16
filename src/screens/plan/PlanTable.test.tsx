@@ -666,22 +666,25 @@ describe('PlanTable — chairs survive the scale floor, or drop cleanly rather t
  * actually rests on: no ring is ever drawn at the chairs' own radius while chairs are visible.
  */
 describe('PlanTable — the ring circle and the chairs are never both drawn at the chairs\' own radius (regression, TT-44 review)', () => {
-  function svgCircles(table: HTMLElement): Element[] {
+  // Review, TT-44 (fourth pass): the inner selection mark is a <path> (an arc), not a <circle>
+  // — a plain circle at its radius collides with the pin and the fill-count text — so this
+  // counts both element kinds rather than just circles.
+  function svgMarks(table: HTMLElement): Element[] {
     const svg = table.querySelector('svg')
     if (!svg) {
       throw new Error('expected a round table to render an <svg>')
     }
-    return Array.from(svg.querySelectorAll('circle'))
+    return Array.from(svg.querySelectorAll('circle, path'))
   }
 
-  it('at a size where chairs render, the svg carries the body, the inner selection ring and one circle per chair — no separate ring at the chairs\' own radius', () => {
+  it('at a size where chairs render, the svg carries the body, the inner selection arc and one circle per chair — no separate ring at the chairs\' own radius', () => {
     const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
     const chairs = table.querySelectorAll('[data-seat-index]')
     expect(chairs.length).toBeGreaterThan(0)
 
-    // body + the always-present inner selection ring (review, TT-44 third pass) + one circle
-    // per chair; this table carries no pin, and no dashed fallback ring.
-    expect(svgCircles(table)).toHaveLength(2 + chairs.length)
+    // body + the always-present inner selection arc (review, TT-44 third/fourth pass) + one
+    // circle per chair; this table carries no pin, and no dashed fallback ring.
+    expect(svgMarks(table)).toHaveLength(2 + chairs.length)
   })
 
   it('at the scale floor, where chairs drop, the dashed fallback ring is drawn in their place', () => {
@@ -692,8 +695,8 @@ describe('PlanTable — the ring circle and the chairs are never both drawn at t
     )
     expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
 
-    // dashed ring + body + the inner selection ring, no chairs, no pin.
-    expect(svgCircles(table)).toHaveLength(3)
+    // dashed ring + body + the inner selection arc, no chairs, no pin.
+    expect(svgMarks(table)).toHaveLength(3)
   })
 })
 
@@ -710,23 +713,25 @@ describe('PlanTable — the ring circle and the chairs are never both drawn at t
  * always present, on every table, selected or not, occupied or not: the one DOM fact the fix
  * actually depends on.
  */
-describe('PlanTable — the inner selection ring is always drawn, on every round table (regression, TT-44 review, third pass)', () => {
-  function svgCircles(table: HTMLElement): Element[] {
+describe('PlanTable — the inner selection arc is always drawn, on every round table (regression, TT-44 review, third pass)', () => {
+  // Review, TT-44 (fourth pass): the arc is a <path>, not a <circle> — see the other
+  // describe block above for why.
+  function svgMarks(table: HTMLElement): Element[] {
     const svg = table.querySelector('svg')
     if (!svg) {
       throw new Error('expected a round table to render an <svg>')
     }
-    return Array.from(svg.querySelectorAll('circle'))
+    return Array.from(svg.querySelectorAll('circle, path'))
   }
 
-  it('an unselected, full table still carries the inner ring circle, alongside its body and its chairs', () => {
+  it('an unselected, full table still carries the inner selection arc, alongside its body and its chairs', () => {
     const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(true)))
     const chairs = table.querySelectorAll('[data-seat-index]')
     expect(chairs.length).toBe(8)
-    expect(svgCircles(table)).toHaveLength(2 + chairs.length)
+    expect(svgMarks(table)).toHaveLength(2 + chairs.length)
   })
 
-  it('a selected, full table renders the same circle count as an unselected one — width is a CSS fact this suite cannot see, but presence is', () => {
+  it('a selected, full table renders the same mark count as an unselected one — width is a CSS fact this suite cannot see, but presence is', () => {
     const table = renderTableWithProps(
       roundSlot({ capacity: 8 }),
       occupantsFromPattern(new Array(8).fill(true)),
@@ -734,6 +739,6 @@ describe('PlanTable — the inner selection ring is always drawn, on every round
     )
     const chairs = table.querySelectorAll('[data-seat-index]')
     expect(chairs.length).toBe(8)
-    expect(svgCircles(table)).toHaveLength(2 + chairs.length)
+    expect(svgMarks(table)).toHaveLength(2 + chairs.length)
   })
 })

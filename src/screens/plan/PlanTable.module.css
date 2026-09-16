@@ -177,20 +177,30 @@
   --ring-chair-stroke: var(--hard);
 }
 
-/* TT-15, handoff "Selecting a table": seat ring stroke-width 7 → 9, nothing else. A top table
-   carries this attribute too (it is selectable like any other) but has no TableRing to read it,
-   so it is visually a no-op there — "no other selection treatment" either way.
+/* TT-15, handoff "Selecting a table": seat ring stroke-width 7 → 9, nothing else.
    `--ring-stroke-width` only ever paints the dashed fallback ring now (TableRing.tsx, review
    TT-44) — `--ring-chair-stroke-width` is the equivalent for the chair path, widened by a
    smaller +1px (the ring's 7→9 headroom assumed a stroke drawn against the whole ring
    circumference, not against one ~3-6px chair at the scale floor).
-   Review, TT-44 (third pass): neither of those reads clearly on a *full* table — the chairs'
-   own stroke is the lowest-contrast one in the system (`--rule-strong` against a `--slate`
-   fill), spread across eight ~6px dots, and 24 of Celebrity scale's 26 tables are full.
-   `--ring-selection-stroke-width` is the real signal now: one continuous ring, well inside the
-   body, bold enough to read at a glance regardless of occupancy. The chair widening above stays
-   too — harmless, and still correct on an empty or partial table's chairs — but it is no longer
-   the thing carrying the state on its own. */
+   Review, TT-44 (third pass): neither of those reads clearly on a *full round* table — the
+   chairs' own stroke is the lowest-contrast one in the system (`--rule-strong` against a
+   `--slate` fill), spread across eight ~6px dots, and 24 of Celebrity scale's 26 tables are
+   full. `--ring-selection-stroke-width` is the real signal for a round table now: an arc
+   (`SELECTION_ARC`, `ringGeometry.ts`; TableRing.tsx), well inside the body, bold enough to
+   read at a glance regardless of occupancy. The chair widening above stays too — harmless, and
+   still correct on an empty or partial round table's chairs — but it is no longer the thing
+   carrying the state on its own there.
+   Review, TT-44 (fourth pass): a top table has no TableRing, so `--ring-stroke-width` and
+   `--ring-selection-stroke-width` are both no-ops for it, same as before — but `TopTableRow`
+   (the amendment, C3) reuses `.chairOccupied`/`.chairEmpty`, which *do* read
+   `--ring-chair-stroke-width`, so a selected top table's own chairs widen exactly like a round
+   table's do. That is deliberate, not an oversight: neither the ticket nor its amendment asks
+   for a top-table selection state, and the chair widening is harmless even though §3 above
+   found the equivalent round-table version too faint to read alone — it is a free, low-cost
+   secondary signal, not a claim that the top table's selection reads clearly on its own. Giving
+   the top table its own arc was considered and rejected here: nothing has asked for one, and
+   its pill has no pin or fill-count text to dodge in the first place, so the round table's
+   whole reason for an arc over a chair-stroke bump does not apply to it. */
 .table[data-selected='true'] {
   --ring-stroke-width: 9px;
   --ring-chair-stroke-width: 2px;

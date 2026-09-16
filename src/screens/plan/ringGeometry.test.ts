@@ -6,6 +6,9 @@ import {
   chairRadius,
   chairDiameterPx,
   chairsVisibleAt,
+  SELECTED_SELECTION_STROKE_WIDTH,
+  SELECTION_ARC,
+  selectionArcEndpoints,
   TOP_ROW,
   topRowPositions,
   topRowChairRadius,
@@ -288,9 +291,7 @@ describe("chairDiameterPx — the selected chair stroke stays narrower than the 
  * this ring is ever asked to draw and at the smallest table size it is ever drawn on, rather
  * than trusting a browser pass to notice if it doesn't.
  */
-describe('RING.selectionRadius — the selected-state ring stays inside the body and nowhere near the chairs (review, TT-44 third pass)', () => {
-  const SELECTED_SELECTION_STROKE_WIDTH = 3
-
+describe('RING.selectionRadius — the selected-state mark stays inside the body and nowhere near the chairs (review, TT-44 third pass)', () => {
   it('is strictly inside bodyRadius, with room to spare before any stroke is even added', () => {
     expect(RING.selectionRadius).toBeLessThan(RING.bodyRadius)
   })
@@ -300,12 +301,91 @@ describe('RING.selectionRadius — the selected-state ring stays inside the body
     expect(RING.selectionRadius + halfWidthInViewBoxUnits).toBeLessThan(RING.bodyRadius)
   })
 
-  it("cannot reach the chairs' own inner edge at any seat count, since it never leaves the body's own footprint", () => {
-    // A chair's inner edge is `RING.ringRadius - chairRadius(seats)`, at minimum (the widest a
-    // chair ever draws) `RING.ringRadius - 4.5` — the same 4.5 cap `chairRadius` itself is
-    // built against. `bodyRadius` sitting below that, on its own, is what makes every seat
-    // count safe at once, without re-deriving chairRadius here.
-    expect(RING.bodyRadius).toBeLessThan(RING.ringRadius - 4.5)
+  it("bodyRadius, which selectionRadius sits inside, stays clear of the chairs' own inner edge at any seat count", () => {
+    // The widest a chair ever draws is chairRadius's own cap, reached at any seat count small
+    // enough not to be arc-limited — n=1 included — called directly rather than hand-copying
+    // the number a third time (review, TT-44 fourth pass: this test used to assert
+    // `RING.bodyRadius < RING.ringRadius - 4.5`, a bare literal that never actually named
+    // `selectionRadius` or `chairRadius`).
+    const widestChair = chairRadius(1)
+    expect(RING.bodyRadius).toBeLessThan(RING.ringRadius - widestChair)
+  })
+})
+
+/**
+ * Review, TT-44 (fourth pass). A full circle at `RING.selectionRadius` crosses both the pin
+ * (fixed at "1:30") and the fill-count text (a horizontal band crossing near 4-5 and 7-8
+ * o'clock at this radius) — the same collision class as the chairs, just missed the first time
+ * because neither guard above checks anything but the chairs and the body. `SELECTION_ARC`
+ * confines the drawn mark to the part of the circle nowhere near either; these are the margins
+ * computed from the actual pin and text geometry, not eyeballed degrees.
+ */
+describe('SELECTION_ARC — the selected-state mark avoids the pin and the fill-count text, not just the chairs (review, TT-44 fourth pass)', () => {
+  // RING.pinOffset applied to both x and y (TableRing.tsx: `cx + pinOffset, cy - pinOffset`)
+  // puts the pin at exactly -45° in this file's own angle convention, always, regardless of
+  // pinOffset's own value — computed here rather than assumed, so a future change to how the
+  // pin is placed cannot silently invalidate it.
+  const pinAngleDeg = (Math.atan2(-RING.pinOffset, RING.pinOffset) * 180) / Math.PI
+  const pinDistance = Math.hypot(RING.pinOffset, RING.pinOffset)
+  const pinHalfWidthDeg = (Math.asin(RING.pinRadius / pinDistance) * 180) / Math.PI
+
+  it('the pin sits at -45°, confirming the angle the arc\'s own margin is computed against', () => {
+    expect(pinAngleDeg).toBeCloseTo(-45, 5)
+  })
+
+  it("the arc's end stays clear of the pin's own angular span, with margin", () => {
+    const pinNearEdgeDeg = pinAngleDeg + pinHalfWidthDeg // the edge closest to the arc's end
+    expect(SELECTION_ARC.endDeg).toBeLessThan(pinNearEdgeDeg)
+    // Not just clear — clear by more than a token amount, so a small future nudge to either
+    // side can't reopen the collision by accident.
+    expect(pinNearEdgeDeg - SELECTION_ARC.endDeg).toBeGreaterThan(2)
+  })
+
+  it('the arc never crosses into positive angles, where the fill-count text\'s own crossing points (asin(dy / selectionRadius), both positive) live', () => {
+    // `.round .occupancy` sits at `top: 64.9%` (PlanTable.module.css), i.e. `14.9%` of the
+    // viewBox below centre — re-declared here, the same way this file's other CSS-adjacent
+    // constants are, so a change to either side has to touch both before the gate is green.
+    const occupancyDyPercent = 64.9 - 50
+    const occupancyDy = (occupancyDyPercent / 100) * RING.viewBox
+    const occupancyCrossingDeg = (Math.asin(occupancyDy / RING.selectionRadius) * 180) / Math.PI
+
+    expect(occupancyCrossingDeg).toBeGreaterThan(0)
+    expect(SELECTION_ARC.startDeg).toBeLessThan(0)
+    expect(SELECTION_ARC.endDeg).toBeLessThan(0)
+    expect(occupancyCrossingDeg).not.toBeCloseTo(SELECTION_ARC.startDeg, 0)
+  })
+
+  it("the arc's closest approach to centre stays well above the heading number's own height, so the two can never share a point", () => {
+    // `.round .heading` sits at `top: 47.9%` — 2.1% of the viewBox *above* centre.
+    const headingDyPercent = 47.9 - 50
+    const headingDy = (headingDyPercent / 100) * RING.viewBox
+
+    const startTheta = (SELECTION_ARC.startDeg * Math.PI) / 180
+    const endTheta = (SELECTION_ARC.endDeg * Math.PI) / 180
+    // Both endpoints, not just one — the arc's closest approach to the horizontal centreline
+    // is whichever end has the smaller |sin|, and that is not always the same end.
+    const closestDy = Math.min(
+      Math.abs(RING.selectionRadius * Math.sin(startTheta)),
+      Math.abs(RING.selectionRadius * Math.sin(endTheta)),
+    )
+
+    expect(closestDy).toBeGreaterThan(Math.abs(headingDy) * 5)
+  })
+
+  it('is a 90° arc, not a full circle', () => {
+    expect(SELECTION_ARC.endDeg - SELECTION_ARC.startDeg).toBe(90)
+  })
+})
+
+describe('selectionArcEndpoints — matches the angles SELECTION_ARC declares', () => {
+  it('both endpoints sit exactly RING.selectionRadius from the table centre', () => {
+    const { startX, startY, endX, endY } = selectionArcEndpoints()
+    expect(Math.hypot(startX - RING.centre, startY - RING.centre)).toBeCloseTo(RING.selectionRadius, 5)
+    expect(Math.hypot(endX - RING.centre, endY - RING.centre)).toBeCloseTo(RING.selectionRadius, 5)
+  })
+
+  it('is deterministic: called twice, gives the same two points', () => {
+    expect(selectionArcEndpoints()).toEqual(selectionArcEndpoints())
   })
 })
 

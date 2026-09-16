@@ -46,13 +46,15 @@
   fill: var(--ring-pin);
 }
 
-/* Review, TT-44 (third pass): invisible by default (`--ring-selection-stroke-width` defaults to
-   0 on the base `.table` rule), a real ring only once `.table[data-selected='true']` widens it.
-   Sits at `RING.selectionRadius`, well inside the body — never at the chairs' own radius, so it
-   cannot repeat the collision fixed on `.chairOccupied`/`.chairEmpty` below. `--ring-selection-
-   stroke` still has to vary with occupancy/violation (PlanTable.module.css), the same problem
-   `--table-number-ink` solves for the digits: this ring sits on the body's own fill, so its
-   colour needs to stay legible against whichever fill that is. */
+/* Review, TT-44 (third, fourth passes): invisible by default (`--ring-selection-stroke-width`
+   defaults to 0 on the base `.table` rule), a real width only once `.table[data-selected='true']`
+   widens it. `TableRing.tsx` draws an *arc* here (`SELECTION_ARC`, `ringGeometry.ts`), not a
+   full circle at `RING.selectionRadius` — a full circle at that radius crosses both the pin and
+   the fill-count text, and this class only ever paints whatever path `.tsx` gives it, so the
+   containment lives entirely in that geometry, not here. `--ring-selection-stroke` still has to
+   vary with occupancy/violation (PlanTable.module.css), the same problem `--table-number-ink`
+   solves for the digits: this mark sits on the body's own fill, so its colour needs to stay
+   legible against whichever fill that is. */
 .selection {
   stroke: var(--ring-selection-stroke, none);
   stroke-width: var(--ring-selection-stroke-width, 0);

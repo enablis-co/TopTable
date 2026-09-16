@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { SELECTED_SELECTION_STROKE_WIDTH } from './ringGeometry'
 
 /**
  * jsdom applies no CSS at all, so PlanTable.test.tsx can only see the `data-*` attributes and
@@ -403,20 +404,28 @@ describe('PlanTable.module.css — a selected table also widens its chairs\' own
 
 /**
  * Review, TT-44 (third pass). Neither the fallback ring's stroke-width nor the chairs' own read
- * clearly on a full table — this is the mark that does: a dedicated inner ring
- * (`RING.selectionRadius`, `ringGeometry.ts`), invisible by default and widened only when
- * selected, whose colour still has to switch per state to stay legible against whichever body
- * fill sits under it (the same problem `--table-number-ink` already solves for the digits).
+ * clearly on a full table — this is the mark that does: a dedicated inner arc
+ * (`RING.selectionRadius`/`SELECTION_ARC`, `ringGeometry.ts`), invisible by default and widened
+ * only when selected, whose colour still has to switch per state to stay legible against
+ * whichever body fill sits under it (the same problem `--table-number-ink` already solves for
+ * the digits).
+ *
+ * Review, TT-44 (fourth pass): the widened width is asserted against
+ * `SELECTED_SELECTION_STROKE_WIDTH`, not a second hand-typed `3px` — `ringGeometry.test.ts`'s
+ * own margin proofs read the same constant, so a change to either side without the other fails
+ * one gate or the other, rather than both quietly agreeing on a stale number.
  */
-describe('PlanTable.module.css — a selected table also widens a dedicated inner ring, bold enough to read on a full table (review, TT-44 third pass)', () => {
+describe('PlanTable.module.css — a selected table also widens a dedicated inner arc, bold enough to read on a full table (review, TT-44 third pass)', () => {
   it('the base .table rule declares --ring-selection-stroke-width: 0, invisible until selected', () => {
     const rule = requireRule(readCss(), BASE_TABLE, 'the base .table rule')
     expect(rule.body).toMatch(/--ring-selection-stroke-width\s*:\s*0\b/i)
   })
 
-  it('.table[data-selected="true"] declares --ring-selection-stroke-width: 3px', () => {
+  it(`.table[data-selected="true"] declares --ring-selection-stroke-width: ${SELECTED_SELECTION_STROKE_WIDTH}px`, () => {
     const rule = requireRule(readCss(), SELECTED_TRUE, 'data-selected')
-    expect(rule.body).toMatch(/--ring-selection-stroke-width\s*:\s*3px/i)
+    expect(rule.body).toMatch(
+      new RegExp(`--ring-selection-stroke-width\\s*:\\s*${SELECTED_SELECTION_STROKE_WIDTH}px`, 'i'),
+    )
   })
 
   it('the base .table rule defaults --ring-selection-stroke to --slate, legible against every body fill except .full\'s own', () => {
