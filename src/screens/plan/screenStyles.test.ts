@@ -136,6 +136,18 @@ describe('PlanScreen.module.css — stacked, the canvas stops dividing one scree
     expect(match?.[1] ?? '').toMatch(/flex\s*:\s*none/)
     expect(match?.[1] ?? '').toMatch(/height\s*:\s*clamp\(/)
   })
+
+  /**
+   * The other half of that pair, and the one no test was holding down. Stacked, `.canvas` gives
+   * up its share of the height — but `.plan` keeps `height: 100%`, and side by side that is the
+   * whole basis of the screen: it is what gives `.floorplanArea` a definite height to take a
+   * share of, and so what lets `.gridScroll` be an internal scroll region instead of the page
+   * growing. Drop it and the stacked case still looks right while the wide one quietly stops
+   * scrolling inside the floorplan, which is the harder of the two to notice.
+   */
+  it('.plan still declares height: 100% in the base rule — the stacked fix gives up the height split at .canvas, not by loosening the screen it hangs from', () => {
+    expect(ruleBody(readCss(), '.plan')).toMatch(/height\s*:\s*100%/)
+  })
 })
 
 describe('PlanScreen.module.css — the brand rules hold for this file too', () => {
