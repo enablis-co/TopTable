@@ -444,6 +444,26 @@ describe('PlanTable.module.css — a selected table also widens a dedicated inne
   })
 })
 
+/**
+ * Review, TT-44 (fifth pass). `SELECTION_ARC`'s own angular margins (`ringGeometry.ts`,
+ * `ringGeometry.test.ts`) hold at every table size only because the stroke that draws the arc
+ * adds no angular extent of its own — a round cap would grow the arc's end by its own radius,
+ * eating straight into the margin against the pin. This asserts the CSS actually says so,
+ * rather than trusting an SVG default nobody declared.
+ */
+describe('TableRing.module.css — .selection declares stroke-linecap: butt, so the arc adds no angular extent of its own (review, TT-44 fifth pass)', () => {
+  const RING_CSS_PATH = join(DIR, 'TableRing.module.css')
+
+  function readRingCss(): string {
+    return readFileSync(RING_CSS_PATH, 'utf8')
+  }
+
+  it('.selection declares stroke-linecap: butt', () => {
+    const rule = requireRule(readRingCss(), /\.selection\s*\{/, '.selection')
+    expect(rule.body).toMatch(/stroke-linecap\s*:\s*butt\b/i)
+  })
+})
+
 describe('PlanTable.module.css — .round contains its own content instead of stretching into an ellipse', () => {
   it('declares min-height: 0, so aspect-ratio governs height from width alone regardless of content', () => {
     const rule = requireRule(readCss(), /\.round\s*\{/, '.round')

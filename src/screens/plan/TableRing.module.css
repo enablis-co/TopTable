@@ -59,6 +59,12 @@
   stroke: var(--ring-selection-stroke, none);
   stroke-width: var(--ring-selection-stroke-width, 0);
   vector-effect: non-scaling-stroke;
+  /* Review, TT-44 (fifth pass): SVG's own default, declared rather than left implicit — a
+     round cap grows the arc's angular extent by its own radius at any width (4.72° at
+     MIN_TABLE_SIZE's stroke width), which would eat straight into the 7.30° margin
+     `ringGeometry.ts`'s `SELECTION_ARC` leaves against the pin. The size-independence
+     `ringGeometry.test.ts` proves in degrees only holds because the cap adds none of its own. */
+  stroke-linecap: butt;
 }
 
 /* TT-44, KB-5 "colour never carries meaning alone", A2 "hollow vs filled": occupied is a filled

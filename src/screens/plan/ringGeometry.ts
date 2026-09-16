@@ -62,17 +62,28 @@ export const SELECTED_SELECTION_STROKE_WIDTH = 3
  * itself sits in, so no *radius* choice dodges them — only an angular one does. This arc stays
  * in the upper third of the circle, well clear of both:
  *
- * - the pin's own angular half-width around −45° is `atan(pinRadius / (pinOffset × √2))
- *   ≈ 7.65°`, i.e. roughly −52.65° to −37.35° — `endDeg` stops 5.65° short of that at −60°.
+ * - the pin's own angular half-width around −45° is `asin(pinRadius / (pinOffset × √2))
+ *   ≈ 7.70°` (the subtended half-angle a chord of that radius makes — `atan` of the same ratio
+ *   is a close but different number, 7.63°, and not what the test uses), i.e. roughly −52.70°
+ *   to −37.30° — `endDeg` stops 7.30° short of the nearer edge at −60°.
  * - the fill-count text's own crossing angles (where a horizontal line at its height meets the
  *   circle) are `±30°` and `±150°` — both positive (the text sits *below* centre); this arc
  *   stays entirely negative (−150° to −60°), the opposite half of the circle.
  * - the heading number's own crossing angles are close to 0°/±180° (it sits almost exactly
- *   level with centre); this arc's closest approach, at −60°, is still `28 × sin(60°) ≈ 24`
- *   units above it.
+ *   level with centre); this arc's *closest* approach to that centreline is at its other end,
+ *   −150°, `28 × sin(150°) = 14` units above it — the heading's own line box is fixed in CSS px
+ *   and does reach that far at the scale floor, but the heading's glyphs are centred and this
+ *   end of the arc is not (see `ringGeometry.test.ts`'s own comment on that test for why the
+ *   two still never meet).
  *
  * `ringGeometry.test.ts` asserts each of these margins from the actual pin and text geometry,
  * rather than trusting the numbers above to stay true by eye.
+ *
+ * One more thing keeps this true at every size, not just the angles above: `TableRing.module.css`
+ * declares `stroke-linecap: butt` on `.selection`. A butt cap ends a stroke exactly at its
+ * geometric endpoint with no rounding, so it adds zero angular extent at any stroke width or
+ * table size — an SVG default, but relied on here, not incidental, and asserted alongside the
+ * rest of `.selection`'s declarations for exactly that reason.
  */
 export const SELECTION_ARC = Object.freeze({
   startDeg: -150,

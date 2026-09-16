@@ -307,7 +307,14 @@ describe('RING.selectionRadius — the selected-state mark stays inside the body
     // the number a third time (review, TT-44 fourth pass: this test used to assert
     // `RING.bodyRadius < RING.ringRadius - 4.5`, a bare literal that never actually named
     // `selectionRadius` or `chairRadius`).
+    //
+    // "at any seat count" rests on `chairRadius(1)` actually being the maximum over every
+    // seat count — true (`min(4.5, arc / seats)` is non-increasing as `seats` grows, since
+    // `arc / seats` only shrinks and `min` with a shrinking value can't rise), but that was
+    // asserted nowhere (review, TT-44 fifth pass). Spot-checked here rather than reproved
+    // algebraically.
     const widestChair = chairRadius(1)
+    expect(chairRadius(50)).toBeLessThanOrEqual(widestChair)
     expect(RING.bodyRadius).toBeLessThan(RING.ringRadius - widestChair)
   })
 })
@@ -334,10 +341,17 @@ describe('SELECTION_ARC — the selected-state mark avoids the pin and the fill-
   })
 
   it("the arc's end stays clear of the pin's own angular span, with margin", () => {
-    const pinNearEdgeDeg = pinAngleDeg + pinHalfWidthDeg // the edge closest to the arc's end
+    // Review, TT-44 (fifth pass): this used to add the half-width, landing on the pin's *far*
+    // edge (-37.30°) and reporting 22.70° of clearance against the arc's real -60° end — the
+    // test that was supposed to catch the collision could not, since even `endDeg = -45`
+    // (dead on the pin's own centre) would have passed both assertions. The edge closest to
+    // the arc's end (which is more negative than the pin) is the pin's *lower* edge, so it is
+    // the angle minus the half-width.
+    const pinNearEdgeDeg = pinAngleDeg - pinHalfWidthDeg
     expect(SELECTION_ARC.endDeg).toBeLessThan(pinNearEdgeDeg)
     // Not just clear — clear by more than a token amount, so a small future nudge to either
-    // side can't reopen the collision by accident.
+    // side can't reopen the collision by accident. The real margin is 7.30° (-52.70° to -60°);
+    // 2° leaves headroom to tighten either number later without this assertion itself lying.
     expect(pinNearEdgeDeg - SELECTION_ARC.endDeg).toBeGreaterThan(2)
   })
 
@@ -352,24 +366,33 @@ describe('SELECTION_ARC — the selected-state mark avoids the pin and the fill-
     expect(occupancyCrossingDeg).toBeGreaterThan(0)
     expect(SELECTION_ARC.startDeg).toBeLessThan(0)
     expect(SELECTION_ARC.endDeg).toBeLessThan(0)
-    expect(occupancyCrossingDeg).not.toBeCloseTo(SELECTION_ARC.startDeg, 0)
+    // Review, TT-44 (fifth pass): dropped a fourth assertion here that compared 30° against
+    // -150° and could never fail — the three checks above already establish the two ranges
+    // are on opposite sides of zero, which is the whole of what keeps them apart.
   })
 
-  it("the arc's closest approach to centre stays well above the heading number's own height, so the two can never share a point", () => {
-    // `.round .heading` sits at `top: 47.9%` — 2.1% of the viewBox *above* centre.
-    const headingDyPercent = 47.9 - 50
-    const headingDy = (headingDyPercent / 100) * RING.viewBox
-
+  /**
+   * Review, TT-44 (fifth pass). The heading's own line box (19.5px, `--t-heading`'s 15px/1.3)
+   * is fixed in CSS px while the arc's extent scales with the table — the same mechanism that
+   * caused the fill-count collision this whole pass exists to fix — so at `MIN_TABLE_SIZE` the
+   * two boxes *do* overlap in height (confirmed separately, in the browser). That overlap is
+   * harmless only because the heading's own glyphs are centred and narrow (the table's number,
+   * one or two digits) while the arc's lowest point sits well off to the side — not because the
+   * boxes never touch. The previous version of this test asserted the opposite (no height
+   * overlap), using the heading's *centre offset* rather than its height, inflated by an
+   * unexplained ×5 — asserting the box, not the ink, and wrong about the box too.
+   */
+  it("the arc's lowest point sits well clear of centre — away from where the heading's own centred, narrow digits are drawn, even though the two boxes overlap in height", () => {
     const startTheta = (SELECTION_ARC.startDeg * Math.PI) / 180
     const endTheta = (SELECTION_ARC.endDeg * Math.PI) / 180
-    // Both endpoints, not just one — the arc's closest approach to the horizontal centreline
-    // is whichever end has the smaller |sin|, and that is not always the same end.
-    const closestDy = Math.min(
-      Math.abs(RING.selectionRadius * Math.sin(startTheta)),
-      Math.abs(RING.selectionRadius * Math.sin(endTheta)),
-    )
+    // The arc's foot is whichever end sits closest to the horizontal centreline — the smaller
+    // |sin| — and that is not always the same end.
+    const footTheta = Math.abs(Math.sin(startTheta)) < Math.abs(Math.sin(endTheta)) ? startTheta : endTheta
+    const footX = RING.centre + RING.selectionRadius * Math.cos(footTheta)
 
-    expect(closestDy).toBeGreaterThan(Math.abs(headingDy) * 5)
+    // A generous bound, not a tight one: a fifth of the viewBox's own width is far more than a
+    // one- or two-digit table number, centred, could plausibly reach.
+    expect(Math.abs(footX - RING.centre)).toBeGreaterThan(RING.viewBox * 0.2)
   })
 
   it('is a 90° arc, not a full circle', () => {

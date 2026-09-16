@@ -190,17 +190,20 @@
    read at a glance regardless of occupancy. The chair widening above stays too — harmless, and
    still correct on an empty or partial round table's chairs — but it is no longer the thing
    carrying the state on its own there.
-   Review, TT-44 (fourth pass): a top table has no TableRing, so `--ring-stroke-width` and
-   `--ring-selection-stroke-width` are both no-ops for it, same as before — but `TopTableRow`
-   (the amendment, C3) reuses `.chairOccupied`/`.chairEmpty`, which *do* read
+   Review, TT-44 (fourth, fifth passes): a top table has no TableRing, so `--ring-stroke-width`
+   and `--ring-selection-stroke-width` are both no-ops for it, same as before — but
+   `TopTableRow` (the amendment, C3) reuses `.chairOccupied`/`.chairEmpty`, which *do* read
    `--ring-chair-stroke-width`, so a selected top table's own chairs widen exactly like a round
-   table's do. That is deliberate, not an oversight: neither the ticket nor its amendment asks
-   for a top-table selection state, and the chair widening is harmless even though §3 above
-   found the equivalent round-table version too faint to read alone — it is a free, low-cost
-   secondary signal, not a claim that the top table's selection reads clearly on its own. Giving
-   the top table its own arc was considered and rejected here: nothing has asked for one, and
-   its pill has no pin or fill-count text to dodge in the first place, so the round table's
-   whole reason for an arc over a chair-stroke bump does not apply to it. */
+   table's do. That widening is not secondary here the way it is on a round table — the arc
+   above is that table's primary signal, but the top table has no arc, so the chair widening is
+   the *whole* of its selected state, not a backup to something stronger. Deliberate, not an
+   oversight, for two reasons this table has that a round one didn't: `TOP_ROW`'s viewBox
+   (`ringGeometry.ts`) is a fixed 194 units regardless of table size, so its eight chairs sit
+   around 9px across, not the ~6px the round-table finding was about — and `aria-pressed` on
+   the face button (`PlanTable.tsx`) still carries the fact for anything not reading pixels,
+   whatever the chairs manage. Giving the top table its own arc was considered and rejected:
+   nothing has asked for one, and its pill has no pin or fill-count text to dodge in the first
+   place, so the round table's whole reason for reaching past the chairs does not apply to it. */
 .table[data-selected='true'] {
   --ring-stroke-width: 9px;
   --ring-chair-stroke-width: 2px;
