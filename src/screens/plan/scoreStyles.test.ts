@@ -27,6 +27,10 @@ import { fileURLToPath } from 'node:url'
  * the expanded rule gives it a token colour. A future edit that gives the resting rule a visible
  * colour, leaving only a hue swap between hover and expanded, fails the transparency check even
  * though it would still pass a same-properties-differ check.
+ *
+ * TT-46 adds `.publishState` to both PlanHeader.module.css and ScoreBreakdownPanel.module.css —
+ * the publishability line beside the score. Checked the same way: declared, never doubled up
+ * under a second selector, and no box-shadow anywhere in either file (KB-5).
  */
 
 const DIR = dirname(fileURLToPath(import.meta.url))
@@ -215,3 +219,31 @@ describe('ScoreBreakdownPanel.module.css — the list scrolls inside the fixed-w
     expect(rule?.body).toMatch(/min-height\s*:\s*0/)
   })
 })
+
+/**
+ * TT-46 (A13): the publishability line is the same ink in both states — "Can be published" and
+ * "Cannot be published" differ only in their words, never in colour, a tick or a shape (KB-5).
+ * `.publishState` must declare exactly one colour, full stop: a second declaration anywhere,
+ * under any attribute, class or state selector, would be the thing this test exists to catch,
+ * which is why `ruleBodiesFor`'s pattern is left open to match a compound selector too.
+ */
+function colorDeclarationsOf(bodies: string[]): string[] {
+  return bodies.flatMap((body) => [...body.matchAll(/(?:^|;)\s*color\s*:\s*([^;]+);?/g)].map((m) => (m[1] ?? '').trim()))
+}
+
+describe.each([['PlanHeader.module.css'], ['ScoreBreakdownPanel.module.css']] as const)(
+  '%s — .publishState declares exactly one colour, with no second colour under any selector (A13, TT-46)',
+  (fileName) => {
+    it('declares color exactly once across every rule matching .publishState', () => {
+      const bodies = ruleBodiesFor(readCss(fileName), /(?:^|[\s,])\.publishState\b/)
+      expect(bodies.length).toBeGreaterThan(0)
+
+      expect(colorDeclarationsOf(bodies)).toHaveLength(1)
+    })
+
+    it('declares no box-shadow anywhere in the file (KB-5: no shadows)', () => {
+      const css = stripComments(readCss(fileName))
+      expect(css).not.toMatch(/box-shadow/)
+    })
+  },
+)

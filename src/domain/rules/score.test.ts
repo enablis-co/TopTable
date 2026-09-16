@@ -3,12 +3,13 @@ import { scorePlan } from './score'
 import type { RuleOutcome, RuleReport } from './engine'
 
 /**
- * TT-16's arithmetic: `scorePlan` turns a `RuleReport`'s `outcomes` into one `PlanScore`. Written
- * against `RuleReport`/`RuleOutcome` (engine.ts's own exported types) and `PlanScore`/
- * `ScoreDimension` (score.ts's own exported types) — reading a type is not reading an
- * implementation. Does not open score.ts.
+ * TT-46's arithmetic (KB-8 "The arithmetic"): `scorePlan` turns a `RuleReport`'s `outcomes` into
+ * one `PlanScore` — the weighted mean of every rule's sub-score, hard and soft alike, a hard rule
+ * weighing 3 to a soft rule's 1 by default. Written against `RuleOutcome`/`RuleReport` (engine.ts's
+ * own exported types) and `PlanScore`/`ScoreDimension` (score.ts's own exported types) — reading a
+ * type is not reading an implementation. Does not open score.ts.
  *
- * Every arithmetic assertion below is hand-computed from TT-16's own formula (a rule's fit is
+ * Every arithmetic assertion below is hand-computed from KB-8's own formula (a rule's fit is
  * `1 − missed ÷ opportunities`, then the weighted mean on 0-100, plainly rounded) and never read
  * back from scorePlan's own output, so a defect that moves every dimension the same
  * plausible-looking way still shows up as a mismatch.
@@ -17,13 +18,19 @@ import type { RuleOutcome, RuleReport } from './engine'
  * nobody has seated yet is one such chance: a miss, but not a finding, because nothing about the
  * seating itself is wrong. `opportunities` and `missed` are set independently in the fixtures below
  * for exactly that reason.
+ *
+ * TT-46 superseded the soft-rules-only score TT-16 shipped. `makeOutcome` now defaults `weight` from
+ * `severity` (3 for hard, 1 for soft) rather than to a flat 1, because that is what the engine
+ * itself now hands `scorePlan` for a rule declaring no override — a fixture defaulting to the old
+ * flat 1 for a hard outcome would silently test a shape production code never produces.
  */
 
 function makeOutcome(overrides: Partial<RuleOutcome> & Pick<RuleOutcome, 'ruleId'>): RuleOutcome {
+  const severity = overrides.severity ?? 'soft'
   return {
-    severity: 'soft',
+    severity,
     description: `Fixture description for ${overrides.ruleId}`,
-    weight: 1,
+    weight: severity === 'hard' ? 3 : 1,
     opportunities: 0,
     missed: 0,
     ...overrides,
@@ -34,7 +41,7 @@ function makeReport(outcomes: RuleOutcome[]): RuleReport {
   return { violations: [], ruleCount: outcomes.length, outcomes }
 }
 
-describe('scorePlan — the weighted mean of soft sub-scores', () => {
+describe('scorePlan — the weighted mean of two soft sub-scores', () => {
   it('two soft rules, weight 1 each, fits 1.0 and 0.5, scores 75', () => {
     const report = makeReport([
       makeOutcome({ ruleId: 'perfect', opportunities: 4, missed: 0 }), // fit 1.0
@@ -62,12 +69,50 @@ describe('scorePlan — the weighted mean of soft sub-scores', () => {
   })
 })
 
-describe('scorePlan — a zero-opportunity soft rule drops out of the mean entirely', () => {
+describe('scorePlan — every rule contributes, hard and soft alike (A1)', () => {
+  it('a hard outcome (fit 0.5) and a soft outcome (fit 1.0), neither declaring a weight, score (3×0.5 + 1×1.0) / 4 = 63', () => {
+    const report = makeReport([
+      makeOutcome({ ruleId: 'hard-half', severity: 'hard', opportunities: 4, missed: 2 }), // fit 0.5
+      makeOutcome({ ruleId: 'soft-perfect', severity: 'soft', opportunities: 4, missed: 0 }), // fit 1.0
+    ])
+
+    // (3×0.5 + 1×1.0) / (3+1) = 2.5/4 = 0.625 → 63 (plain rounding of 62.5)
+    expect(scorePlan(report).score).toBe(63)
+  })
+
+  it('adding a hard outcome to a soft-only report changes the score — a hard rule is no longer invisible to it', () => {
+    const softOnly = makeReport([makeOutcome({ ruleId: 'soft-half', opportunities: 4, missed: 2 })]) // fit 0.5
+    const withHard = makeReport([
+      makeOutcome({ ruleId: 'soft-half', opportunities: 4, missed: 2 }),
+      makeOutcome({ ruleId: 'hard-zero', severity: 'hard', opportunities: 4, missed: 4 }), // fit 0.0
+    ])
+
+    expect(scorePlan(softOnly).score).toBe(50)
+    // (1×0.5 + 3×0.0) / (1+3) = 0.125 → 13 (plain rounding of 12.5)
+    expect(scorePlan(withHard).score).toBe(13)
+    expect(scorePlan(withHard).score).not.toBe(scorePlan(softOnly).score)
+  })
+})
+
+describe('scorePlan — a zero-opportunity soft rule drops out of the mean entirely (A5)', () => {
   it('adding a soft outcome with 0 opportunities to a report scoring 50 leaves it at 50', () => {
     const before = makeReport([makeOutcome({ ruleId: 'half', opportunities: 4, missed: 2 })])
     const after = makeReport([
       makeOutcome({ ruleId: 'half', opportunities: 4, missed: 2 }),
       makeOutcome({ ruleId: 'nothing-to-judge', opportunities: 0, missed: 0 }),
+    ])
+
+    expect(scorePlan(before).score).toBe(50)
+    expect(scorePlan(after).score).toBe(50)
+  })
+})
+
+describe('scorePlan — a zero-opportunity hard rule drops out of the mean entirely too (A5)', () => {
+  it('adding a hard outcome with 0 opportunities to a report scoring 50 leaves it at 50, never pulled toward 100', () => {
+    const before = makeReport([makeOutcome({ ruleId: 'half', opportunities: 4, missed: 2 })]) // soft, fit 0.5
+    const after = makeReport([
+      makeOutcome({ ruleId: 'half', opportunities: 4, missed: 2 }),
+      makeOutcome({ ruleId: 'hard-nothing-to-judge', severity: 'hard', opportunities: 0, missed: 0 }),
     ])
 
     expect(scorePlan(before).score).toBe(50)
@@ -100,36 +145,31 @@ describe('scorePlan — no cap, no floor: a 100 can hide a real finding', () => 
   })
 })
 
-describe('scorePlan — hard outcomes never move the score', () => {
-  it('the same soft outcomes score identically with and without hard outcomes present, including a hard outcome with many missed chances', () => {
-    const softOnly = makeReport([
-      makeOutcome({ ruleId: 'perfect', opportunities: 4, missed: 0 }),
-      makeOutcome({ ruleId: 'half', opportunities: 4, missed: 2 }),
-    ])
-    const withHard = makeReport([
-      makeOutcome({ ruleId: 'perfect', opportunities: 4, missed: 0 }),
-      makeOutcome({ ruleId: 'half', opportunities: 4, missed: 2 }),
-      makeOutcome({ ruleId: 'capacity', severity: 'hard', opportunities: 12, missed: 12 }),
-    ])
-
-    const softOnlyResult = scorePlan(softOnly)
-    const withHardResult = scorePlan(withHard)
-
-    expect(withHardResult.score).toBe(softOnlyResult.score)
-    expect(withHardResult.score).toBe(75)
-    expect(withHardResult.dimensions).toEqual(softOnlyResult.dimensions)
-  })
-})
-
-describe('scorePlan — weight defaults and coercion', () => {
-  it('an outcome with weight 1 (the default an undeclared rule weight resolves to) scores identically to one explicitly declaring weight 1', () => {
+describe('scorePlan — weight defaults and coercion (A3, A4)', () => {
+  it('an outcome with weight 1 (the default an undeclared soft rule weight resolves to) scores identically to one explicitly declaring weight 1', () => {
     const implicit = makeReport([makeOutcome({ ruleId: 'half', opportunities: 4, missed: 2 })])
     const explicit = makeReport([makeOutcome({ ruleId: 'half', opportunities: 4, missed: 2, weight: 1 })])
 
     expect(scorePlan(implicit)).toEqual(scorePlan(explicit))
   })
 
-  it('weights of 0, -2, NaN and Infinity each score identically to weight 1', () => {
+  it('an outcome with severity "hard" and no declared weight produces a dimension weight of 3; "soft" with none produces 1', () => {
+    const hardReport = makeReport([makeOutcome({ ruleId: 'hard-default', severity: 'hard', opportunities: 4, missed: 0 })])
+    const softReport = makeReport([makeOutcome({ ruleId: 'soft-default', severity: 'soft', opportunities: 4, missed: 0 })])
+
+    expect(scorePlan(hardReport).dimensions[0]?.weight).toBe(3)
+    expect(scorePlan(softReport).dimensions[0]?.weight).toBe(1)
+  })
+
+  it('an outcome declaring weight: 5 produces a dimension of weight 5, at either severity', () => {
+    const hardReport = makeReport([makeOutcome({ ruleId: 'hard-five', severity: 'hard', weight: 5, opportunities: 4, missed: 0 })])
+    const softReport = makeReport([makeOutcome({ ruleId: 'soft-five', severity: 'soft', weight: 5, opportunities: 4, missed: 0 })])
+
+    expect(scorePlan(hardReport).dimensions[0]?.weight).toBe(5)
+    expect(scorePlan(softReport).dimensions[0]?.weight).toBe(5)
+  })
+
+  it('weights of 0, -2, NaN and Infinity on a soft outcome each score identically to weight 1', () => {
     // Two outcomes so weight actually has something to weigh against — with only one outcome,
     // weight cancels out of the mean regardless of its value, which would prove nothing.
     function scoreWithFirstWeight(weight: number): number | null {
@@ -147,6 +187,28 @@ describe('scorePlan — weight defaults and coercion', () => {
 
     for (const badWeight of [0, -2, Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(scoreWithFirstWeight(badWeight)).toBe(reference)
+    }
+  })
+
+  it('an invalid weight on a hard outcome falls back to 3, the hard default, never to the soft default of 1', () => {
+    function scoreWithFirstWeight(weight: number): number | null {
+      return scorePlan(
+        makeReport([
+          makeOutcome({ ruleId: 'first', severity: 'hard', weight, opportunities: 4, missed: 0 }), // fit 1.0
+          makeOutcome({ ruleId: 'second', severity: 'hard', weight: 5, opportunities: 4, missed: 4 }), // fit 0.0
+        ]),
+      ).score
+    }
+
+    // (3×1.0 + 5×0.0) / (3+5) = 0.375 → 37.5 → rounds to 38
+    const fallsBackToThree = scoreWithFirstWeight(3)
+    expect(fallsBackToThree).toBe(38)
+    // Sanity: the soft default (1) would give a visibly different figure — (1×1.0+5×0.0)/6 ≈
+    // 16.67 → 17 — so this reference is actually capable of catching the wrong fallback.
+    expect(scoreWithFirstWeight(1)).toBe(17)
+
+    for (const badWeight of [0, -2, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(scoreWithFirstWeight(badWeight)).toBe(fallsBackToThree)
     }
   })
 })
@@ -194,16 +256,11 @@ describe('scorePlan — a rule reporting more missed chances than opportunities 
   })
 })
 
-describe('scorePlan — the score is null, never 0, when there is nothing to say', () => {
+describe('scorePlan — the score is null, never 0, when there is nothing to say (A6)', () => {
   it('no outcomes at all scores null, and null is not 0', () => {
     const result = scorePlan(makeReport([]))
     expect(result.score).toBeNull()
     expect(result.score).not.toBe(0)
-  })
-
-  it('only hard outcomes scores null', () => {
-    const report = makeReport([makeOutcome({ ruleId: 'capacity', severity: 'hard', opportunities: 10, missed: 2 })])
-    expect(scorePlan(report).score).toBeNull()
   })
 
   it('soft outcomes present, but every one has 0 opportunities, scores null', () => {
@@ -212,6 +269,21 @@ describe('scorePlan — the score is null, never 0, when there is nothing to say
       makeOutcome({ ruleId: 'nothing-b', opportunities: 0, missed: 0 }),
     ])
     expect(scorePlan(report).score).toBeNull()
+  })
+
+  it('outcomes present at both severities, but every one with 0 opportunities, scores null', () => {
+    const report = makeReport([
+      makeOutcome({ ruleId: 'nothing-hard', severity: 'hard', opportunities: 0, missed: 0 }),
+      makeOutcome({ ruleId: 'nothing-soft', severity: 'soft', opportunities: 0, missed: 0 }),
+    ])
+    expect(scorePlan(report).score).toBeNull()
+  })
+
+  it('a hard outcome alone, with real opportunities, produces a real score rather than null (A1) — hard rules are no longer excluded from scoring entirely', () => {
+    const report = makeReport([makeOutcome({ ruleId: 'capacity', severity: 'hard', opportunities: 10, missed: 2 })])
+
+    // 1 − 2/10 = 0.8 → 80
+    expect(scorePlan(report).score).toBe(80)
   })
 })
 
@@ -234,41 +306,70 @@ describe('scorePlan — deterministic and order-independent', () => {
     expect(reversed.score).toBe(forward.score)
     expect(reversed.dimensions).toEqual(forward.dimensions)
   })
+
+  it('the same holds for a mix of hard and soft outcomes', () => {
+    const mixed = [
+      makeOutcome({ ruleId: 'hard-a', severity: 'hard', opportunities: 4, missed: 1 }),
+      makeOutcome({ ruleId: 'soft-a', severity: 'soft', opportunities: 4, missed: 2 }),
+      makeOutcome({ ruleId: 'hard-b', severity: 'hard', opportunities: 6, missed: 6 }),
+    ]
+    const forward = scorePlan(makeReport(mixed))
+    const reversed = scorePlan(makeReport([...mixed].reverse()))
+
+    expect(reversed.score).toBe(forward.score)
+    expect(reversed.dimensions).toEqual(forward.dimensions)
+  })
 })
 
-describe('scorePlan — dimensions carry every field, and exclude hard rules and zero-opportunity soft rules', () => {
-  it('dimensions include only the scoring soft rule, with its full shape', () => {
+describe('scorePlan — dimensions carry every field, and exclude only zero-opportunity rules, at either severity', () => {
+  it('dimensions include the scoring hard rule and the scoring soft rule, each with its full shape, and exclude the zero-opportunity one', () => {
     const report = makeReport([
       makeOutcome({
         ruleId: 'the-soft-one',
+        severity: 'soft',
         description: 'Fixture describing this soft rule, verbatim',
         weight: 2,
         opportunities: 8,
         missed: 3,
       }),
-      makeOutcome({ ruleId: 'the-hard-one', severity: 'hard', opportunities: 10, missed: 1 }),
+      makeOutcome({
+        ruleId: 'the-hard-one',
+        severity: 'hard',
+        description: 'Fixture describing this hard rule, verbatim',
+        opportunities: 10,
+        missed: 1,
+      }),
       makeOutcome({ ruleId: 'the-empty-soft-one', opportunities: 0, missed: 0 }),
     ])
 
     const { dimensions } = scorePlan(report)
 
-    expect(dimensions).toHaveLength(1)
-    const [dimension] = dimensions
-    expect(dimension).toMatchObject({
-      ruleId: 'the-soft-one',
+    expect(dimensions).toHaveLength(2)
+    expect(dimensions.some((d) => d.ruleId === 'the-empty-soft-one')).toBe(false)
+
+    const softDimension = dimensions.find((d) => d.ruleId === 'the-soft-one')
+    expect(softDimension).toMatchObject({
+      severity: 'soft',
       description: 'Fixture describing this soft rule, verbatim',
       weight: 2,
       opportunities: 8,
       missed: 3,
     })
-    // 1 - 3/8 = 0.625
-    expect(dimension?.fit).toBeCloseTo(0.625, 10)
-    expect(dimensions.some((d) => d.ruleId === 'the-hard-one')).toBe(false)
-    expect(dimensions.some((d) => d.ruleId === 'the-empty-soft-one')).toBe(false)
+    expect(softDimension?.fit).toBeCloseTo(0.625, 10)
+
+    const hardDimension = dimensions.find((d) => d.ruleId === 'the-hard-one')
+    expect(hardDimension).toMatchObject({
+      severity: 'hard',
+      description: 'Fixture describing this hard rule, verbatim',
+      weight: 3, // no override declared — the hard default
+      opportunities: 10,
+      missed: 1,
+    })
+    expect(hardDimension?.fit).toBeCloseTo(0.9, 10)
   })
 })
 
-describe('scorePlan — dimensions come back worst-first', () => {
+describe('scorePlan — dimensions come back worst-first within a severity', () => {
   it('a dimension costing weight × (1 − fit) of 1.5 precedes one costing 0.25', () => {
     const report = makeReport([
       // Listed cheap-first in the input, so ordering only holds if scorePlan actually sorts.
@@ -292,6 +393,39 @@ describe('scorePlan — dimensions come back worst-first', () => {
 
     const { dimensions } = scorePlan(tiedReport)
     expect(dimensions.map((d) => d.ruleId)).toEqual(['a-rule', 'b-rule'])
+  })
+})
+
+describe('scorePlan — dimensions list every hard rule before every soft one, regardless of cost (A9)', () => {
+  it('a low-cost hard dimension precedes a high-cost soft dimension — the opposite of pure worst-first', () => {
+    const report = makeReport([
+      // Listed soft-first, and the soft one costs far more (weight × (1−fit) = 1×1 = 1) than the
+      // hard one (weight × (1−fit) = 3×0.01 = 0.03) — a worst-first-only sort would put the soft
+      // dimension first; hard-before-soft must still win.
+      makeOutcome({ ruleId: 'soft-costly', severity: 'soft', opportunities: 4, missed: 4 }), // fit 0.0
+      makeOutcome({ ruleId: 'hard-cheap', severity: 'hard', opportunities: 100, missed: 1 }), // fit 0.99
+    ])
+
+    const { dimensions } = scorePlan(report)
+    expect(dimensions.map((d) => d.ruleId)).toEqual(['hard-cheap', 'soft-costly'])
+  })
+
+  it('several hard and soft outcomes interleaved in the input come back with every hard dimension before every soft one', () => {
+    const report = makeReport([
+      makeOutcome({ ruleId: 'soft-a', severity: 'soft', opportunities: 4, missed: 1 }),
+      makeOutcome({ ruleId: 'hard-a', severity: 'hard', opportunities: 4, missed: 1 }),
+      makeOutcome({ ruleId: 'soft-b', severity: 'soft', opportunities: 4, missed: 3 }),
+      makeOutcome({ ruleId: 'hard-b', severity: 'hard', opportunities: 4, missed: 3 }),
+    ])
+
+    const { dimensions } = scorePlan(report)
+    const severityOf = (ruleId: string) => dimensions.find((d) => d.ruleId === ruleId)?.severity
+    const hardIndexes = dimensions.map((d, i) => (d.severity === 'hard' ? i : -1)).filter((i) => i >= 0)
+    const softIndexes = dimensions.map((d, i) => (d.severity === 'soft' ? i : -1)).filter((i) => i >= 0)
+
+    expect(Math.max(...hardIndexes)).toBeLessThan(Math.min(...softIndexes))
+    expect(severityOf('hard-a')).toBe('hard')
+    expect(severityOf('soft-a')).toBe('soft')
   })
 })
 

@@ -32,6 +32,13 @@ import type { ScenarioId } from '../scenarios'
  * the resulting count comes out wrong; `contract.ts`'s `RulePlan` now makes `unseated` mandatory,
  * so that construction is a compile error, not a runtime outcome. `engine.test.ts`'s
  * `PlanSoFar`-is-not-`RulePlan` assignability marker is where this guarantee lives instead.
+ *
+ * TT-46: every rule now scores, hard and soft alike, so "a complete plan beats an incomplete one"
+ * is hand-recomputed below from KB-8's formula rather than left at a bare `toBeGreaterThan` — both
+ * capacity and partners-adjacent now contribute, and the exact figures (95, 80) are pinned so a
+ * regression in either dimension's contribution shows up as a mismatch rather than a still-true
+ * inequality. A10 gains a hard-severity counterpart to the existing soft one, and A12 gains a
+ * shuffled-order pass over the real registry, alongside registry.test.ts's own reversed-order one.
  */
 
 function makeOutcome(overrides: Partial<RuleOutcome> & Pick<RuleOutcome, 'ruleId'>): RuleOutcome {
@@ -162,6 +169,16 @@ describe('scorePlan — a complete plan beats an incomplete one, on the same gue
     expect(complete.score).not.toBeNull()
     expect(mostlyUnseated.score).not.toBeNull()
     expect(complete.score as number).toBeGreaterThan(mostlyUnseated.score as number)
+
+    // Hand-computed from KB-8 (A11), now that capacity and partners-adjacent both score:
+    // Complete: capacity fit 1.0 (12 opportunities — one per table — 0 missed, weight 3);
+    // partners-adjacent fit 0.8 (10 opportunities, 2 missed — the two split pairs, each a finding
+    // across two tables), weight 1. (3×1.0 + 1×0.8) / 4 = 3.8/4 = 0.95 → 95.
+    // Mostly unseated: capacity fit 1.0 (2 opportunities, 0 missed, weight 3); partners-adjacent
+    // fit 0.2 (10 opportunities, 8 missed — the eight wholly-unseated pairs), weight 1.
+    // (3×1.0 + 1×0.2) / 4 = 3.2/4 = 0.8 → 80.
+    expect(complete.score).toBe(95)
+    expect(mostlyUnseated.score).toBe(80)
   })
 })
 
@@ -241,6 +258,65 @@ describe('scorePlan — every soft rule contributes, and a rule the scorer has n
   })
 })
 
+describe('scorePlan — a hard fixture rule the scorer has never heard of also moves the score, and sorts ahead of every soft dimension (A10, TT-46)', () => {
+  function makePlan(): RulePlan {
+    return {
+      tables: [
+        {
+          id: 'round-1',
+          kind: 'round',
+          number: 1,
+          label: 'Table 1',
+          capacity: 4,
+          seats: [null, null, null, null],
+          overflow: [],
+        },
+      ],
+      unseated: [],
+    }
+  }
+
+  function fixtureRule(overrides: {
+    id: string
+    description?: string
+    weight?: number
+    severity?: Severity
+    remedy?: Remedy
+    evaluate?: (plan: GuardPlan) => RuleAssessment
+  }): SeatingRule {
+    return {
+      severity: 'soft',
+      remedy: 'seating',
+      description: `Fixture rule ${overrides.id}, invented for this test alone`,
+      evaluate: () => ({ findings: [], opportunities: 0, missed: 0 }),
+      ...overrides,
+    }
+  }
+
+  it('a hard fixture rule changes the score, with no rule id named in the scoring code, and lands ahead of the soft dimension', () => {
+    const softRule = fixtureRule({
+      id: 'fixture-soft',
+      evaluate: () => ({ findings: [], opportunities: 4, missed: 2 }), // fit 0.5
+    })
+    const hardRule = fixtureRule({
+      id: 'fixture-hard',
+      severity: 'hard',
+      evaluate: () => ({ findings: [], opportunities: 4, missed: 0 }), // fit 1.0
+    })
+    const plan = makePlan()
+
+    const softOnlyScore = scorePlan(evaluatePlan(plan, [softRule])).score
+    const withHardResult = scorePlan(evaluatePlan(plan, [softRule, hardRule]))
+
+    // Soft alone: 1 - 2/4 = 0.5 → 50. With the hard rule added at its default weight of 3:
+    // (3×1.0 + 1×0.5) / (3+1) = 3.5/4 = 0.875 → 88 (plain rounding of 87.5).
+    expect(softOnlyScore).toBe(50)
+    expect(withHardResult.score).toBe(88)
+    expect(withHardResult.score).not.toBe(softOnlyScore)
+    expect(withHardResult.dimensions.map((d) => d.ruleId)).toEqual(['fixture-hard', 'fixture-soft'])
+  })
+})
+
 const DIR = dirname(fileURLToPath(import.meta.url))
 
 type ScenarioFixture = { meta: { tables: RoomConfig }; guests: Guest[] }
@@ -259,5 +335,21 @@ describe('scorePlan — reaches whatever is registered through the glob alone, w
     const throughDirectRules = scorePlan(evaluatePlan(plan, REGISTERED_RULES))
 
     expect(throughRegistry).toEqual(throughDirectRules)
+  })
+})
+
+describe('scorePlan — the registered rules in shuffled order still produce an identical score (A12, TT-46)', () => {
+  it('a fixed, non-trivial reordering of REGISTERED_RULES scores the same plan identically, dimensions and order included', () => {
+    const { meta, guests } = readScenario('adding-up')
+    const plan = allocate(meta.tables, guests, [])
+    // A rotation by one, not the reversal registry.test.ts's own order-independence check already
+    // uses — a rule that happened to be order-independent only under a full reversal would still
+    // pass that check and fail this one.
+    const shuffled = [...REGISTERED_RULES.slice(1), ...REGISTERED_RULES.slice(0, 1)]
+
+    const forward = scorePlan(evaluatePlan(plan, REGISTERED_RULES))
+    const reordered = scorePlan(evaluatePlan(plan, shuffled))
+
+    expect(reordered).toEqual(forward)
   })
 })
