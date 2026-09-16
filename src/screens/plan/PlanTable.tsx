@@ -69,12 +69,16 @@ type PlanTableProps = {
  * own text runs) is silently dropped — the face below carries an explicit `{' '}` between such
  * siblings for exactly that reason.
  *
- * TT-35: `TableRing` (round tables only) renders first inside the face, before `.heading`. It
- * needs no `{' '}` boundary of its own — it is `aria-hidden` and carries no text, so it is
- * invisible to name-from-content entirely, unlike every other sibling in this file. The top
- * table's own middot separator (below) is the same: a real `aria-hidden` element, not a CSS
- * `::after` — generated content participates in Chrome's accessible-name computation but not
- * jsdom's, which would make the two disagree silently.
+ * TT-35/TT-44 built `TableRing` and `TopTableRow` as children of the face, inside `faceContent`
+ * below; TT-36 moved both out to be siblings of the face `Button` instead (see the comment where
+ * they render). A focusable, named chair — which the floorplan half of TT-36 requires — is
+ * invalid content for a button element and would join its accessible name via name-from-content;
+ * staying outside the button is what keeps this file's whole "no aria-label displaces the
+ * visible text" guarantee true regardless of what a chair itself carries. The top table's own
+ * middot separator
+ * (below) stays a real `aria-hidden` element inside the button, not a CSS `::after` — generated
+ * content participates in Chrome's accessible-name computation but not jsdom's, which would make
+ * the two disagree silently.
  */
 export function PlanTable({
   slot,
@@ -97,14 +101,6 @@ export function PlanTable({
 
   const faceContent = (
     <>
-      {slot.kind === 'round' && (
-        <TableRing
-          seats={slot.capacity}
-          pinned={isPinned}
-          seatGuestIds={seatGuestIds}
-          tableSize={tableSize}
-        />
-      )}
       <p className={styles.heading}>
         {slot.kind === 'round' && !placing && <span className="tt-visually-hidden">Table </span>}
         {slot.kind === 'top' ? slot.label : slot.number}
@@ -133,14 +129,21 @@ export function PlanTable({
       data-violation={isViolating ? 'true' : undefined}
       data-selected={selected ? 'true' : undefined}
     >
-      {/* TT-44 (amendment, C3-C3d): the top table's own chair row, a sibling of the face below
-          rather than a child of it — it sits above the pill, in this <li>'s own padding, never
-          over the always-slate face, so it needs none of the face's own layout and cannot
-          affect the button's accessible name by construction. Round tables render their
-          equivalent (TableRing) inside the face instead, because that one has to share the
-          face's own grid with the visible number (TT-15) — the two tables' shapes differ enough
-          that reusing one path for both would be the wrong kind of consistency. */}
+      {/* TT-44 (amendment, C3-C3d), TT-36 (structural move): the chair row/ring is a sibling of
+          the face below, never a child of it — a focusable chair inside a button element is
+          invalid HTML, and a named one would join the button's own accessible name via
+          name-from-content (TT-36's governing trap; see PlanTable.test.tsx's rescoped aria-label
+          assertions). Round
+          and top tables each render their own shape here (TableRing's clock face, TopTableRow's
+          single line) — the two differ enough that reusing one path for both would be the wrong
+          kind of consistency. Rendered before the button, matching this pair's own DOM-tree-order
+          paint rule: .table's container-type makes it a stacking context, so these
+          position:absolute, z-index:auto siblings paint in tree order, under the button's own
+          positioned heading/occupancy text (PlanTable.module.css). */}
       {slot.kind === 'top' && <TopTableRow seats={slot.capacity} seatGuestIds={seatGuestIds} />}
+      {slot.kind === 'round' && (
+        <TableRing seats={slot.capacity} pinned={isPinned} seatGuestIds={seatGuestIds} tableSize={tableSize} />
+      )}
       <Button
         variant="quiet"
         className={styles.face}
