@@ -308,3 +308,5 @@ Outputs:
 
   NameServers:
     Value: !Join [',', !GetAtt HostedZone.NameServers]
+
+# TT-41 diagnostic touch: comment-only, so CloudFormation sees no change.
