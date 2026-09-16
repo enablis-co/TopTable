@@ -8,7 +8,7 @@ import {
   tablesWithHardViolation,
   withSeat,
 } from './engine'
-import type { Finding, RulePlan, SeatingRule } from './contract'
+import type { Finding, GuardPlan, Remedy, RuleAssessment, RulePlan, SeatingRule, Severity } from './contract'
 import type { PlanSoFar } from '../allocate'
 import type { Guest } from '../types'
 
@@ -18,6 +18,16 @@ import type { Guest } from '../types'
  * TT-14's acceptance criteria and the engine's own documented contract, against fixture rules
  * defined inline — the glob in registry.ts is registry.test.ts's concern, not this file's. Does
  * not open engine.ts, contract.ts or registry.ts.
+ *
+ * TT-16: `evaluate` now returns `{ findings, opportunities, missed }` (`RuleAssessment`) rather
+ * than a bare array, and `evaluatePlan` also builds one `RuleOutcome` per rule into
+ * `report.outcomes`. `makeRule`'s default and every fixture below are wrapped for that shape; no
+ * existing assertion changes, only the fixture return shape.
+ *
+ * `missed` is a rule's count of chances it did not take — distinct from `findings.length`, the
+ * count of what is actually wrong with the seating. Nothing in this file's own fixtures needs the
+ * two to differ, so `assessment()` defaults `missed` to the same value as `opportunities` unless a
+ * fixture asks for something else; the distinction itself belongs to score.ts's own suite.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -61,15 +71,40 @@ function makePlan(): RulePlan {
         overflow: [],
       },
     ],
+    unseated: [],
   }
 }
 
-function makeRule(overrides: Partial<SeatingRule> & Pick<SeatingRule, 'id'>): SeatingRule {
+/** Wraps a bare findings array as the `RuleAssessment` shape `evaluate` now returns, with
+ *  `opportunities` and `missed` both defaulting to the findings count so the domain invariant
+ *  (`findings.length <= missed <= opportunities`) holds trivially wherever a fixture doesn't care. */
+function assessment(
+  findings: readonly Finding[],
+  opportunities = findings.length,
+  missed = findings.length,
+): RuleAssessment {
+  return { findings, opportunities, missed }
+}
+
+/** A fixture rule's own `evaluate` only ever needs `plan.tables` — none of this file's fixtures
+ *  read the guest list — so every one is written against `GuardPlan`. `GuardPlan` is assignable
+ *  wherever `RulePlan` is expected (it has everything `RulePlan` needs, plus nothing extra to
+ *  omit), so one such fixture serves every severity/remedy combination `SeatingRule` allows. */
+type RuleOverrides = {
+  id: string
+  description?: string
+  weight?: number
+  severity?: Severity
+  remedy?: Remedy
+  evaluate?: (plan: GuardPlan) => RuleAssessment
+}
+
+function makeRule(overrides: RuleOverrides): SeatingRule {
   return {
     severity: 'hard',
     remedy: 'seating',
     description: `fixture rule ${overrides.id}`,
-    evaluate: () => [],
+    evaluate: () => assessment([]),
     ...overrides,
   }
 }
@@ -82,7 +117,12 @@ describe("evaluatePlan — a finding is stamped with its own rule's id, severity
       message: 'fixture message',
       detail: 'fixture detail',
     }
-    const rule = makeRule({ id: 'fixture-hard-flag', severity: 'hard', remedy: 'flag', evaluate: () => [finding] })
+    const rule = makeRule({
+      id: 'fixture-hard-flag',
+      severity: 'hard',
+      remedy: 'flag',
+      evaluate: () => assessment([finding]),
+    })
 
     const report = evaluatePlan(makePlan(), [rule])
 
@@ -93,7 +133,7 @@ describe("evaluatePlan — a finding is stamped with its own rule's id, severity
     const rule = makeRule({
       id: 'fixture-soft',
       severity: 'soft',
-      evaluate: () => [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'soft finding' }],
+      evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'soft finding' }]),
     })
 
     const report = evaluatePlan(makePlan(), [rule])
@@ -106,7 +146,10 @@ describe("evaluatePlan — a finding is stamped with its own rule's id, severity
 
 describe('evaluatePlan — ruleCount reflects exactly the rules passed in (TT-14; TT-16)', () => {
   it('counts every rule given, whether or not it fires', () => {
-    const firing = makeRule({ id: 'fires', evaluate: () => [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }] })
+    const firing = makeRule({
+      id: 'fires',
+      evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }]),
+    })
     const quiet1 = makeRule({ id: 'quiet-1' })
     const quiet2 = makeRule({ id: 'quiet-2' })
 
@@ -115,10 +158,10 @@ describe('evaluatePlan — ruleCount reflects exactly the rules passed in (TT-14
     expect(report.ruleCount).toBe(3)
   })
 
-  it('an empty rule list yields no violations and a ruleCount of 0 — nothing registered is not a failure', () => {
+  it('an empty rule list yields no violations, a ruleCount of 0 and no outcomes — nothing registered is not a failure', () => {
     const report = evaluatePlan(makePlan(), [])
 
-    expect(report).toEqual({ violations: [], ruleCount: 0 })
+    expect(report).toEqual({ violations: [], ruleCount: 0, outcomes: [] })
   })
 })
 
@@ -128,19 +171,19 @@ describe('hardViolations, softViolations, hardViolationCount and tablesWithHardV
       id: 'hard-rule',
       severity: 'hard',
       remedy: 'seating',
-      evaluate: () => [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'hard finding' }],
+      evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'hard finding' }]),
     })
     const softRule = makeRule({
       id: 'soft-rule',
       severity: 'soft',
       remedy: 'seating',
-      evaluate: () => [{ tableIds: ['round-2'], guestIds: ['g-2'], message: 'soft finding' }],
+      evaluate: () => assessment([{ tableIds: ['round-2'], guestIds: ['g-2'], message: 'soft finding' }]),
     })
     const secondHardRule = makeRule({
       id: 'hard-rule-2',
       severity: 'hard',
       remedy: 'flag',
-      evaluate: () => [{ tableIds: ['round-2'], guestIds: ['g-3'], message: 'second hard finding' }],
+      evaluate: () => assessment([{ tableIds: ['round-2'], guestIds: ['g-3'], message: 'second hard finding' }]),
     })
 
     const report = evaluatePlan(makePlan(), [hardRule, softRule, secondHardRule])
@@ -158,6 +201,75 @@ describe('hardViolations, softViolations, hardViolationCount and tablesWithHardV
     expect(softViolations(report)).toEqual([])
     expect(hardViolationCount(report)).toBe(0)
     expect(tablesWithHardViolation(report)).toEqual(new Set())
+  })
+})
+
+describe('evaluatePlan — outcomes: one per rule, in order, whether or not it fired (TT-16)', () => {
+  it('returns one outcome per rule given, in the order given', () => {
+    const firing = makeRule({
+      id: 'fires',
+      evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }]),
+    })
+    const quiet1 = makeRule({ id: 'quiet-1' })
+    const quiet2 = makeRule({ id: 'quiet-2' })
+
+    const report = evaluatePlan(makePlan(), [firing, quiet1, quiet2])
+
+    expect(report.outcomes.map((outcome) => outcome.ruleId)).toEqual(['fires', 'quiet-1', 'quiet-2'])
+  })
+
+  it("each outcome carries the rule's own ruleId, severity, description, opportunities and missed count, taken from the assessment unchanged", () => {
+    const rule = makeRule({
+      id: 'fixture-outcome',
+      severity: 'soft',
+      remedy: 'seating',
+      description: 'Fixture rule description, verbatim',
+      evaluate: () =>
+        assessment(
+          [
+            { tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' },
+            { tableIds: ['round-2'], guestIds: ['g-2'], message: 'y' },
+          ],
+          5, // opportunities
+          // missed, deliberately not equal to findings.length (2) — proves the outcome carries
+          // the assessment's own missed count rather than deriving one from the findings array.
+          3,
+        ),
+    })
+
+    const report = evaluatePlan(makePlan(), [rule])
+    const [outcome] = report.outcomes
+
+    expect(outcome).toMatchObject({
+      ruleId: 'fixture-outcome',
+      severity: 'soft',
+      description: 'Fixture rule description, verbatim',
+      opportunities: 5,
+      missed: 3,
+    })
+    expect(softViolations(report)).toHaveLength(2)
+  })
+
+  it("an outcome's weight is the rule's declared weight, or 1 where it declares none", () => {
+    const weighted = makeRule({ id: 'weighted', weight: 3 })
+    const unweighted = makeRule({ id: 'unweighted' })
+
+    const report = evaluatePlan(makePlan(), [weighted, unweighted])
+
+    expect(report.outcomes.find((outcome) => outcome.ruleId === 'weighted')?.weight).toBe(3)
+    expect(report.outcomes.find((outcome) => outcome.ruleId === 'unweighted')?.weight).toBe(1)
+  })
+
+  it('outcomes.length equals ruleCount for every report, firing or quiet, many rules or none', () => {
+    const reports = [
+      evaluatePlan(makePlan(), []),
+      evaluatePlan(makePlan(), [makeRule({ id: 'solo' })]),
+      evaluatePlan(makePlan(), [makeRule({ id: 'a' }), makeRule({ id: 'b' }), makeRule({ id: 'c' })]),
+    ]
+
+    for (const report of reports) {
+      expect(report.outcomes.length).toBe(report.ruleCount)
+    }
   })
 })
 
@@ -193,7 +305,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
       remedy: 'seating',
       evaluate: (plan) => {
         const table = plan.tables.find((t) => t.seats.some((seat) => seat?.guest.id === 'g-1'))
-        return table ? [{ tableIds: [table.id], guestIds: ['g-1'], message: 'blocked' }] : []
+        return assessment(table ? [{ tableIds: [table.id], guestIds: ['g-1'], message: 'blocked' }] : [])
       },
     })
     const guard = seatGuardFrom([rule])
@@ -208,7 +320,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
       id: 'soft-rule',
       severity: 'soft',
       remedy: 'seating',
-      evaluate: () => [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'soft objection' }],
+      evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'soft objection' }]),
     })
     const guard = seatGuardFrom([rule])
 
@@ -220,7 +332,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
       id: 'hard-flag',
       severity: 'hard',
       remedy: 'flag',
-      evaluate: () => [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'flagged, not fixable by seating' }],
+      evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'flagged, not fixable by seating' }]),
     })
     const guard = seatGuardFrom([rule])
 
@@ -232,13 +344,13 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
       id: 'wrong-guest',
       severity: 'hard',
       remedy: 'seating',
-      evaluate: () => [{ tableIds: ['round-1'], guestIds: ['someone-else'], message: 'x' }],
+      evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['someone-else'], message: 'x' }]),
     })
     const namesWrongTable = makeRule({
       id: 'wrong-table',
       severity: 'hard',
       remedy: 'seating',
-      evaluate: () => [{ tableIds: ['round-2'], guestIds: ['g-1'], message: 'x' }],
+      evaluate: () => assessment([{ tableIds: ['round-2'], guestIds: ['g-1'], message: 'x' }]),
     })
     const candidate = { plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1') }
 
@@ -258,13 +370,13 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
         id: 'soft',
         severity: 'soft',
         remedy: 'seating',
-        evaluate: () => [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }],
+        evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }]),
       }),
       makeRule({
         id: 'flag',
         severity: 'hard',
         remedy: 'flag',
-        evaluate: () => [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }],
+        evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }]),
       }),
     ]
     const guard = seatGuardFrom(onlySoftAndFlag)
@@ -280,7 +392,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
       evaluate: (plan) => {
         const table = plan.tables.find((t) => t.id === 'round-1')
         const seated = table?.seats.some((seat) => seat?.guest.id === 'g-1') ?? false
-        return seated ? [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }] : []
+        return assessment(seated ? [{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }] : [])
       },
     })
     const guard = seatGuardFrom([seesTheCandidateSeated])
@@ -291,14 +403,17 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
   })
 })
 
-describe('RulePlan and PlanSoFar are the same shape, checked at compile time', () => {
-  it("is mutually assignable with allocate.ts's PlanSoFar, so one evaluate can serve both the report and the guard", () => {
-    // As with the seats-readonly marker (commit 2de627a): if the two types were not mutually
-    // assignable, this alias would resolve to `false`, and assigning `true` to it would fail
+describe('RulePlan and PlanSoFar are deliberately not interchangeable, checked at compile time', () => {
+  it("PlanSoFar cannot stand in for RulePlan — a scoring rule can never be handed the solver's speculative, guest-list-less plan and silently compute its denominator from seated guests alone", () => {
+    // RulePlan (tables and unseated, both mandatory) is assignable to PlanSoFar (tables only): it
+    // has everything PlanSoFar needs, and more. The reverse must not hold — PlanSoFar carries no
+    // guest list at all, so handing one to something typed for RulePlan must fail to typecheck.
+    // As with the seats-readonly marker (commit 2de627a): if PlanSoFar were still assignable to
+    // RulePlan, this alias would resolve to `true`, and assigning `false` to it would fail
     // typecheck rather than this runtime assertion.
-    type BothWays = RulePlan extends PlanSoFar ? (PlanSoFar extends RulePlan ? true : false) : false
-    const marker: BothWays = true
+    type PlanSoFarStandsInForRulePlan = PlanSoFar extends RulePlan ? true : false
+    const marker: PlanSoFarStandsInForRulePlan = false
 
-    expect(marker).toBe(true)
+    expect(marker).toBe(false)
   })
 })

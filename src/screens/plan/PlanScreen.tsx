@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useTopTableStore } from '../../store/store'
 import { useNavigation } from '../../shell/navigation'
@@ -8,19 +8,31 @@ import { normaliseRoom, seatPins, tablesInRoom } from '../../domain/seating'
 import { allocate } from '../../domain/allocate'
 import { evaluateRegistered, registeredSeatGuard } from '../../domain/rules/registry'
 import { tablesWithHardViolation } from '../../domain/rules/engine'
+import { scorePlan } from '../../domain/rules/score'
 import { isTopTableIncomplete } from '../setup/roomCompleteness'
 import { seatingViewFrom, planTotals } from './floorplan'
+import { pinnedGuestsIn } from './pinnedGuests'
+import { VIOLATIONS, selectedTableId, toggleStat, toggleTable } from './thirdColumn'
+import type { ThirdColumn } from './thirdColumn'
 import { PlanHeader } from './PlanHeader'
 import { FloorplanGrid } from './FloorplanGrid'
 import { PlanEmpty } from './PlanEmpty'
 import { UnseatedRail } from './UnseatedRail'
 import { ViolationsPanel } from './ViolationsPanel'
 import { TableDetailPanel } from './TableDetailPanel'
+import { ScoreBreakdownPanel } from './ScoreBreakdownPanel'
+import { PinnedGuestsPanel } from './PinnedGuestsPanel'
 import { ClearControls } from './ClearControls'
 import { Button } from '../../ui'
 import { NO_FILTERS, filterUnseated } from './unseatedFilter'
 import type { UnseatedFilters } from './unseatedFilter'
 import styles from './PlanScreen.module.css'
+
+/** Exhaustiveness for the `column.kind` switch below — a fifth `ThirdColumn` member fails
+ *  `npm run typecheck` here rather than silently rendering nothing. */
+function assertNever(value: never): never {
+  throw new Error(`unhandled third-column kind: ${JSON.stringify(value)}`)
+}
 
 /**
  * TT-11, TT-12, TT-13, KB-6 "Plan". Owns every store read and write for this screen; PlanHeader,
@@ -36,8 +48,13 @@ import styles from './PlanScreen.module.css'
  * violations — all render now (TT-14), and the third column swaps to a selected table's own
  * detail (TT-15) rather than always showing the violations panel.
  *
- * `selectedTableId` is local view state, unlike `allocated`: nothing requires a table selection
- * to survive a tab switch, so it resets on every remount rather than being hoisted to `App`.
+ * `column` (TT-16) is local view state, unlike `allocated`: nothing requires a table selection or
+ * an open panel to survive a tab switch, so it resets on every remount rather than being hoisted
+ * to `App`. It holds exactly one of violations, a selected table, the score breakdown or the
+ * pinned-guests panel — `src/screens/plan/thirdColumn.ts`'s `ThirdColumn` union — rather than a
+ * `selectedTableId` alongside two open/closed booleans, so "only one of the column's four states
+ * is ever showing" is a property of the type instead of something every handler has to keep
+ * agreeing on.
  *
  * `filters` (TT-38) is local view state for the same reason and sits beside it: a trip to
  * Guests and back clears the unseated rail's search and filters along with the scroll
@@ -66,9 +83,13 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const { goTo } = useNavigation()
 
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null)
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
+  const [column, setColumn] = useState<ThirdColumn>(VIOLATIONS)
   const [announcement, setAnnouncement] = useState('')
   const [filters, setFilters] = useState<UnseatedFilters>(NO_FILTERS)
+  const breakdownPanelId = useId()
+  const pinnedPanelId = useId()
+  const scoreToggleRef = useRef<HTMLButtonElement>(null)
+  const pinnedToggleRef = useRef<HTMLButtonElement>(null)
 
   const railRef = useRef<HTMLDivElement>(null)
   const railHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -94,8 +115,31 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
     [allocated, room, guests, pins, seatGuard],
   )
   const report = useMemo(() => evaluateRegistered(plan), [plan])
+  // TT-16. Derived from the same report the violations panel reads, so the score and the
+  // violations list can never disagree about which plan they describe.
+  const planScore = useMemo(() => scorePlan(report), [report])
   const violatingTableIds = useMemo(() => tablesWithHardViolation(report), [report])
   const seating = useMemo(() => seatingViewFrom(plan, violatingTableIds), [plan, violatingTableIds])
+  // Hoisted once so ClearControls and the render-phase correction below read the same figure
+  // rather than two calls that could drift apart. `PlanHeader` makes its own, independent
+  // `planTotals` call below (deciding whether the Pinned toggle exists at all) — it agrees with
+  // this one only because `planTotals` is pure over identical arguments, not because the value is
+  // shared, which is the two-derivations-of-one-number class PlanHeader.tsx's own comments
+  // already name.
+  const totals = useMemo(() => planTotals(guests, seating), [guests, seating])
+  const pinnedRows = useMemo(() => pinnedGuestsIn(plan), [plan])
+  // TT-16 (review). A score going null clears an open breakdown rather than leaving it open for
+  // a later score to re-open unbidden; a pinned count reaching zero does the same for the pinned
+  // panel — TT-37's "Clear allocation and pins" reaches this one from this screen's own controls.
+  // Adjusted during render, React's own pattern for reacting to a value changing between renders
+  // without an effect: it re-renders once, before the browser paints, rather than committing the
+  // stale screen and correcting it a tick later. `else if` because at most one of these can ever
+  // apply — the column holds only one kind at a time — so at most one setState runs per render.
+  if (column.kind === 'breakdown' && planScore.score === null) {
+    setColumn(VIOLATIONS)
+  } else if (column.kind === 'pinned' && totals.pinnedCount === 0) {
+    setColumn(VIOLATIONS)
+  }
   // TT-38. Filtered here, not inside UnseatedRail, so the component stays a pure renderer of
   // exactly the rows it is given — `totalCount` (plan.unseated.length) travels alongside it
   // for the header's shown/hidden line.
@@ -108,9 +152,12 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
     [plan.unseated, filters],
   )
   const selectedGuest = guests.find((guest) => guest.id === selectedGuestId) ?? null
+  const selectedId = selectedTableId(column)
   // `?? null` guards a table that stopped existing after a room edit — the violations panel is
-  // the fallback rather than a crash.
-  const selectedTable = plan.tables.find((table) => table.id === selectedTableId) ?? null
+  // the fallback rather than a crash. Kept as a render-time fallback (TT-15) rather than folded
+  // into the render-phase correction above: that would be a third setState per render for no
+  // behavioural gain.
+  const selectedTable = plan.tables.find((table) => table.id === selectedId) ?? null
 
   // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern. Also
   // doubles as the escape hatch for PlanTable's own placing-over-selecting priority (review,
@@ -145,10 +192,35 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
     setSelectedGuestId((current) => (current === guestId ? null : guestId))
   }
 
-  // TT-15. Clicking the already-selected table again dismisses its detail panel, matching
-  // handleSelect's own toggle above.
+  // TT-15. Clicking the already-selected table again dismisses its detail panel; selecting any
+  // table replaces whatever else the column held (TT-16), so this alone is what keeps the column
+  // to at most one of its four states.
   function handleSelectTable(tableId: string) {
-    setSelectedTableId((current) => (current === tableId ? null : tableId))
+    setColumn((current) => toggleTable(current, tableId))
+  }
+
+  // TT-16. Opens or closes a stat's own panel and, by the same `toggleStat`, replaces the other
+  // stat's panel or a selected table — the third column holds at most one of its four states.
+  // Focus is left on the toggle in both directions: opening keeps it there by not moving it, and
+  // each dismiss handler below returns it explicitly.
+  function handleToggleBreakdown() {
+    setColumn((current) => toggleStat(current, 'breakdown'))
+  }
+
+  function handleTogglePinned() {
+    setColumn((current) => toggleStat(current, 'pinned'))
+  }
+
+  // The two panels' own close controls. Unlike handleRelease's fallback focus above, the toggle
+  // is already mounted and stays mounted, so no flushSync is needed before focusing it.
+  function handleDismissBreakdown() {
+    setColumn(VIOLATIONS)
+    scoreToggleRef.current?.focus()
+  }
+
+  function handleDismissPinned() {
+    setColumn(VIOLATIONS)
+    pinnedToggleRef.current?.focus()
   }
 
   function handlePlace(tableId: string) {
@@ -186,8 +258,8 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
     } else {
       // `allocated` re-seats the just-unpinned guest immediately rather than leaving them on
       // the rail, so there is no row for them to land on — the table detail panel they were
-      // released from is still open (releasing never changes `selectedTableId`), so its own
-      // dismiss control is the nearest visible, focusable thing.
+      // released from is still open (releasing never touches `column`), so its own dismiss
+      // control is the nearest visible, focusable thing.
       dismissButtonRef.current?.focus()
     }
   }
@@ -247,12 +319,25 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 guests={guests}
                 seating={seating}
                 unseatedCount={plan.unseated.length}
+                score={{
+                  value: planScore.score,
+                  expanded: column.kind === 'breakdown',
+                  panelId: breakdownPanelId,
+                  onToggle: handleToggleBreakdown,
+                  toggleRef: scoreToggleRef,
+                }}
+                pinned={{
+                  expanded: column.kind === 'pinned',
+                  panelId: pinnedPanelId,
+                  onToggle: handleTogglePinned,
+                  toggleRef: pinnedToggleRef,
+                }}
               />
               <Button variant="primary" className={styles.allocate} onClick={handleAllocate}>
                 Auto-allocate
               </Button>
               <ClearControls
-                pinnedCount={planTotals(guests, seating).pinnedCount}
+                pinnedCount={totals.pinnedCount}
                 onClearAllocation={handleClearAllocation}
                 onClearEverything={handleClearEverything}
               />
@@ -264,7 +349,7 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 placingGuestName={selectedGuest?.name}
                 onPlace={handlePlace}
                 onSelect={handleSelectTable}
-                selectedTableId={selectedTableId}
+                selectedTableId={selectedId}
               />
             </div>
             <div ref={railRef}>
@@ -281,18 +366,51 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
             </div>
           </div>
           <div className={styles.violations}>
-            {selectedTable ? (
-              <TableDetailPanel
-                table={selectedTable}
-                onRelease={handleRelease}
-                onDismiss={() => {
-                  setSelectedTableId(null)
-                }}
-                dismissButtonRef={dismissButtonRef}
-              />
-            ) : (
-              <ViolationsPanel report={report} />
-            )}
+            {(() => {
+              // Each non-violations case guards on its own data, falling back to the violations
+              // panel. For `breakdown` and `pinned`, that fallback is defensive rather than
+              // reachable: a render-phase `setState` on this same component (the correction
+              // above) makes React discard the in-progress render and re-render before
+              // committing, so a stale score or pinned count is caught there and never reaches
+              // this switch. `table` is different — the vanished-table case (a room edit removes
+              // the selected table) is deliberately left uncorrected above, so its guard here is
+              // the only place that's handled.
+              switch (column.kind) {
+                case 'violations':
+                  return <ViolationsPanel report={report} />
+                case 'table':
+                  return selectedTable ? (
+                    <TableDetailPanel
+                      table={selectedTable}
+                      onRelease={handleRelease}
+                      onDismiss={() => {
+                        setColumn(VIOLATIONS)
+                      }}
+                      dismissButtonRef={dismissButtonRef}
+                    />
+                  ) : (
+                    <ViolationsPanel report={report} />
+                  )
+                case 'breakdown':
+                  return planScore.score !== null ? (
+                    <ScoreBreakdownPanel
+                      id={breakdownPanelId}
+                      dimensions={planScore.dimensions}
+                      onDismiss={handleDismissBreakdown}
+                    />
+                  ) : (
+                    <ViolationsPanel report={report} />
+                  )
+                case 'pinned':
+                  return pinnedRows.length > 0 ? (
+                    <PinnedGuestsPanel id={pinnedPanelId} rows={pinnedRows} onDismiss={handleDismissPinned} />
+                  ) : (
+                    <ViolationsPanel report={report} />
+                  )
+                default:
+                  return assertNever(column)
+              }
+            })()}
           </div>
           <p role="status" className="tt-visually-hidden">
             {announcement}

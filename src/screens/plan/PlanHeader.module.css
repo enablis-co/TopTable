@@ -83,19 +83,32 @@
   color: var(--soft-deep);
 }
 
+/* margin-right is the mirror of the padding every stat now carries (below): the wash needs air
+   around the text, but the rightmost stat's text still has to land flush with the header's own
+   right edge, where it sat before that padding existed. The wash grows outward from the text; the
+   text itself never moves. */
 .stats {
   flex: none;
   display: flex;
   align-items: flex-end;
-  gap: var(--s-7);
+  gap: var(--s-3);
   padding-bottom: var(--s-1);
+  margin-right: calc(var(--s-2) * -1);
 }
 
+/* Every stat reserves the same 2px at its own foot, filled by .statToggle's border below when a
+   toggle is expanded and left transparent everywhere else — without it, a toggle 2px taller than
+   its plain siblings would pull the row's shared flex-end baseline out from under them the
+   moment it expanded. The padding matches .statToggle and .scoreAbsent below so the wash reads as
+   a shape with air in it rather than a highlighter stripe, and all three keep the row's flex-end
+   baselines even. */
 .stat {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: var(--s-1);
+  padding: var(--s-1) var(--s-2);
+  border-bottom: 2px solid transparent;
 }
 
 .statValue {
@@ -108,4 +121,60 @@
   margin: 0;
   font: var(--t-label);
   color: var(--ink-muted);
+}
+
+/* TT-16 part three, design pass over the toggle pattern. Clicking a header stat decides what the
+   third column shows — it is a tab, not a button, and the previous rule drew it as a pressed
+   button: hover and expanded both filled with `--sunken` and only a border told them apart, which
+   is why that border had to exist at all. Hover and current are now different properties, not one
+   plus an extra, so they share nothing and each survives `grayscale(1)` on its own terms — a step
+   in background value, or a mark that is present or absent (KB-5's sanctioned replacements for
+   shadow). Hovering the current stat shows both at once, which is correct and needs no rule of
+   its own. Stays with `--ink` for the rule deliberately: `--slate` means the one primed action and
+   the focus ring, and borrowing it for selection would blur what a filled slate control means. */
+.statToggle {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s-1);
+  padding: var(--s-1) var(--s-2);
+  /* Zeroed first, then only the bottom width restored: `Button`'s own `.button` rule sets
+     `border: 1px solid transparent` on all four sides, and this rule used to override just the
+     colour, leaving a phantom 1px on the top and both sides that isn't part of the reserved
+     alignment rule below. That inset the toggle's right-aligned content 1px inside the row's
+     shared right edge while Unseated's plain `.stat` (no border but its own bottom 2px) sat
+     flush — a browser-pass finding, TT-16 review part two. */
+  border-width: 0;
+  border-style: solid;
+  border-color: transparent;
+  border-bottom-width: 2px;
+  /* Rounded top corners, flat along the bottom where it meets the rule — the tab idiom stated as
+     shape rather than colour, which is what KB-5 asks for. A plain .stat takes no radius; it is
+     not a control. */
+  border-radius: var(--r-control) var(--r-control) 0 0;
+  background: transparent;
+}
+
+.statToggle:hover:not(:disabled) {
+  background: var(--sunken);
+}
+
+.statToggle[aria-expanded='true'] {
+  border-bottom-color: var(--ink);
+}
+
+/* TT-16: words, never a figure, when there is nothing to score — no label, no dash, no zero, no
+   control. max-width keeps it wrapping to two lines rather than widening `.stats`, which is
+   `flex: none` and never yields — this is the widest variant of the header the browser pass has
+   to check. */
+.scoreAbsent {
+  flex: none;
+  max-width: 9rem;
+  margin: 0;
+  padding: var(--s-1) var(--s-2);
+  border-bottom: 2px solid transparent;
+  font: var(--t-caption);
+  color: var(--ink-muted);
+  text-align: right;
 }

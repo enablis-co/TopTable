@@ -117,11 +117,18 @@ async function renderAppOnPlanTab(user: ReturnType<typeof userEvent.setup>) {
 // sits immediately before the stat pair with no space at the element boundary, so a flattened
 // "...of 20Pinned0Unseated..." would let a naive `/(\d+)\s*Pinned/` swallow the qualifier's
 // trailing digit too (verified: a room ending "...top table of 2" read back as Pinned: 20, not
-// 2, before this was written). The stat figures are read structurally instead: each is its own
-// `<p>` immediately before a `<p>` holding the exact word "Pinned" or "Unseated" (verified via
-// each stat's own DOM), so this never depends on the header's flattened text at all. "Unseated"
-// is not used as the anchor — the rail's own column also renders that exact word, so
-// `getByText('Unseated')` would be ambiguous; "Pinned" alone is not.
+// 2, before this was written). The stat figures are read structurally instead, and that is why
+// this helper exists at all rather than a flattened-text regex.
+//
+// TT-16 part two: Unseated stays inert, so its figure and label are still each their own `<p>`.
+// Pinned becomes a toggle once one or more guests are pinned, and a `<button>` admits only
+// phrasing content, so its figure and label are `<span>`s, not `<p>`s — the selector below reads
+// both. Inside that button, tree order gives the value span ("3") before the label span
+// ("Pinned"), and a visually-hidden suffix span ("guests") comes after the label, so `.find`
+// below reaches "Pinned" first and never that suffix. The score toggle, built the same way,
+// contributes a harmless stray "Fit" entry this helper never reads. "Unseated" is not used as
+// the anchor — the rail's own column also renders that exact word, so `getByText('Unseated')`
+// would be ambiguous; "Pinned" alone is not.
 function headerStats(): { pinned: number; unseated: number } {
   const pinnedLabel = screen.getByText('Pinned')
   const statsContainer = pinnedLabel.parentElement?.parentElement
@@ -131,8 +138,12 @@ function headerStats(): { pinned: number; unseated: number } {
 
   const figures = new Map<string, number>()
   for (const stat of Array.from(statsContainer.children)) {
-    const labelEl = Array.from(stat.querySelectorAll('p')).find((p) => /^[A-Za-z]+$/.test(p.textContent?.trim() ?? ''))
-    const valueEl = Array.from(stat.querySelectorAll('p')).find((p) => /^\d+$/.test(p.textContent?.trim() ?? ''))
+    const labelEl = Array.from(stat.querySelectorAll('p, span')).find((p) =>
+      /^[A-Za-z]+$/.test(p.textContent?.trim() ?? ''),
+    )
+    const valueEl = Array.from(stat.querySelectorAll('p, span')).find((p) =>
+      /^\d+$/.test(p.textContent?.trim() ?? ''),
+    )
     const label = labelEl?.textContent?.trim()
     const value = valueEl?.textContent?.trim()
     if (label && value !== undefined) {

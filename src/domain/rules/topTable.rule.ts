@@ -19,21 +19,29 @@ const PROTOCOL_ROLE_IDS = new Set<string>(PROTOCOL_ROLES)
  * above, no exceptions". The seat is a human instruction that `allocate` honours rather than
  * overrides, so restoring the check to match that page would make every hand-pinned top table
  * seat a hard violation.
+ *
+ * `opportunities` (TT-16) is the count of non-pinned occupied top-table seats — exactly the set
+ * the `forEach` below judges, counted in that same pass. No top table, or a top table whose
+ * every occupant is pinned, reports 0. `missed` equals `findings.length`: every judged seat
+ * produces at most one finding, so the two count the same thing one-to-one. Being hard, neither
+ * ever scores. No `weight`.
  */
-export const rule: SeatingRule = {
+export const rule = {
   id: 'top-table',
   severity: 'hard',
   remedy: 'seating',
   description: 'The top table contains only guests holding a protocol role, in the protocol order',
   evaluate: (plan) => {
     const table = plan.tables.find((candidate) => candidate.kind === 'top')
-    if (!table) return []
+    if (!table) return { findings: [], opportunities: 0, missed: 0 }
 
     const expected = topTableRoleOrder(table.capacity)
     const findings: Finding[] = []
+    let opportunities = 0
 
     table.seats.forEach((seat, index) => {
       if (!seat || seat.pinned) return
+      opportunities += 1
 
       const { guest } = seat
       const expectedRole = expected[index]
@@ -56,6 +64,6 @@ export const rule: SeatingRule = {
       }
     })
 
-    return findings
+    return { findings, opportunities, missed: findings.length }
   },
-}
+} satisfies SeatingRule
