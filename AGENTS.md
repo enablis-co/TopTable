@@ -118,7 +118,7 @@ link. `TT-24` names `KB-4` in a comment and links nothing.
 
 ## Agents
 
-Five, in `.claude/agents/`. The model is set explicitly on each, because the default is inherit
+Seven, in `.claude/agents/`. The model is set explicitly on each, because the default is inherit
 and an Opus session would otherwise spawn Opus throughout.
 
 | Agent | Model | Responsible for |
@@ -128,6 +128,8 @@ and an Opus session would otherwise spawn Opus throughout.
 | `model-developer` | sonnet | The allocation engine, the rules and the domain model. Works to KB-2 and KB-3 |
 | `tester` | sonnet | Writes tests from the acceptance criteria. **Never reads the implementation** |
 | `reviewer` | opus | Reads the diff cold and reports. **No Write, no Edit** |
+| `infra-developer` | sonnet | The CloudFormation template, the workflows and the IAM policies. Works to KB-7 |
+| `infra-reviewer` | opus | Reads an infrastructure diff cold as an AWS engineer would. **No Write, no Edit** |
 
 Plan on Opus, build on Sonnet. If a Sonnet agent cannot implement from the plan, tighten the plan
 rather than raising the model.
@@ -136,7 +138,8 @@ rather than raising the model.
 
 **A build instruction naming an issue key starts with `planner`, always.** "Build TT-7", "do TT-12",
 "pick up TT-9" — the key is the whole instruction. It means `planner`, then the developer the plan
-names, then `tester`, then `reviewer`.
+names, then `tester`, then `reviewer` — except an infra ticket, which has nothing a test can cover
+and goes `infra-developer` then `infra-reviewer` instead.
 
 No one should have to add "start with the planner agent". If that sentence is load-bearing, this
 rule is not doing its job.
@@ -215,3 +218,6 @@ The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScen
 reciprocal `partnerOf` and `conflictsWith` and is the only place that logic lives; `pinGuest` and
 `unpinGuest` are the same onto `src/domain/pins.ts`; `clearPins` (TT-37) is not, because emptying
 a list owns no behaviour worth a domain function. See [docs/state.md](docs/state.md).
+
+The hosting stack is TT-41 and has landed, in `infra/hosting.yaml`, with the first-apply ordering
+in `infra/README.md`. Publishing `main` is TT-42 and previews are TT-43, and neither has.

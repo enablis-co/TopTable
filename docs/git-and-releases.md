@@ -32,22 +32,30 @@ reaching for it, the work wants a ticket.
 
 ## The pipeline
 
-Three workflows in [`.github/workflows/`](../.github/workflows):
+Four workflows in [`.github/workflows/`](../.github/workflows):
 
 | Workflow | Runs on | Does |
 |---|---|---|
-| `checks.yml` | Called by the other two | Install, typecheck, lint, test |
+| `checks.yml` | Called by `pull-request.yml` and `main.yml` | Install, typecheck, lint, test |
 | `pull-request.yml` | Pull requests into `main` | Calls `checks.yml` |
 | `main.yml` | Pushes to `main` | Calls `checks.yml`, then releases |
+| `infrastructure.yml` | Pull requests and pushes to `main` that touch `infra/` | Posts a changeset; applies it on merge, gated |
 
 `checks.yml` is a reusable workflow rather than two copies of the same steps. "The same checks run
 again on merge" is then true by construction, instead of true until somebody edits one of them.
 
-Both read Node from `.nvmrc`, so CI and your machine cannot drift apart.
+`checks.yml` reads Node from `.nvmrc`, so CI and your machine cannot drift apart. `infrastructure.yml`
+runs no Node at all — its steps are `aws` and `gh`, nothing that needs a version pinned.
 
 **A failure blocks the merge only if the check is required.** Add `checks / verify` to the branch
 protection rule for `main`, or "blocks the merge" is a convention rather than a gate. The workflow
 cannot enforce this on its own — nothing in this repo can. It is a setting on the repository.
+
+`infrastructure.yml` is path-filtered: a change that touches nothing in `infra/` deploys no
+infrastructure, and the workflow does not run at all. For exactly that reason it must **not** be
+added to the branch protection rule for `main` alongside `checks / verify` — a required check that
+the path filter skips never reports, and every pull request that does not touch `infra/` would
+block on it forever.
 
 The merge commit is tested even though both sides passed on their own, because the merge result is
 a commit that neither side tested.

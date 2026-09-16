@@ -1,0 +1,328 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  TT-41 — Top Table hosting: hosted zone, certificate, bucket, distribution,
+  IAM roles and alias record for toptable.enablis.tech.
+
+# Two things a future edit must not undo — the hosted zone's retention (both policies,
+# below) and the distribution's origin (the S3 website endpoint, at the origin below).
+# Both traps, and how to recover from hitting one, are in infra/README.md and KB-7.
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: The apex domain this stack serves, e.g. toptable.enablis.tech.
+
+  BucketName:
+    Type: String
+    Default: toptable-site
+    Description: The S3 bucket name. Global, so it must be available before applying.
+
+  GitHubRepository:
+    Type: String
+    Default: enablis-co/TopTable
+    Description: owner/repo, used to scope the OIDC trust condition.
+
+  GitHubSubjectRepository:
+    Type: String
+    Default: enablis-co@183766552/TopTable@1360462050
+    Description: >-
+      owner@owner-id/repo@repo-id. This repository has immutable OIDC subjects enabled, so
+      GitHub presents the id-qualified form rather than owner/repo, and a trust condition
+      matching only owner/repo never matches. Read the live value from
+      /repos/OWNER/REPO/actions/oidc/customization/sub (sub_claim_prefix).
+
+# CloudFront reads certificates only from us-east-1, and this template issues its own
+# certificate rather than taking an ARN as a parameter — so a by-hand apply in the wrong
+# region must fail outright rather than merely produce a certificate CloudFront can't use.
+Rules:
+  RegionIsUsEast1:
+    Assertions:
+      - Assert: !Equals [!Ref 'AWS::Region', 'us-east-1']
+        AssertDescription: >-
+          This stack must be deployed in us-east-1: CloudFront only reads certificates
+          from that region, and this template issues its own.
+
+Resources:
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    # Both policies, or a replacing update (e.g. DomainName changing) deletes this zone
+    # and hands the delegation a set of nameservers nobody answers to. See infra/README.md.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Ref DomainName
+
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZone
+
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        # No ErrorDocument: there is no client-side router and no 404 to rescue.
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Public read is deliberate (KB-7): the bucket holds a public static site and
+          # nothing else, so this is the correct amount of private.
+          - Sid: PublicReadForWebsite
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${Bucket.Arn}/*'
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        DefaultRootObject: index.html
+        Aliases:
+          - !Ref DomainName
+        Origins:
+          - Id: website
+            # The S3 WEBSITE endpoint, not Bucket.DomainName/RegionalDomainName (the REST
+            # endpoint) — that swap breaks previews, not the live site. See infra/README.md.
+            DomainName: !Select [1, !Split ['//', !GetAtt Bucket.WebsiteURL]]
+            CustomOriginConfig:
+              # Website endpoints are HTTP-only; match-viewer would break every HTTPS request.
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          TargetOriginId: website
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          Compress: true
+          # AWS managed "CachingOptimized" policy. Honours the origin's own Cache-Control,
+          # which is what lets TT-42 split cache headers between hashed assets and index.html.
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          # Deliberately no OriginRequestPolicyId. The default forwards no Host header; the
+          # website endpoint answers only to its own hostname, so forwarding Host (e.g. the
+          # AllViewer managed policy) turns every request into a 404 against S3.
+        ViewerCertificate:
+          AcmCertificateArn: !Ref Certificate
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+
+  AliasRecords:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      RecordSets:
+        - Name: !Ref DomainName
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt Distribution.DomainName
+            # The fixed, global hosted-zone id for CloudFront alias targets — not this
+            # zone's id.
+            HostedZoneId: Z2FDTNDATAQYW2
+        - Name: !Ref DomainName
+          Type: AAAA
+          AliasTarget:
+            DNSName: !GetAtt Distribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+
+  PublishRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: toptable-publish
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              # Constructed, never created: the OIDC provider already exists in this
+              # account. An AWS::IAM::OIDCProvider resource here fails the first apply
+              # with EntityAlreadyExists.
+              Federated: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                # Not narrowed to main: TT-43 assumes this role from pull request branches.
+                # Both subject forms, because the id-qualified one is a repository toggle
+                # (see GitHubSubjectRepository): matching only one breaks every deploy the
+                # moment it is flipped. Both are repo-scoped, so accepting either costs
+                # nothing. TT-41.
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GitHubRepository}:*'
+                  - !Sub 'repo:${GitHubSubjectRepository}:*'
+      Policies:
+        - PolicyName: publish
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt Bucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub '${Bucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
+                Resource: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+
+  InfraRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: toptable-infra
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                # Narrower than the publish role's, deliberately: this role is only ever
+                # assumed from a job that declares the infra-plan or infra-apply
+                # environment (GitHub issues repo:org/repo:environment:<name> for those),
+                # never from a plain pull_request or push job. Without this, an edit to
+                # the ungated infra-plan job in this same PR could call any action this
+                # role holds — including iam:PutRolePolicy on itself — with no reviewer.
+                # See infra/README.md for the deployment-branch policy that restricts
+                # infra-apply to main on top of this.
+                # Both subject forms, for the reason given on the publish role.
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GitHubRepository}:environment:infra-*'
+                  - !Sub 'repo:${GitHubSubjectRepository}:environment:infra-*'
+      Policies:
+        - PolicyName: infra
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                # Covers every stack and changeset action this role uses — CloudFormation
+                # resolves changeset actions (Create/Describe/Execute/DeleteChangeSet,
+                # GetTemplateSummary, ListChangeSets) against the STACK's ARN, not a
+                # separate changeset ARN, confirmed with iam simulate-custom-policy against
+                # both ARN shapes (see the pull request description). DescribeStacks and
+                # DescribeStackEvents are scopable the same way and need nothing further.
+                Action: cloudformation:*
+                Resource: !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/toptable-hosting/*'
+              - Effect: Allow
+                # ListStacks and ValidateTemplate take no stack argument at all — confirmed
+                # implicitDeny even against Resource '*' without this statement — so there
+                # is no resource to scope them to.
+                Action:
+                  - cloudformation:ListStacks
+                  - cloudformation:ValidateTemplate
+                Resource: '*'
+              - Effect: Allow
+                # Object actions dropped: CloudFormation manages the bucket itself, never
+                # an object in it.
+                Action: s3:*
+                Resource: !GetAtt Bucket.Arn
+              - Effect: Allow
+                # CreateBucket and the ListAllMyBuckets preflight take no resource.
+                Action:
+                  - s3:CreateBucket
+                  - s3:ListAllMyBuckets
+                Resource: '*'
+              - Effect: Allow
+                # IAM writes, scoped to this stack's own roles only.
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/toptable-*'
+              - Effect: Allow
+                # Create/request actions only. Confirmed with iam simulate-custom-policy:
+                # each is implicitDeny even when granted on Resource '*' and simulated
+                # against its own resource's ARN, so CloudFront, ACM and Route 53 genuinely
+                # give these no resource to scope to — the boundary is the trust policy
+                # above and the gated infra-apply environment, not the resource ARN.
+                Action:
+                  - cloudfront:CreateDistribution
+                  - acm:RequestCertificate
+                  - route53:CreateHostedZone
+                  - route53:GetChange
+                Resource: '*'
+              - Effect: Allow
+                # Read/update/delete on the three resources this stack creates. Confirmed
+                # scopable with iam simulate-custom-policy (unlike the create actions
+                # above): granting only these three ARNs still allows Get/Update/Delete on
+                # each. Retain is what stops this role deleting the hosted zone in
+                # practice — this scoping is the second line, not the first.
+                Action:
+                  - cloudfront:GetDistribution
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:UpdateDistribution
+                  - cloudfront:DeleteDistribution
+                Resource: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+              - Effect: Allow
+                Action:
+                  - acm:DescribeCertificate
+                  - acm:DeleteCertificate
+                Resource: !Ref Certificate
+              - Effect: Allow
+                Action:
+                  - route53:GetHostedZone
+                  - route53:DeleteHostedZone
+                  - route53:ChangeResourceRecordSets
+                Resource: !Sub 'arn:${AWS::Partition}:route53:::hostedzone/${HostedZone}'
+      # No iam:PassRole: nothing in this stack passes a role to a service.
+
+Outputs:
+  BucketName:
+    Value: !Ref Bucket
+
+  DistributionId:
+    Value: !Ref Distribution
+
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+
+  PublishRoleArn:
+    Value: !GetAtt PublishRole.Arn
+
+  InfraRoleArn:
+    Value: !GetAtt InfraRole.Arn
+
+  SiteUrl:
+    Value: !Sub 'https://${DomainName}/'
+
+  HostedZoneId:
+    Value: !Ref HostedZone
+
+  NameServers:
+    Value: !Join [',', !GetAtt HostedZone.NameServers]
