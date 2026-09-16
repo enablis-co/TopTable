@@ -572,3 +572,40 @@ describe("PlanTable.module.css — the face fills the table's width always", () 
     expect(rule.body).toMatch(/flex\s*:\s*1\b/)
   })
 })
+
+/**
+ * TT-44, C4. "A chair reads as occupied or empty by shape as well as colour" (KB-5: severity —
+ * and by extension state generally — is shape first, colour second). Read as text, the same way
+ * this file already reads every other PlanTable.module.css/TableRing.module.css rule: jsdom
+ * applies no CSS, so this proves the two chair rules are *declared* distinctly, never that they
+ * *render* distinctly (that is the browser pass, per the TT-44 plan's R6).
+ */
+describe('TableRing.module.css — an occupied chair and an empty chair differ by more than colour (C4)', () => {
+  const RING_CSS_PATH = join(DIR, 'TableRing.module.css')
+
+  function readRingCss(): string {
+    return readFileSync(RING_CSS_PATH, 'utf8')
+  }
+
+  it('.chairOccupied and .chairEmpty each set fill from a different custom property', () => {
+    const css = readRingCss()
+    const occupied = requireRule(css, /\.chairOccupied\s*\{/, '.chairOccupied')
+    const empty = requireRule(css, /\.chairEmpty\s*\{/, '.chairEmpty')
+
+    const occupiedFill = /fill\s*:\s*(var\([^)]+\))/i.exec(occupied.body)?.[1]
+    const emptyFill = /fill\s*:\s*(var\([^)]+\))/i.exec(empty.body)?.[1]
+
+    expect(occupiedFill, 'expected .chairOccupied to declare fill from a custom property').toBeTruthy()
+    expect(emptyFill, 'expected .chairEmpty to declare fill from a custom property').toBeTruthy()
+    expect(occupiedFill).not.toBe(emptyFill)
+  })
+
+  it("both chair rules keep their outline visible at the scale floor — vector-effect: non-scaling-stroke, TT-38's geometry-scales-strokes-do-not rule", () => {
+    const css = readRingCss()
+    const occupied = requireRule(css, /\.chairOccupied\s*\{/, '.chairOccupied')
+    const empty = requireRule(css, /\.chairEmpty\s*\{/, '.chairEmpty')
+
+    expect(occupied.body).toMatch(/vector-effect\s*:\s*non-scaling-stroke/i)
+    expect(empty.body).toMatch(/vector-effect\s*:\s*non-scaling-stroke/i)
+  })
+})

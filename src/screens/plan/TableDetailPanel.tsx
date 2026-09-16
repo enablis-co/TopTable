@@ -3,6 +3,7 @@ import type { Seat, SeatedTable } from '../../domain/seating'
 import type { Guest } from '../../domain/types'
 import { Button, Panel, cx, tabularClass } from '../../ui'
 import { allergyCounts, dietaryCounts, type NeedCount } from './tableNeeds'
+import { guestFactParts } from './guestFacts'
 import styles from './TableDetailPanel.module.css'
 
 type TableDetailPanelProps = {
@@ -110,37 +111,47 @@ function NeedsBlock({ allergies, dietary }: { allergies: NeedCount[]; dietary: N
   )
 }
 
+/**
+ * TT-44, KB-6 "Table detail". The facts line is a sibling of the release button, never a child
+ * of it — nesting it inside would join the button's accessible name and break the
+ * `Release {name} from {label}` regex `PlanScreen.test.tsx` and `planAllocation.test.tsx` both
+ * match on (C17).
+ */
 function SeatRow({ row, tableLabel, onRelease }: { row: Row; tableLabel: string; onRelease: (guestId: string) => void }) {
   const guest = row.seat?.guest ?? null
   const pinned = row.seat?.pinned ?? false
+  const parts = guest ? guestFactParts(guest) : []
 
   return (
     <li className={styles.row}>
-      <span className={styles.left}>
-        {row.seatNumber !== null && (
-          <span className={cx(styles.seatNumber, tabularClass)}>{row.seatNumber}</span>
-        )}
-        {guest === null ? (
-          <span className={styles.empty}>Empty</span>
-        ) : pinned ? (
-          <Button variant="quiet" className={styles.release} onClick={() => onRelease(guest.id)}>
-            <span className="tt-visually-hidden">Release</span> {guest.name}{' '}
-            <span className="tt-visually-hidden">from {tableLabel}</span>
-            {row.overCapacity && <span className="tt-visually-hidden">, over capacity</span>}
-          </Button>
-        ) : (
-          <span className={styles.name}>
-            {guest.name}
-            {row.overCapacity && <span className="tt-visually-hidden">, over capacity</span>}
-          </span>
-        )}
-      </span>
-      {guest !== null &&
-        (pinned ? (
-          <span aria-hidden="true" className={styles.pinnedDot} />
-        ) : (
-          <span className={styles.auto}>auto</span>
-        ))}
+      <div className={styles.main}>
+        <span className={styles.left}>
+          {row.seatNumber !== null && (
+            <span className={cx(styles.seatNumber, tabularClass)}>{row.seatNumber}</span>
+          )}
+          {guest === null ? (
+            <span className={styles.empty}>Empty</span>
+          ) : pinned ? (
+            <Button variant="quiet" className={styles.release} onClick={() => onRelease(guest.id)}>
+              <span className="tt-visually-hidden">Release</span> {guest.name}{' '}
+              <span className="tt-visually-hidden">from {tableLabel}</span>
+              {row.overCapacity && <span className="tt-visually-hidden">, over capacity</span>}
+            </Button>
+          ) : (
+            <span className={styles.name}>
+              {guest.name}
+              {row.overCapacity && <span className="tt-visually-hidden">, over capacity</span>}
+            </span>
+          )}
+        </span>
+        {guest !== null &&
+          (pinned ? (
+            <span aria-hidden="true" className={styles.pinnedDot} />
+          ) : (
+            <span className={styles.auto}>auto</span>
+          ))}
+      </div>
+      {guest !== null && parts.length > 0 && <p className={styles.facts}>{parts.join(' · ')}</p>}
     </li>
   )
 }

@@ -98,6 +98,7 @@ export function FloorplanGrid({
                 onSelect={() => onSelect?.(slot.id)}
                 selected={slot.id === selectedTableId}
                 showFillCount={fit.showsFillCount}
+                tableSize={fit.size}
               />
             ))}
           </ul>

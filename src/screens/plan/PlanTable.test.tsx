@@ -5,6 +5,7 @@ import { PlanTable } from './PlanTable'
 import type { SeatedGuest, TableOccupants } from './floorplan'
 import type { Guest } from '../../domain/types'
 import type { TableSlot } from '../../domain/seating'
+import { MIN_TABLE_SIZE } from './floorplanFit'
 
 /**
  * TT-11, "Render the floorplan from config", extended by TT-12, "Place a guest by clicking",
@@ -56,7 +57,8 @@ function topSlot(overrides: Partial<TableSlot> = {}): TableSlot {
 }
 
 function makeOccupants(overrides: Partial<TableOccupants> = {}): TableOccupants {
-  return { guests: [], pinnedCount: 0, inViolation: false, ...overrides }
+  const guests = overrides.guests ?? []
+  return { guests, seats: guests, pinnedCount: 0, inViolation: false, ...overrides }
 }
 
 function renderTable(slot: TableSlot, occupants: TableOccupants): HTMLElement {
@@ -98,6 +100,47 @@ function renderTableWithProps(slot: TableSlot, occupants: TableOccupants, extra:
     throw new Error('expected the rendered table to carry a data-occupancy attribute')
   }
   return table as HTMLElement
+}
+
+/**
+ * TT-44. `tableSize` is not one of the TT-12/TT-15 `PlacingProps`, so it gets its own render
+ * helper rather than widening `renderTableWithProps` — the same reasoning that helper's own
+ * comment gives for not widening `renderTable`.
+ */
+function renderTableSized(slot: TableSlot, occupants: TableOccupants, tableSize: number): HTMLElement {
+  const { container } = render(
+    <ul>
+      <PlanTable slot={slot} occupants={occupants} tableSize={tableSize} />
+    </ul>,
+  )
+  const table = container.querySelector('[data-occupancy]')
+  if (!table) {
+    throw new Error('expected the rendered table to carry a data-occupancy attribute')
+  }
+  return table as HTMLElement
+}
+
+/**
+ * Builds occupants whose `seats` follow an explicit occupied/empty pattern, index-preserving —
+ * the shape a chair reads directly (TT-44, C5/C6/C10). `guests` is derived the same way
+ * `seatingViewFrom` builds it: seated occupants in seat order, no nulls.
+ */
+function occupantsFromPattern(pattern: readonly boolean[]): TableOccupants {
+  let cursor = 0
+  const seats: (SeatedGuest | null)[] = pattern.map((occupied) => {
+    if (!occupied) return null
+    const guest = makeGuest(`seat-${cursor}`)
+    cursor += 1
+    return { guest, pinned: false }
+  })
+  const guests = seats.filter((seat): seat is SeatedGuest => seat !== null)
+  return makeOccupants({ guests, seats })
+}
+
+/** Every rendered chair, keyed by its own 0-based `data-seat-index`. */
+function chairsByIndex(table: HTMLElement): Map<number, Element> {
+  const chairs = Array.from(table.querySelectorAll('[data-seat-index]'))
+  return new Map(chairs.map((chair) => [Number(chair.getAttribute('data-seat-index')), chair]))
 }
 
 describe('PlanTable — occupancy against capacity', () => {
@@ -431,5 +474,97 @@ describe('PlanTable — selecting a table for the detail panel (TT-15)', () => {
   it('is queryable as a pressed toggle button by role, not only by attribute', () => {
     const table = renderTableWithProps(roundSlot(), makeOccupants(), { selected: true })
     expect(within(table).getByRole('button', { pressed: true })).toBeInTheDocument()
+  })
+})
+
+describe('PlanTable — chairs, one per seat, on round tables only (C1, C3, TT-44)', () => {
+  it('a round table of 8 seats renders 8 chair elements, each its own element', () => {
+    const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
+    expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(8)
+  })
+
+  it('a round table of 6 seats renders 6 chair elements', () => {
+    const table = renderTable(roundSlot({ capacity: 6 }), occupantsFromPattern(new Array(6).fill(false)))
+    expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(6)
+  })
+
+  it('the top table draws no chairs at all, whatever its occupancy', () => {
+    const table = renderTable(topSlot({ capacity: 8 }), occupantsFromPattern([true, false, true, false, false, false, false, false]))
+    expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
+  })
+})
+
+describe('PlanTable — a chair reflects the occupancy of its own seat index, not of the first k seats (C5, TT-44)', () => {
+  it('a gap at seat index 1, with guests at 0 and 2, draws chair 0 and chair 2 occupied and chair 1 empty', () => {
+    const occupants = occupantsFromPattern([true, false, true])
+    const table = renderTable(roundSlot({ capacity: 3 }), occupants)
+    const chairs = chairsByIndex(table)
+
+    expect(chairs.get(0)?.hasAttribute('data-guest-id')).toBe(true)
+    expect(chairs.get(1)?.hasAttribute('data-guest-id')).toBe(false)
+    expect(chairs.get(2)?.hasAttribute('data-guest-id')).toBe(true)
+  })
+})
+
+describe('PlanTable — each chair carries a stable address: its seat index, and the guest in it when occupied (C6, C10, TT-44)', () => {
+  it("an occupied chair carries the data-guest-id of the guest actually in that seat; an empty chair carries none", () => {
+    const occupants = occupantsFromPattern([true, false, true])
+    const table = renderTable(roundSlot({ capacity: 3 }), occupants)
+    const chairs = chairsByIndex(table)
+    const seatedIds = occupants.seats.map((seat) => seat?.guest.id ?? null)
+
+    expect(chairs.get(0)?.getAttribute('data-guest-id')).toBe(seatedIds[0])
+    expect(chairs.get(1)?.hasAttribute('data-guest-id')).toBe(false)
+    expect(chairs.get(2)?.getAttribute('data-guest-id')).toBe(seatedIds[2])
+  })
+
+  it("data-seat-index runs 0..capacity-1, each exactly once — the same order the table detail panel's 1-based rows use", () => {
+    const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
+    const indices = Array.from(table.querySelectorAll('[data-seat-index]'))
+      .map((el) => Number(el.getAttribute('data-seat-index')))
+      .sort((a, b) => a - b)
+
+    expect(indices).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+  })
+})
+
+describe('PlanTable — the chairs change nothing about the table\'s accessible name or its button (C8, C9, TT-44)', () => {
+  it('a seated round table still carries no aria-label or aria-labelledby anywhere inside it, and its visible number is still in its text', () => {
+    const table = renderTable(roundSlot({ number: 3, label: 'Table 3', capacity: 3 }), occupantsFromPattern([true, false, true]))
+    expect(table.querySelector('[aria-label]')).toBeNull()
+    expect(table.querySelector('[aria-labelledby]')).toBeNull()
+    expect(table.textContent).toContain('3')
+  })
+
+  it('a chair contributes no text of its own — a seated table\'s own text still names no guest', () => {
+    const guest = makeGuest('g-named', { name: 'Danny Whitaker' })
+    const table = renderTable(
+      roundSlot({ capacity: 1 }),
+      makeOccupants({ guests: seatedGuests([guest]), seats: seatedGuests([guest]) }),
+    )
+    expect(table.textContent).not.toContain('Danny Whitaker')
+  })
+
+  it('still renders exactly one button, whatever the chair occupancy pattern', () => {
+    const table = renderTable(roundSlot({ capacity: 4 }), occupantsFromPattern([true, false, true, false]))
+    expect(table.querySelectorAll('button')).toHaveLength(1)
+  })
+})
+
+describe('PlanTable — chairs survive the scale floor, or drop cleanly rather than blur into a ring (C7, TT-44)', () => {
+  it('at MIN_TABLE_SIZE with 8 seats, chairs still render as countable marks', () => {
+    const table = renderTableSized(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)), MIN_TABLE_SIZE)
+    expect(table.querySelectorAll('[data-seat-index]').length).toBeGreaterThan(0)
+  })
+
+  it('at MIN_TABLE_SIZE with 80 seats, no chair elements render, and the table still shows its number and its fill count', () => {
+    const table = renderTableSized(
+      roundSlot({ number: 5, label: 'Table 5', capacity: 80 }),
+      occupantsFromPattern(new Array(80).fill(false)),
+      MIN_TABLE_SIZE,
+    )
+    expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
+    expect(table.textContent).toContain('5')
+    expect(table.textContent).toMatch(/0\s*of\s*80\s*seats/i)
   })
 })

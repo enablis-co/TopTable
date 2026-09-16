@@ -866,6 +866,34 @@ describe('PlanScreen — focus follows the gesture, since the control just activ
   })
 })
 
+/**
+ * TT-44, R4 regression. `PlanScreen.tsx`'s `railButtons()` locates rail rows by
+ * `railRef.current?.querySelectorAll('[data-guest-id]')`, and a chair now carries that same
+ * attribute when occupied (TT-44, C6). `railRef` wraps only the rail today, so this is not yet
+ * reachable — but the existing "focus follows the gesture" tests below already exercise
+ * `railButtons()` after a placement and would fail if a chair were ever picked up by it. This
+ * test guards the same fact more directly, at the level TT-44 actually changed: no button
+ * inside a table carries `data-guest-id`, so widening that ref later can never hand
+ * `railButtons()` a non-button "row" to focus.
+ */
+describe('PlanTable — a chair carrying data-guest-id is never a button (TT-44 regression, R4)', () => {
+  it('once a guest is placed, the seated table\'s chair carries data-guest-id but is not itself a button', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Guest g-0' }))
+    await user.click(screen.getByRole('button', { name: /^Place Guest g-0 at Table 1/ }))
+
+    const table = tableLabelled('Table 1')
+    const chairsWithGuestId = table.querySelectorAll('[data-guest-id]')
+    expect(chairsWithGuestId.length).toBeGreaterThan(0)
+    expect(table.querySelectorAll('button[data-guest-id]')).toHaveLength(0)
+    expect(table.querySelector('button')?.hasAttribute('data-guest-id')).toBe(false)
+  })
+})
+
 describe('PlanScreen — a pin survives a remount, and a selection does not', () => {
   it('placing a guest, then unmounting and remounting the screen, keeps the pin and starts with nothing selected', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })

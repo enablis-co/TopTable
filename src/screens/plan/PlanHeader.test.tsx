@@ -57,7 +57,8 @@ function makeGuests(count: number): Guest[] {
 }
 
 function occupantsFixture(overrides: Partial<TableOccupants> = {}): TableOccupants {
-  return { guests: [], pinnedCount: 0, inViolation: false, ...overrides }
+  const guests = overrides.guests ?? []
+  return { guests, seats: guests, pinnedCount: 0, inViolation: false, ...overrides }
 }
 
 function seatedGuests(guests: Guest[], pinned = false): SeatedGuest[] {

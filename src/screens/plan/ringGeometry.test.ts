@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { RING, seatRingDash } from './ringGeometry'
+import { RING, seatRingDash, chairPositions, chairRadius, chairsVisibleAt } from './ringGeometry'
+import { MIN_TABLE_SIZE } from './floorplanFit'
 
 /**
  * TT-35. `seatRingDash` is pure geometry — no rendering, no store — so it is exercised directly
@@ -94,5 +95,128 @@ describe('RING — shared geometry constants the SVG and its stylesheet both rea
       const outerRadius = RING.ringRadius + SELECTED_STROKE_WIDTH / 2
       expect(outerRadius).toBeLessThanOrEqual(RING.centre)
     })
+  })
+})
+
+/**
+ * TT-44. Chairs replace the dash pattern with one drawn chair per seat, numbered as a clock
+ * face from twelve o'clock clockwise. `chairPositions`, `chairRadius` and `chairsVisibleAt` are
+ * pure geometry, exercised the same way as `seatRingDash` and `RING` above — numeric fixtures,
+ * no rendering.
+ */
+
+describe('chairPositions — seat 1 (index 0) at twelve o\'clock, then clockwise (C2)', () => {
+  it('seat index 0 sits at twelve o\'clock: cx is the centre, cy is above it', () => {
+    const [first] = chairPositions(8)
+    expect(first?.cx).toBeCloseTo(RING.centre, 5)
+    expect(first?.cy).toBeLessThan(RING.centre)
+  })
+
+  it('four seats land at twelve, three, six and nine o\'clock, in that order — the case that catches a sign error, since an anticlockwise ring would look plausible on screen', () => {
+    const [twelve, three, six, nine] = chairPositions(4)
+    if (!twelve || !three || !six || !nine) {
+      throw new Error('expected four chair positions')
+    }
+
+    expect(twelve.cx).toBeCloseTo(RING.centre, 5)
+    expect(twelve.cy).toBeLessThan(RING.centre)
+
+    expect(three.cx).toBeGreaterThan(RING.centre)
+    expect(three.cy).toBeCloseTo(RING.centre, 5)
+
+    expect(six.cx).toBeCloseTo(RING.centre, 5)
+    expect(six.cy).toBeGreaterThan(RING.centre)
+
+    expect(nine.cx).toBeLessThan(RING.centre)
+    expect(nine.cy).toBeCloseTo(RING.centre, 5)
+  })
+})
+
+describe('chairPositions — one chair per seat, however many (C1)', () => {
+  it.each([1, 6, 8, 10, 26])('returns exactly %i position(s) for %i seat(s)', (n) => {
+    expect(chairPositions(n)).toHaveLength(n)
+  })
+
+  it('returns an empty array for zero seats, and for a negative count, rather than throwing', () => {
+    expect(() => chairPositions(0)).not.toThrow()
+    expect(() => chairPositions(-3)).not.toThrow()
+    expect(chairPositions(0)).toEqual([])
+    expect(chairPositions(-3)).toEqual([])
+  })
+
+  it('seat indices run 0..n-1, each exactly once', () => {
+    const indices = chairPositions(10)
+      .map((chair) => chair.seatIndex)
+      .sort((a, b) => a - b)
+    expect(indices).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+  })
+})
+
+describe('chairPositions/chairRadius — every chair sits on the ring, evenly spaced and never overlapping', () => {
+  it.each([4, 8, 12, 20, 30])('every chair centre for %i seats is exactly RING.ringRadius from the table centre', (n) => {
+    for (const chair of chairPositions(n)) {
+      const distance = Math.hypot(chair.cx - RING.centre, chair.cy - RING.centre)
+      expect(distance).toBeCloseTo(RING.ringRadius, 3)
+    }
+  })
+
+  it.each([4, 8, 12, 20, 30])(
+    'adjacent chairs for %i seats never overlap: centre-to-centre distance exceeds twice the chair radius',
+    (n) => {
+      const positions = chairPositions(n)
+      const radius = chairRadius(n)
+      for (let i = 0; i < positions.length; i++) {
+        const a = positions[i]
+        const b = positions[(i + 1) % positions.length]
+        if (!a || !b) {
+          throw new Error('expected a full ring of chairs')
+        }
+        const distance = Math.hypot(a.cx - b.cx, a.cy - b.cy)
+        expect(distance).toBeGreaterThan(2 * radius)
+      }
+    },
+  )
+
+  it.each([1, 4, 8, 12, 20, 30])(
+    "a chair's outer edge stays within the viewBox for %i seats — the same property RING's own stroke is tuned against",
+    (n) => {
+      expect(RING.ringRadius + chairRadius(n)).toBeLessThanOrEqual(RING.centre)
+    },
+  )
+})
+
+describe('chairRadius — a table with no seats to draw a chair for', () => {
+  it('is zero for zero seats, and for a negative seat count, rather than throwing', () => {
+    expect(() => chairRadius(0)).not.toThrow()
+    expect(() => chairRadius(-5)).not.toThrow()
+    expect(chairRadius(0)).toBe(0)
+    expect(chairRadius(-5)).toBe(0)
+  })
+})
+
+describe('chairsVisibleAt — chairs survive the scale floor, or drop cleanly rather than blur (C7)', () => {
+  it('8 seats stay visible at MIN_TABLE_SIZE, imported from floorplanFit.ts rather than a literal 61 so a change to the floor cannot silently desync', () => {
+    expect(chairsVisibleAt(8, MIN_TABLE_SIZE)).toBe(true)
+  })
+
+  it('80 seats drop cleanly at MIN_TABLE_SIZE, rather than blurring into a ring', () => {
+    expect(chairsVisibleAt(80, MIN_TABLE_SIZE)).toBe(false)
+  })
+
+  it('is false for a degenerate zero or negative seat count, whatever the rendered size, rather than throwing', () => {
+    expect(() => chairsVisibleAt(0, MIN_TABLE_SIZE)).not.toThrow()
+    expect(() => chairsVisibleAt(-3, MIN_TABLE_SIZE)).not.toThrow()
+    expect(chairsVisibleAt(0, MIN_TABLE_SIZE)).toBe(false)
+    expect(chairsVisibleAt(-3, MIN_TABLE_SIZE)).toBe(false)
+  })
+})
+
+describe('chairPositions and chairsVisibleAt — deterministic (engineering-standards.md: same input, same output)', () => {
+  it('chairPositions returns a deeply equal value for the same input called twice', () => {
+    expect(chairPositions(8)).toEqual(chairPositions(8))
+  })
+
+  it('chairsVisibleAt returns the identical value for the same input called twice', () => {
+    expect(chairsVisibleAt(8, MIN_TABLE_SIZE)).toEqual(chairsVisibleAt(8, MIN_TABLE_SIZE))
   })
 })

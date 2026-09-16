@@ -35,9 +35,8 @@
 
 .row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3);
+  flex-direction: column;
+  align-items: stretch;
   padding: 7px 0;
   border-bottom: 1px solid var(--sunken);
 }
@@ -46,11 +45,31 @@
   border-bottom: none;
 }
 
+/* TT-44. Carries what `.row` laid out directly before this ticket — the seat number, the name
+   or release control, and the pinned dot / "auto" marker, all on one line. */
+.main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
 .left {
   display: flex;
   align-items: center;
   gap: var(--s-2);
   min-width: 0;
+}
+
+/* TT-44, KB-6 "Table detail". The second line: role, tags, social type. Left inset is the
+   seat-number span's own rendered width (the tabular-figure "1" through "26" never exceeds two
+   characters) plus the left group's gap, so the text aligns under the name rather than under
+   the seat number, expressed in the same tokens rather than a new literal. */
+.facts {
+  margin: 2px 0 0;
+  padding-left: calc(1ch + var(--s-2));
+  font: var(--t-label);
+  color: var(--ink-muted);
 }
 
 .seatNumber {

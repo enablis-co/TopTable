@@ -62,3 +62,47 @@ export function seatRingDash(seats: number): SeatRingDash {
 
   return { dash: SEAT_DASH_LENGTH, gap }
 }
+
+/**
+ * TT-44, KB-6 "Plan". One drawn chair per seat, replacing the dash ring above at every seat
+ * count `chairsVisibleAt` allows. `seatIndex` is 0-based; index 0 is twelve o'clock and the
+ * angle advances clockwise (SVG's y-down frame turns an increasing angle clockwise on screen).
+ */
+export type Chair = {
+  seatIndex: number
+  cx: number
+  cy: number
+}
+
+export function chairPositions(seats: number): Chair[] {
+  if (seats <= 0) return []
+
+  return Array.from({ length: seats }, (_, seatIndex) => {
+    const theta = -Math.PI / 2 + seatIndex * ((2 * Math.PI) / seats)
+    return {
+      seatIndex,
+      cx: RING.centre + RING.ringRadius * Math.cos(theta),
+      cy: RING.centre + RING.ringRadius * Math.sin(theta),
+    }
+  })
+}
+
+/**
+ * The `4.5` cap is not arbitrary: `RING.ringRadius + 4.5 === RING.centre`, so a chair's outer
+ * edge lands exactly on the viewBox edge — the same budget `ringRadius` itself was tuned
+ * against (see the comment on `RING` above). `0.38` of the inter-centre arc keeps adjacent
+ * chairs from touching at any seat count.
+ */
+export function chairRadius(seats: number): number {
+  if (seats <= 0) return 0
+
+  const arc = (0.38 * (2 * Math.PI * RING.ringRadius)) / seats
+  return Math.min(4.5, Math.max(1.5, arc))
+}
+
+/** TT-44 (C7): the clean drop for a seat count dense enough that a chair would render as a blur. */
+export function chairsVisibleAt(seats: number, renderedSize: number): boolean {
+  if (seats <= 0) return false
+
+  return (2 * chairRadius(seats) * renderedSize) / RING.viewBox >= 3
+}

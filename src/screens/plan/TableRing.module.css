@@ -45,3 +45,22 @@
 .pin {
   fill: var(--ring-pin);
 }
+
+/* TT-44, KB-5 "colour never carries meaning alone": occupied and empty chairs differ in fill
+   (a different --ring-chair-* property each) and both keep a stroke, so the pair still reads
+   under grayscale(1) once the fill difference alone would not. non-scaling-stroke matches
+   TT-38's rule that geometry scales and stroke weights do not — it is what keeps an empty
+   chair's outline visible at the floor. */
+.chairOccupied {
+  fill: var(--ring-chair-fill);
+  stroke: var(--ring-chair-stroke);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.chairEmpty {
+  fill: var(--ring-chair-empty-fill);
+  stroke: var(--ring-chair-stroke);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
