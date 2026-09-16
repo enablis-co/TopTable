@@ -1,4 +1,5 @@
 import type { Guest } from '../../domain/types'
+import { capitalizeFirst } from '../../ui'
 
 /**
  * TT-15, KB-3, KB-6 "Table detail". View aggregation for the panel's needs block — not a rule
@@ -12,10 +13,6 @@ import type { Guest } from '../../domain/types'
  */
 
 export type NeedCount = { term: string; count: number }
-
-function capitalise(term: string): string {
-  return term.length === 0 ? term : `${term[0]?.toUpperCase() ?? ''}${term.slice(1)}`
-}
 
 /**
  * Counts occurrences of each distinct term across every guest, then sorts by the capitalised
@@ -32,7 +29,7 @@ function countsFrom(guests: readonly Guest[], termsOf: (guest: Guest) => readonl
   }
 
   return [...counts.entries()]
-    .map(([term, count]) => ({ term: capitalise(term), count }))
+    .map(([term, count]) => ({ term: capitalizeFirst(term), count }))
     .sort((a, b) => a.term.localeCompare(b.term))
 }
 

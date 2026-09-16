@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import type { Ref } from 'react'
-import { Button, Combobox, Select, Tag, cx, tabularClass } from '../../ui'
+import { Button, Combobox, Select, Tag, capitalizeFirst, cx, tabularClass } from '../../ui'
 import { OTHER_ROLES, PROTOCOL_ROLES } from '../../domain/types'
 import type { Guest, Role, Side } from '../../domain/types'
 import { NO_FILTERS, isFiltered } from './unseatedFilter'
@@ -10,10 +10,6 @@ import styles from './UnseatedRail.module.css'
 
 const ROLES: Role[] = [...OTHER_ROLES, ...PROTOCOL_ROLES]
 const SIDES: Side[] = ['bride', 'groom', 'both']
-
-function capitalizeFirst(value: string): string {
-  return value.length === 0 ? value : `${value[0]?.toUpperCase() ?? ''}${value.slice(1)}`
-}
 
 type UnseatedRailProps = {
   /** Already filtered by `PlanScreen` — this component renders exactly the rows it is given. */
