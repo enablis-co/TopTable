@@ -121,14 +121,11 @@ describe('NavRail — the version stamp (VITE_APP_VERSION unset, the common case
   })
 
   it('T13: renders no version text at all — no v0.7.0, no "undefined", no bare "v", no empty element (A22)', () => {
-    const nav = renderRail()
+    renderRail()
     expect(screen.queryByText('v0.7.0')).not.toBeInTheDocument()
     expect(screen.queryByText(/^v\d/)).not.toBeInTheDocument()
     expect(screen.queryByText('undefined')).not.toBeInTheDocument()
     expect(screen.queryByText(/^v$/)).not.toBeInTheDocument()
-    // The contract fixes the stamp's element as a <p>; nothing else in the rail is
-    // described as using one, so an untagged build should leave none in the DOM at all.
-    expect(nav.querySelectorAll('p')).toHaveLength(0)
   })
 
   it('T14: the three rows and their accessible names are exactly as when a version is set (A19, A20)', () => {

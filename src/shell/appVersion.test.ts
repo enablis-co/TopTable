@@ -46,6 +46,10 @@ describe('versionLabel', () => {
   it('rejects a value that merely contains a valid version rather than matching it exactly', () => {
     expect(versionLabel('v0.7.0 ')).toBe('v0.7.0') // trimmed whitespace is fine
     expect(versionLabel('version v0.7.0')).toBeNull()
+    // This pins the shape main.yml currently emits (a plain minor bump, vN.N.0,
+    // never a pre-release suffix) rather than a TT-42 criterion — A22 is about the
+    // untagged case, not this one. Relaxing this assertion later would not be
+    // breaking an acceptance criterion.
     expect(versionLabel('v0.7.0-rc1')).toBeNull()
     expect(versionLabel('v0.7')).toBeNull()
   })
@@ -76,11 +80,11 @@ describe('appVersion', () => {
     expect(appVersion()).toBeNull()
   })
 
-  // This is the behaviour A1 in the plan's clarifications rests on: import.meta.env must be
-  // read inside the function body, at call time, not captured once at module load — otherwise
-  // vi.stubEnv could never change what a later call returns, and the untagged branch (A22)
-  // would be untestable without editing vite.config.ts.
-  it('re-reads the environment on every call rather than caching it from module load (A23, A1)', () => {
+  // This pins a testability decision (the plan's A1), not a TT-42 acceptance criterion:
+  // import.meta.env must be read inside the function body, at call time, not captured once
+  // at module load — otherwise vi.stubEnv could never change what a later call returns, and
+  // the untagged branch (A22) would be untestable without editing vite.config.ts.
+  it('testability contract: re-reads the environment on every call rather than caching it from module load', () => {
     vi.stubEnv('VITE_APP_VERSION', 'v0.7.0')
     expect(appVersion()).toBe('v0.7.0')
 

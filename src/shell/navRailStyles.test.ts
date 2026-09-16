@@ -51,7 +51,7 @@ function requireRule(css: string, selectorPattern: RegExp, description: string):
   return rule
 }
 
-describe('NavRail.module.css — the version stamp is white via the chrome ink token, never a literal (A16, A24)', () => {
+describe('NavRail.module.css — .version declares color as the --chrome-ink token, never a literal (A16, A24)', () => {
   it('T16: .version sets color to a var(--...) token, with no colour literal anywhere in the rule', () => {
     const rule = requireRule(readCss(), VERSION_RULE, 'the version stamp')
     expect(rule.body).toMatch(/color\s*:\s*var\(--[\w-]+\)/i)
@@ -66,14 +66,14 @@ describe('NavRail.module.css — the version stamp is white via the chrome ink t
   })
 })
 
-describe('NavRail.module.css — the version stamp is mono, on the same token the nav counts use (A17)', () => {
+describe('NavRail.module.css — .version declares font: var(--t-figure), the same token the nav counts use (A17)', () => {
   it('T18: .version sets font: var(--t-figure)', () => {
     const rule = requireRule(readCss(), VERSION_RULE, 'the version stamp')
     expect(rule.body).toMatch(/font\s*:\s*var\(--t-figure\)/i)
   })
 })
 
-describe('NavRail.module.css — the version stamp pins to the bottom of the rail (A18)', () => {
+describe('NavRail.module.css — .version declares an auto top margin, pinning it to the bottom of the rail (A18)', () => {
   it('T19: an auto top margin pins the element, rather than the rule relying on source order alone', () => {
     const rule = requireRule(readCss(), VERSION_RULE, 'the version stamp')
     const margin = /margin\s*:\s*([^;]+);/i.exec(rule.body)?.[1]?.trim()
