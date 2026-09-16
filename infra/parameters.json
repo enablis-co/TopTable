@@ -1,0 +1,4 @@
+[
+  { "ParameterKey": "DomainName", "ParameterValue": "toptable.enablis.tech" },
+  { "ParameterKey": "BucketName", "ParameterValue": "toptable-site" }
+]
