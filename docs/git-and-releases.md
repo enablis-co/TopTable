@@ -38,7 +38,7 @@ Four workflows in [`.github/workflows/`](../.github/workflows):
 |---|---|---|
 | `checks.yml` | Called by `pull-request.yml` and `main.yml` | Install, typecheck, lint, test |
 | `pull-request.yml` | Pull requests into `main` | Calls `checks.yml` |
-| `main.yml` | Pushes to `main` | Calls `checks.yml`, then releases |
+| `main.yml` | Pushes to `main` | Calls `checks.yml`, works out the version, then tags and releases *and* publishes the site |
 | `infrastructure.yml` | Pull requests and pushes to `main` that touch `infra/` | Posts a changeset; applies it on merge, gated |
 
 `checks.yml` is a reusable workflow rather than two copies of the same steps. "The same checks run
@@ -83,6 +83,12 @@ version tag already pointing at `HEAD` and stops if it finds one.
 Releases are serialised through a `concurrency` group, so two merges landing together cannot both
 read the same latest tag and compute the same next version.
 
+**The version calculation is its own job.** `version` runs once, after `checks`, and outputs the
+version either way: the tag already on the commit if there is one, the next tag if not. Both
+`release` and `publish` (below) read that one output, so they cannot disagree about what was
+published, and a tagging failure in `release` does not stop `publish` from going out — `publish`
+does not depend on `release` at all.
+
 ### Minor per merge, rather than read from the commits
 
 Conventional commits would give `feat:` and `fix:` to bump from, but our commit format leads with
@@ -96,3 +102,69 @@ commit meant.
 `package.json` stays at `0.0.0`. The alternative is a workflow that commits a version bump to
 `main`, which retriggers the workflow that just ran and needs a `[skip ci]` convention to break the
 loop. One source of truth, and no commits authored by CI on the default branch.
+
+## Publishing `main`
+
+`publish` (`main.yml`) is gated on `checks` the same way `release` is, and takes its version from
+the same `version` job. It builds `dist/` with `VITE_APP_VERSION` set to that version, then syncs
+it to the live bucket and invalidates CloudFront. Every value it needs — the bucket, the
+distribution id, the region and the site URL — comes from the `production` GitHub Actions
+environment; see `infra/README.md`'s environments table for what each one holds and how it is set.
+Nothing account-specific is written into the workflow.
+
+**Two sync passes, in this order, index last.**
+
+1. `dist/assets/` (content-hashed) to `assets/`, `--cache-control 'public, max-age=31536000,
+   immutable'`. Safe to cache for a year because a new build gives every changed file a new name.
+2. Everything else — `index.html`, `favicon.svg`, `mark.svg`, `robots.txt`, `scenarios/*.json` —
+   `--cache-control 'no-cache'`. This pass runs second so `index.html` is never live before the
+   assets it names exist at their new hashes.
+
+**Two excludes on the second pass, and both matter for what they prevent, silently, if dropped:**
+
+- `--exclude 'tt-*/*'` is the only thing stopping that pass's `--delete` from removing every open
+  pull request's preview. Previews live at `tt-nn/...`, outside `dist/`, so a plain `sync --delete`
+  on the bucket root sees them as extra and removes them.
+- `--exclude 'assets/*'` is the only thing stopping this pass from overwriting the first pass's
+  immutable headers with `no-cache`. Nothing errors if it is dropped — the bucket keeps working,
+  it just quietly stops caching for a year.
+
+`robots.txt` is deliberately **not** excluded from either pass. It lives in `public/`, lands in
+`dist/`, and needs to keep being *uploaded* as well as surviving `--delete` — an exclude pattern
+applies to the source side of a sync too, so excluding it would stop it being published at all.
+
+**The invalidation names six unhashed paths explicitly** — `/`, `/index.html`, `/favicon.svg`,
+`/mark.svg`, `/robots.txt`, `/scenarios/*` — rather than `/*`. Hashed assets are deliberately left
+out: a new build has new names, so there is nothing on the old hash to invalidate. The job waits
+for the invalidation to complete before it checks the live site, so a green `publish` means the
+site is serving the new build, not just that the upload succeeded.
+
+**Re-running `publish` on a commit that already published is harmless.** `version` resolves to the
+existing tag, the build reproduces byte-identical hashed assets, both `--delete` passes find
+nothing new to remove, and the invalidation is a no-op refresh of six paths.
+
+### Publishing runbook — checks after a merge
+
+The suite cannot see a `.yml` workflow at all, so none of this is covered by `npm run verify`. Run
+these once, after the first merge that includes a change to `publish`, or whenever the workflow
+itself is suspect. Every one observes the deployed site, never the workflow that produced it — in
+the idiom of `infra/README.md`'s `V`-checks.
+
+| # | Check | Expected |
+|---|---|---|
+| P1 | The `main` run's job list | `checks`, `version`, `release`, `publish`. `publish` started only after `checks` succeeded |
+| P2 | `curl -sS https://toptable.enablis.tech/` | `200`, and the bundle filename matches `dist/index.html` from the same commit |
+| P3 | The bottom of the left nav rail, in a browser | Reads the version the run tagged, in white, in mono |
+| P4 | `curl -sSI https://toptable.enablis.tech/index.html` | `cache-control: no-cache` |
+| P5 | `curl -sSI https://toptable.enablis.tech/assets/<hashed>.js` | `cache-control: public, max-age=31536000, immutable` |
+| P6 | `curl -sSI` on `/favicon.svg`, `/mark.svg`, `/robots.txt`, `/scenarios/adding-up.json` | `no-cache` on all four |
+| P7 | `curl -sS https://toptable.enablis.tech/robots.txt` | `200`, still contains `Disallow: /tt-` |
+| P8 | Before the merge, upload a throwaway `tt-0/index.html`; after it, `curl -sSI https://toptable.enablis.tech/tt-0/`; then delete it | `200`, not `404` — the production publish did not delete it |
+| P9 | Re-run the same `main` run from the Actions UI | `release` skipped, `publish` green, site unchanged, no second tag |
+| P10 | `gh secret list` for the repository and each environment; `grep -rn 'AKIA' .` | Nothing |
+| P11 | `grep -n 'toptable-site\|enablis.tech\|arn:aws' .github/workflows/main.yml` | No match — every value comes from the environment |
+| P12 | Open a pull request whose diff touches no file under `infra/` | `infrastructure.yml` does not run, and no changeset comment appears |
+
+**P8 is the one that earns its place.** Until previews (TT-43) exist there is no real preview to
+lose, which makes a throwaway `tt-0/` prefix the only evidence available that a production publish
+leaves other prefixes alone.

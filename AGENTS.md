@@ -183,7 +183,8 @@ Or `npm run verify`, which is the same three.
 All of them, not the tests you just wrote. A change is not done because it worked when you tried
 it by hand. CI runs the same three on the pull request and again on merge, from one reusable
 workflow rather than two copies that drift. A merge to `main` then tags a version and cuts a
-release: minor bump each time, starting at `v0.1.0`.
+release: minor bump each time, starting at `v0.1.0`; that same merge also publishes the site — see
+[docs/git-and-releases.md](docs/git-and-releases.md).
 
 **A failing check blocks the merge only if the check is required.** That is a branch protection
 setting on the repository, not something this repo can enforce.
