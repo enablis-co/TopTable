@@ -28,6 +28,11 @@ type PlanHeaderProps = {
   unseatedCount: number
   score: StatPanelProps & { value: number | null }
   pinned: StatPanelProps
+  /** TT-46. `hard violation count === 0`, from `isPublishable(report)` — a function of the
+   *  report alone, never of `score.value`. Rendered in words beside the stats in both score
+   *  states (KB-8 "The score is not permission"), never as a colour, tick or shape (KB-5: a
+   *  clean plan is stated in words, and colour never carries meaning alone). */
+  publishable: boolean
 }
 
 /**
@@ -161,7 +166,16 @@ function PinnedStat({ pinnedCount, pinned }: { pinnedCount: number; pinned: Stat
  * shorthands, which reset `font-family` back to sans on any element they land on directly, and
  * an inherited value always loses to `.tt-num`'s own rule applied straight to its own span.
  */
-export function PlanHeader({ scenario, room, guests, seating, unseatedCount, score, pinned }: PlanHeaderProps) {
+export function PlanHeader({
+  scenario,
+  room,
+  guests,
+  seating,
+  unseatedCount,
+  score,
+  pinned,
+  publishable,
+}: PlanHeaderProps) {
   const label = scenarioLabel(scenario)
   const { guestCount, pinnedCount } = planTotals(guests, seating)
   // Normalised, matching PlanScreen's gate and FloorplanGrid's own generator (TT-11 review).
@@ -223,15 +237,25 @@ export function PlanHeader({ scenario, room, guests, seating, unseatedCount, sco
           )}
         </p>
       </div>
-      <div className={styles.stats}>
-        <ScoreStat score={score} />
-        <PinnedStat pinnedCount={pinnedCount} pinned={pinned} />
-        <div className={styles.stat}>
-          <p className={styles.statValue}>
-            <Num value={unseatedCount} />
-          </p>
-          <p className={styles.statLabel}>Unseated</p>
+      <div className={styles.statsColumn}>
+        <div className={styles.stats}>
+          <ScoreStat score={score} />
+          <PinnedStat pinnedCount={pinnedCount} pinned={pinned} />
+          <div className={styles.stat}>
+            <p className={styles.statValue}>
+              <Num value={unseatedCount} />
+            </p>
+            <p className={styles.statLabel}>Unseated</p>
+          </div>
         </div>
+        {/* TT-46. A sibling of the stats row, never a child of the element StatToggle renders —
+            that element is a button, which admits phrasing content only, and folding these words
+            into it would change the Fit toggle's accessible name (this file's own StatToggle
+            comment). Rendered in both score states, including "Nothing to score": the plan's
+            publishability does not depend on there being a score to accompany. No data-
+            attribute and no per-state class — the words above are the only difference between
+            the two states (KB-5, A13). */}
+        <p className={styles.publishState}>{publishable ? 'Can be published' : 'Cannot be published'}</p>
       </div>
     </div>
   )

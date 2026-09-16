@@ -83,6 +83,16 @@
   color: var(--soft-deep);
 }
 
+/* TT-46. Wraps .stats so the publishability line sits underneath it, right-aligned, without
+   joining the flex row and disturbing the shared flex-end baseline the stats depend on. */
+.statsColumn {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s-1);
+}
+
 /* margin-right is the mirror of the padding every stat now carries (below): the wash needs air
    around the text, but the rightmost stat's text still has to land flush with the header's own
    right edge, where it sat before that padding existed. The wash grows outward from the text; the
@@ -93,6 +103,18 @@
   align-items: flex-end;
   gap: var(--s-3);
   padding-bottom: var(--s-1);
+  margin-right: calc(var(--s-2) * -1);
+}
+
+/* TT-46. One colour for both "Can be published" and "Cannot be published" — the words are the
+   only difference between them (KB-5: a clean plan is stated in words, and colour never carries
+   meaning alone). The negative right margin mirrors .stats' own so the text lands flush with the
+   header's right edge rather than inset by the stats' padding. */
+.publishState {
+  margin: var(--s-1) 0 0;
+  font: var(--t-caption);
+  color: var(--ink);
+  text-align: right;
   margin-right: calc(var(--s-2) * -1);
 }
 

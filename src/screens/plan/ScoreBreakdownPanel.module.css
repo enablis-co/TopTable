@@ -38,9 +38,18 @@
 }
 
 .subtitle {
-  margin: 0 0 var(--s-3);
+  margin: 0 0 var(--s-1);
   font: var(--t-caption);
   color: var(--ink-muted);
+}
+
+/* TT-46. Reads as one block with .subtitle above it — one colour for both "Can be published" and
+   "Cannot be published" (KB-5: a clean plan is stated in words, and colour never carries meaning
+   alone). */
+.publishState {
+  margin: 0 0 var(--s-3);
+  font: var(--t-caption);
+  color: var(--ink);
 }
 
 .list {

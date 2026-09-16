@@ -5,6 +5,10 @@ import styles from './ScoreBreakdownPanel.module.css'
 type ScoreBreakdownPanelProps = {
   id: string
   dimensions: readonly ScoreDimension[]
+  /** TT-46. `isPublishable(report)` — the score's own explanation, since a per-dimension 100%
+   *  reads as a verdict just as readily as the headline stat does. Rendered in words only, one
+   *  colour for both states (KB-5, A13). */
+  publishable: boolean
   onDismiss: () => void
 }
 
@@ -26,14 +30,23 @@ function DismissButton({ onDismiss }: { onDismiss: () => void }) {
  * when the dimension's own fit rounds to 100% — "100% · 1 of 200 missed" is a real line this
  * renders. Do not "fix" that apparent contradiction; a dimension that rounds to 100% is not the
  * same as one with nothing missed, and this line is where the difference is visible.
+ *
+ * TT-46: the severity word (`Hard`/`Soft`) is the first token of the figures line, matching
+ * `ViolationsPanel`'s own meta-line vocabulary — with every rule scoring now, hard and soft
+ * dimensions sit in the same list, and the label is what makes the required hard-before-soft
+ * order visible to a reader rather than only assertable as DOM order. No severity colour or
+ * border on the row itself (KB-5 one-shape-one-meaning; a dimension at 100% is not a violation).
  */
 function DimensionRow({ dimension }: { dimension: ScoreDimension }) {
   const percent = Math.round(dimension.fit * 100)
+  const severityWord = dimension.severity === 'hard' ? 'Hard' : 'Soft'
 
   return (
     <li className={styles.row}>
       <p className={styles.rule}>{dimension.description}</p>
       <p className={styles.figures}>
+        {severityWord}
+        {' · '}
         <span className={tabularClass}>{percent}</span>
         {'% · '}
         <span className={tabularClass}>{dimension.missed}</span>
@@ -52,18 +65,22 @@ function DimensionRow({ dimension }: { dimension: ScoreDimension }) {
 }
 
 /**
- * TT-16, KB-6 "Plan". `dimensions` arrives already worst-first from `scorePlan` — this component
- * does no sorting and no arithmetic beyond rounding a fit to a percentage. No `--hard`/`--soft`
- * colour or dashed border on a row: a dimension at 100% is not a violation
- * (`ViolationsPanel.module.css` records the same one-shape-one-meaning rule). No empty-state
- * branch: `PlanScreen` mounts this only when the score is non-null, which implies at least one
- * dimension.
+ * TT-16, KB-6 "Plan". `dimensions` arrives already hard-before-soft, worst-first within each
+ * severity, from `scorePlan` (TT-46) — this component does no sorting and no arithmetic beyond
+ * rounding a fit to a percentage. No `--hard`/`--soft` colour or dashed border on a row: a
+ * dimension at 100% is not a violation (`ViolationsPanel.module.css` records the same
+ * one-shape-one-meaning rule). No empty-state branch: `PlanScreen` mounts this only when the
+ * score is non-null, which implies at least one dimension.
  */
-export function ScoreBreakdownPanel({ id, dimensions, onDismiss }: ScoreBreakdownPanelProps) {
+export function ScoreBreakdownPanel({ id, dimensions, publishable, onDismiss }: ScoreBreakdownPanelProps) {
   return (
     <div id={id} className={styles.wrapper}>
       <Panel title="Score breakdown" actions={<DismissButton onDismiss={onDismiss} />} className={styles.body}>
-        <p className={styles.subtitle}>Soft rules only. Hard violations do not move it.</p>
+        <p className={styles.subtitle}>Every rule counts, hard and soft. The score is not permission to publish.</p>
+        {/* TT-46. The score's own explanation — a per-dimension 100% reads as a verdict just as
+            readily as the headline stat does. Words only, one colour for both states (KB-5, A13),
+            no data- attribute and no per-state class. */}
+        <p className={styles.publishState}>{publishable ? 'Can be published' : 'Cannot be published'}</p>
         <ol className={styles.list}>
           {dimensions.map((dimension) => (
             <DimensionRow key={dimension.ruleId} dimension={dimension} />

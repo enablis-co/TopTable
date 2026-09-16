@@ -7,7 +7,7 @@ import { pinnedTableFor } from '../../domain/pins'
 import { normaliseRoom, seatPins, tablesInRoom } from '../../domain/seating'
 import { allocate } from '../../domain/allocate'
 import { evaluateRegistered, registeredSeatGuard } from '../../domain/rules/registry'
-import { tablesWithHardViolation } from '../../domain/rules/engine'
+import { isPublishable, tablesWithHardViolation } from '../../domain/rules/engine'
 import { scorePlan } from '../../domain/rules/score'
 import { isTopTableIncomplete } from '../setup/roomCompleteness'
 import { seatingViewFrom, planTotals } from './floorplan'
@@ -129,6 +129,9 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   // TT-16. Derived from the same report the violations panel reads, so the score and the
   // violations list can never disagree about which plan they describe.
   const planScore = useMemo(() => scorePlan(report), [report])
+  // TT-46. Derived from the same report as planScore and the violations list, so the score, the
+  // violations and the publishability line can never disagree about which plan they describe.
+  const publishable = useMemo(() => isPublishable(report), [report])
   const violatingTableIds = useMemo(() => tablesWithHardViolation(report), [report])
   const seating = useMemo(() => seatingViewFrom(plan, violatingTableIds), [plan, violatingTableIds])
   // Hoisted once so ClearControls and the render-phase correction below read the same figure
@@ -399,6 +402,7 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 guests={guests}
                 seating={seating}
                 unseatedCount={plan.unseated.length}
+                publishable={publishable}
                 score={{
                   value: planScore.score,
                   expanded: column.kind === 'breakdown',
@@ -488,6 +492,7 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                     <ScoreBreakdownPanel
                       id={breakdownPanelId}
                       dimensions={planScore.dimensions}
+                      publishable={publishable}
                       onDismiss={handleDismissBreakdown}
                     />
                   ) : (
