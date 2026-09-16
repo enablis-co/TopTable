@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createRef, useRef, useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UnseatedRail } from './UnseatedRail'
 import { NO_FILTERS, filterUnseated } from './unseatedFilter'
@@ -62,11 +62,17 @@ function renderRail(
     onFiltersChange?: (filters: UnseatedFilters) => void
     selectedGuestId?: string | null
     onSelect?: (guestId: string) => void
+    summaryGuestId?: string | null
+    summaryId?: string
+    onGuestHover?: (guestId: string, element: HTMLElement) => void
+    onGuestHoverEnd?: (guestId: string) => void
   } = {},
 ) {
   const guests = overrides.guests ?? []
   const onSelect = overrides.onSelect ?? vi.fn()
   const onFiltersChange = overrides.onFiltersChange ?? vi.fn()
+  const onGuestHover = overrides.onGuestHover ?? vi.fn()
+  const onGuestHoverEnd = overrides.onGuestHoverEnd ?? vi.fn()
   const headingRef = createRef<HTMLHeadingElement>()
   const utils = render(
     <UnseatedRail
@@ -77,9 +83,13 @@ function renderRail(
       selectedGuestId={overrides.selectedGuestId ?? null}
       onSelect={onSelect}
       headingRef={headingRef}
+      summaryGuestId={overrides.summaryGuestId ?? null}
+      summaryId={overrides.summaryId ?? 'summary-card'}
+      onGuestHover={onGuestHover}
+      onGuestHoverEnd={onGuestHoverEnd}
     />,
   )
-  return { ...utils, onSelect, onFiltersChange, headingRef }
+  return { ...utils, onSelect, onFiltersChange, onGuestHover, onGuestHoverEnd, headingRef }
 }
 
 /**
@@ -421,5 +431,108 @@ describe('UnseatedRail — a guest holding any role other than "guest" carries t
     renderRail({ guests: [makeGuest('g-1', { name: 'Kev Braithwaite', role: 'guest' })] })
 
     expect(screen.getByRole('button', { name: 'Kev Braithwaite' })).toBeInTheDocument()
+  })
+})
+
+/*
+ * TT-36 (C1, C7). Hovering or focusing a rail row opens the guest's summary; leaving it (mouse
+ * or keyboard) closes it. This component only ever reports the gesture — PlanScreen decides what
+ * "opens" means (rendering GuestHoverCard) — so these tests assert the callbacks it is given are
+ * called with the right guest, not that any card actually renders here.
+ */
+describe('UnseatedRail — hovering or focusing a row reports it for the guest summary (C1, C7)', () => {
+  it('hovering a row calls onGuestHover with that guest\'s id', async () => {
+    const user = userEvent.setup()
+    const { onGuestHover } = renderRail({ guests: [makeGuest('g-1', { name: 'Danny Whitaker' })] })
+
+    await user.hover(screen.getByRole('button', { name: 'Danny Whitaker' }))
+
+    expect(onGuestHover).toHaveBeenCalledWith('g-1', expect.anything())
+  })
+
+  it('moving the pointer off a row calls onGuestHoverEnd with that guest\'s id', async () => {
+    const user = userEvent.setup()
+    const { onGuestHoverEnd } = renderRail({ guests: [makeGuest('g-1', { name: 'Danny Whitaker' })] })
+    const row = screen.getByRole('button', { name: 'Danny Whitaker' })
+
+    await user.hover(row)
+    await user.unhover(row)
+
+    expect(onGuestHoverEnd).toHaveBeenCalledWith('g-1')
+  })
+
+  it('focusing a row calls onGuestHover; moving focus to another row calls onGuestHoverEnd for the one it left', () => {
+    const { onGuestHover, onGuestHoverEnd } = renderRail({
+      guests: [makeGuest('g-1', { name: 'Danny Whitaker' }), makeGuest('g-2', { name: 'Priya Shah' })],
+    })
+    const first = screen.getByRole('button', { name: 'Danny Whitaker' })
+    const second = screen.getByRole('button', { name: 'Priya Shah' })
+
+    fireEvent.focus(first)
+    expect(onGuestHover).toHaveBeenCalledWith('g-1', expect.anything())
+
+    fireEvent.blur(first)
+    fireEvent.focus(second)
+    expect(onGuestHoverEnd).toHaveBeenCalledWith('g-1')
+    expect(onGuestHover).toHaveBeenCalledWith('g-2', expect.anything())
+  })
+
+  it('carries aria-describedby, naming the summary card, only on the row whose summary is open', () => {
+    renderRail({
+      guests: [makeGuest('g-1', { name: 'Danny Whitaker' }), makeGuest('g-2', { name: 'Priya Shah' })],
+      summaryGuestId: 'g-1',
+      summaryId: 'summary-card',
+    })
+
+    expect(screen.getByRole('button', { name: 'Danny Whitaker' })).toHaveAttribute('aria-describedby', 'summary-card')
+    expect(screen.getByRole('button', { name: 'Priya Shah' })).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('carries no aria-describedby on any row when no summary is open', () => {
+    renderRail({ guests: [makeGuest('g-1', { name: 'Danny Whitaker' })], summaryGuestId: null })
+
+    expect(screen.getByRole('button', { name: 'Danny Whitaker' })).not.toHaveAttribute('aria-describedby')
+  })
+})
+
+/*
+ * R5 regression: TT-38's scroll-restore listens for `focusin` on the list to detect a placement.
+ * TT-36 adds its own `onFocus` to every row, which must not interfere with that — the row's own
+ * hover-summary handler and the list's native listener are two independent things reacting to
+ * the same event.
+ */
+describe('UnseatedRail — the hover-summary wiring does not disturb the placement scroll-restore (R5 regression)', () => {
+  it('a placement still restores the list\'s scroll position on the row that receives focus next', () => {
+    const guestsFull = makeGuests(5)
+    const headingRef = createRef<HTMLHeadingElement>()
+
+    function withProps(guests: Guest[]) {
+      return (
+        <UnseatedRail
+          guests={guests}
+          totalCount={5}
+          filters={NO_FILTERS}
+          onFiltersChange={vi.fn()}
+          selectedGuestId={null}
+          onSelect={vi.fn()}
+          headingRef={headingRef}
+          summaryGuestId={null}
+          summaryId="summary-card"
+          onGuestHover={vi.fn()}
+          onGuestHoverEnd={vi.fn()}
+        />
+      )
+    }
+
+    const { rerender } = render(withProps(guestsFull))
+    const list = screen.getByRole('list')
+    list.scrollTop = 40
+    list.dispatchEvent(new Event('scroll'))
+
+    rerender(withProps(guestsFull.slice(1)))
+    list.scrollTop = 0
+    list.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+
+    expect(list.scrollTop).toBe(40)
   })
 })

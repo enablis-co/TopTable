@@ -30,6 +30,18 @@ type UnseatedRailProps = {
   selectedGuestId: string | null
   onSelect: (guestId: string) => void
   headingRef: Ref<HTMLHeadingElement>
+  /**
+   * TT-36. Which guest's hover summary, if any, is currently open — drives `aria-describedby` on
+   * the one row it describes, never on every row (an id referencing a card that isn't showing
+   * that guest would be a broken relationship, not a helpful one). `summaryId` is the rendered
+   * `GuestHoverCard`'s own id; `onGuestHover`/`onGuestHoverEnd` open and close it. All four are
+   * optional so a caller that hasn't wired the summary up degrades to the rail as it stood before
+   * this ticket, with no hover or focus behaviour added.
+   */
+  summaryGuestId?: string | null
+  summaryId?: string
+  onGuestHover?: (guestId: string, element: HTMLElement) => void
+  onGuestHoverEnd?: (guestId: string) => void
 }
 
 /**
@@ -106,6 +118,10 @@ export function UnseatedRail({
   selectedGuestId,
   onSelect,
   headingRef,
+  summaryGuestId = null,
+  summaryId,
+  onGuestHover,
+  onGuestHoverEnd,
 }: UnseatedRailProps) {
   const filtered = isFiltered(filters)
   const hiddenCount = totalCount - guests.length
@@ -252,9 +268,22 @@ export function UnseatedRail({
                 variant="quiet"
                 className={styles.row}
                 aria-pressed={guest.id === selectedGuestId}
+                aria-describedby={summaryId && guest.id === summaryGuestId ? summaryId : undefined}
                 data-guest-id={guest.id}
                 onClick={() => {
                   onSelect(guest.id)
+                }}
+                onMouseEnter={(event) => {
+                  onGuestHover?.(guest.id, event.currentTarget)
+                }}
+                onMouseLeave={() => {
+                  onGuestHoverEnd?.(guest.id)
+                }}
+                onFocus={(event) => {
+                  onGuestHover?.(guest.id, event.currentTarget)
+                }}
+                onBlur={() => {
+                  onGuestHoverEnd?.(guest.id)
                 }}
               >
                 {guest.name}

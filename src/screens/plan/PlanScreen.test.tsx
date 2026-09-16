@@ -770,6 +770,70 @@ describe('PlanScreen — Escape clears the selection', () => {
   })
 })
 
+describe('PlanScreen — hovering or focusing a rail row shows that guest\'s summary (C1, C7)', () => {
+  it('hovering a rail row renders a summary naming that guest', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.hover(screen.getByRole('button', { name: 'Guest g-0' }))
+
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+  })
+
+  it('moving the pointer away closes the summary', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    const user = userEvent.setup()
+    renderPlanScreen()
+    const row = screen.getByRole('button', { name: 'Guest g-0' })
+
+    await user.hover(row)
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+
+    await user.unhover(row)
+    expect(screen.queryByRole('group', { name: /Guest g-0/ })).not.toBeInTheDocument()
+  })
+
+  it('never shows a dietary preference, for a guest who has one, alongside an allergy the summary does show (C4)', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests([makeGuest('g-0', { dietaryPreferences: ['vegan'], allergies: ['nuts'] })])
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.hover(screen.getByRole('button', { name: 'Guest g-0' }))
+
+    const card = screen.getByRole('group', { name: /Guest g-0/ })
+    expect(card.textContent).toMatch(/nuts/i)
+    expect(card.textContent).not.toMatch(/vegan/i)
+  })
+})
+
+describe('PlanScreen — Escape and the guest summary (C9)', () => {
+  it('a summary opened for a guest other than the one selected is dismissed on its own, leaving the selection untouched', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(2))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Guest g-0' }))
+    expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.hover(screen.getByRole('button', { name: 'Guest g-1' }))
+    expect(screen.getByRole('group', { name: /Guest g-1/ })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('group', { name: /Guest g-1/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveAttribute('aria-pressed', 'true')
+    expect(useTopTableStore.getState().pins).toEqual([])
+
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveAttribute('aria-pressed', 'false')
+  })
+})
+
 describe('PlanScreen — placing at the top table', () => {
   it('placing an ordinary, non-protocol guest at the top table succeeds — TT-12 does not gate placing on a protocol role', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 0, seatsEach: 0, topTableSeats: 4 })
