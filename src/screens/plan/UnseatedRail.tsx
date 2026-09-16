@@ -30,6 +30,23 @@ type UnseatedRailProps = {
   selectedGuestId: string | null
   onSelect: (guestId: string) => void
   headingRef: Ref<HTMLHeadingElement>
+  /**
+   * TT-36. Which guest's hover summary, if any, is currently open — drives `aria-describedby` on
+   * the one row it describes, never on every row (an id referencing a card that isn't showing
+   * that guest would be a broken relationship, not a helpful one). `summaryId` is the rendered
+   * `GuestHoverCard`'s own id. Hover and focus are two separate pairs, `onGuestHover`/
+   * `onGuestHoverEnd` and `onGuestFocus`/`onGuestBlur`, rather than one shared pair —
+   * `PlanScreen` needs to tell the two gestures apart to give a still-focused row priority once
+   * the mouse has since moved off a different one. All optional so a caller that hasn't wired the
+   * summary up degrades to the rail as it stood before this ticket, with no hover or focus
+   * behaviour added.
+   */
+  summaryGuestId?: string | null
+  summaryId?: string
+  onGuestHover?: (guestId: string, element: HTMLElement) => void
+  onGuestHoverEnd?: (guestId: string) => void
+  onGuestFocus?: (guestId: string, element: HTMLElement) => void
+  onGuestBlur?: (guestId: string) => void
 }
 
 /**
@@ -106,6 +123,12 @@ export function UnseatedRail({
   selectedGuestId,
   onSelect,
   headingRef,
+  summaryGuestId = null,
+  summaryId,
+  onGuestHover,
+  onGuestHoverEnd,
+  onGuestFocus,
+  onGuestBlur,
 }: UnseatedRailProps) {
   const filtered = isFiltered(filters)
   const hiddenCount = totalCount - guests.length
@@ -252,9 +275,22 @@ export function UnseatedRail({
                 variant="quiet"
                 className={styles.row}
                 aria-pressed={guest.id === selectedGuestId}
+                aria-describedby={summaryId && guest.id === summaryGuestId ? summaryId : undefined}
                 data-guest-id={guest.id}
                 onClick={() => {
                   onSelect(guest.id)
+                }}
+                onMouseEnter={(event) => {
+                  onGuestHover?.(guest.id, event.currentTarget)
+                }}
+                onMouseLeave={() => {
+                  onGuestHoverEnd?.(guest.id)
+                }}
+                onFocus={(event) => {
+                  onGuestFocus?.(guest.id, event.currentTarget)
+                }}
+                onBlur={() => {
+                  onGuestBlur?.(guest.id)
                 }}
               >
                 {guest.name}

@@ -82,11 +82,16 @@
    MIN_TABLE_SIZE that width exceeded a whole chair's rendered diameter, painting straight
    through an empty chair's hollow. `ringGeometry.test.ts`'s `chairDiameterPx` keeps the widened
    value below the smallest chair KB-3's scenarios ever render at the scale floor. */
+/* TT-36: the ring's own <svg> is `pointer-events: none` now (PlanTable.module.css's `.round >
+   svg`), so the ring's filled body doesn't swallow a click meant for the face button underneath
+   it — chairs re-enable pointer events on themselves alone, since they are the one thing in this
+   drawing that is genuinely interactive (hoverable, focusable) now. */
 .chairOccupied {
   fill: var(--ring-chair-fill);
   stroke: var(--ring-chair-stroke);
   stroke-width: var(--ring-chair-stroke-width);
   vector-effect: non-scaling-stroke;
+  pointer-events: auto;
 }
 
 .chairEmpty {
@@ -94,4 +99,18 @@
   stroke: var(--ring-chair-stroke);
   stroke-width: var(--ring-chair-stroke-width);
   vector-effect: non-scaling-stroke;
+  pointer-events: auto;
+}
+
+/* TT-36. This repo never removes a focus outline (brand.test.ts forbids it) — a chair is the one
+   focusable thing this file draws, and the roving tab stop needs a visible indicator of its own,
+   the same as `.table .face:focus-visible` gives the face button (PlanTable.module.css).
+   `outline-offset` is positive, not inset: `chairRadius` (`ringGeometry.ts`) shrinks a chair down
+   to a floor with room enough for its own stroke and nothing to spare, so an offset that eats
+   inward would leave nothing of the shape visible at all, at every seat count this file ever
+   draws. */
+.chairOccupied:focus-visible,
+.chairEmpty:focus-visible {
+  outline: 2px solid var(--slate);
+  outline-offset: 1px;
 }

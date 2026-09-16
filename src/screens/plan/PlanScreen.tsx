@@ -26,6 +26,8 @@ import { ClearControls } from './ClearControls'
 import { Button } from '../../ui'
 import { NO_FILTERS, filterUnseated } from './unseatedFilter'
 import type { UnseatedFilters } from './unseatedFilter'
+import { GuestHoverCard } from './GuestHoverCard'
+import { guestSummaryFields } from './guestSummary'
 import styles from './PlanScreen.module.css'
 
 /** Exhaustiveness for the `column.kind` switch below — a fifth `ThirdColumn` member fails
@@ -86,8 +88,17 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   const [column, setColumn] = useState<ThirdColumn>(VIOLATIONS)
   const [announcement, setAnnouncement] = useState('')
   const [filters, setFilters] = useState<UnseatedFilters>(NO_FILTERS)
+  // TT-36. The guest hover summary — derived, view-only state, never written to the store
+  // (docs/state.md). Hover and focus are tracked separately rather than in one shared field: a
+  // still-focused row or chair keeps its summary showing even after the mouse has drifted across
+  // a *different* one and back off it — `summary` below is hover's answer when there is one,
+  // falling back to focus's. Reset on every remount, same as `column` and `filters` above.
+  const [hoveredSummary, setHoveredSummary] = useState<{ guestId: string; rect: DOMRect } | null>(null)
+  const [focusedSummary, setFocusedSummary] = useState<{ guestId: string; rect: DOMRect } | null>(null)
+  const summary = hoveredSummary ?? focusedSummary
   const breakdownPanelId = useId()
   const pinnedPanelId = useId()
+  const summaryId = useId()
   const scoreToggleRef = useRef<HTMLButtonElement>(null)
   const pinnedToggleRef = useRef<HTMLButtonElement>(null)
 
@@ -159,19 +170,60 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
   // behavioural gain.
   const selectedTable = plan.tables.find((table) => table.id === selectedId) ?? null
 
-  // Active only while a guest is selected — GuestRowMenu's own listen/cleanup pattern. Also
-  // doubles as the escape hatch for PlanTable's own placing-over-selecting priority (review,
+  // Read inside the Escape handler below via refs, not effect dependencies — see that handler's
+  // own comment for why. Synced in their own small effects rather than assigned during render:
+  // mutating a ref while rendering is a React footgun (a concurrent render that gets thrown away
+  // would still have written it) even though nothing here reads the ref back before committing.
+  const selectedGuestIdRef = useRef(selectedGuestId)
+  useEffect(() => {
+    selectedGuestIdRef.current = selectedGuestId
+  }, [selectedGuestId])
+  const summaryRef = useRef(summary)
+  useEffect(() => {
+    summaryRef.current = summary
+  }, [summary])
+
+  // Active whenever the screen is mounted, not only while a guest is selected or a summary is
+  // open — GuestRowMenu's own listen/cleanup pattern instead attaches only while its menu is
+  // open, but that pattern re-subscribes this listener on every hover if applied here (`summary`
+  // changes on every mouseenter/mouseleave), which is needless churn on the feature's hottest
+  // path. Reading the latest `selectedGuestId`/`summary` through the refs above — synced by the
+  // cheap effects just before this one, never by adding or removing this listener itself — keeps
+  // this effect's own dependency list empty instead.
+  //
+  // Also doubles as the escape hatch for PlanTable's own placing-over-selecting priority (review,
   // TT-15): while a guest is selected, clicking a table places rather than selects it, so this
   // is how a user reaches a table's detail panel (and the release control that lives only there)
   // without first placing the selected guest — the same way `handleSelect`'s own toggle below
   // does, by clicking the selected guest's row again.
+  //
+  // TT-36: a summary open for a guest *other than* the one selected is a peek, not part of the
+  // selection gesture — Escape dismisses that on its own, leaving the selection untouched, so a
+  // second Escape is what then clears it. Selecting a guest by clicking their row also focuses
+  // it, which opens that same guest's own summary as a side effect of the very same gesture —
+  // that is not "a rail guest selection that was not being made", so this Escape clears both
+  // together, in one press, exactly as it did before this ticket added the summary at all.
   useEffect(() => {
-    if (selectedGuestId === null) return
-
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
+      if (event.key !== 'Escape') return
+
+      const currentSelectedGuestId = selectedGuestIdRef.current
+      const currentSummary = summaryRef.current
+
+      if (currentSummary !== null && currentSummary.guestId !== currentSelectedGuestId) {
+        setHoveredSummary(null)
+        setFocusedSummary(null)
+        return
+      }
+
+      if (currentSelectedGuestId !== null) {
         setSelectedGuestId(null)
+        setHoveredSummary(null)
+        setFocusedSummary(null)
         setAnnouncement('Selection cleared')
+      } else {
+        setHoveredSummary(null)
+        setFocusedSummary(null)
       }
     }
 
@@ -179,7 +231,7 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [selectedGuestId])
+  }, [])
 
   // The rail's own buttons, current as of the last commit. Reads railRef rather than closing
   // over unseated, so a caller wrapping its state updates in flushSync first is guaranteed
@@ -190,6 +242,34 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
 
   function handleSelect(guestId: string) {
     setSelectedGuestId((current) => (current === guestId ? null : guestId))
+  }
+
+  // TT-36. Opens the hover summary for a guest, from a rail row or an occupied chair. Always
+  // overwrites whatever was hovered before: only one guest's card ever shows at once from the
+  // mouse. Kept separate from focus (below) so a chair or row that still holds keyboard focus
+  // keeps showing its own guest once the mouse moves off a *different* one it had drifted onto —
+  // `summary`'s own derivation (hover falling back to focus) is what gives focus that priority.
+  function handleGuestHover(guestId: string, element: Element) {
+    setHoveredSummary({ guestId, rect: element.getBoundingClientRect() })
+  }
+
+  // The `guestId` check guards against a stale close: if the pointer has already moved to a
+  // *different* guest's control by the time this fires, that control's own hover-start has
+  // already set `hoveredSummary` to point at it, and this must not undo that.
+  function handleGuestHoverEnd(guestId: string) {
+    setHoveredSummary((current) => (current?.guestId === guestId ? null : current))
+  }
+
+  // The keyboard-focus counterpart to the pair above — a separate piece of state, not the same
+  // setter, so losing focus (moving to a different control entirely) never clears a summary the
+  // mouse is still actively showing, and so hovering a second guest and moving off it falls back
+  // to whichever guest is still genuinely focused rather than to nothing.
+  function handleGuestFocus(guestId: string, element: Element) {
+    setFocusedSummary({ guestId, rect: element.getBoundingClientRect() })
+  }
+
+  function handleGuestBlur(guestId: string) {
+    setFocusedSummary((current) => (current?.guestId === guestId ? null : current))
   }
 
   // TT-15. Clicking the already-selected table again dismisses its detail panel; selecting any
@@ -350,6 +430,12 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 onPlace={handlePlace}
                 onSelect={handleSelectTable}
                 selectedTableId={selectedId}
+                summaryGuestId={summary?.guestId ?? null}
+                summaryId={summaryId}
+                onGuestHover={handleGuestHover}
+                onGuestHoverEnd={handleGuestHoverEnd}
+                onGuestFocus={handleGuestFocus}
+                onGuestBlur={handleGuestBlur}
               />
             </div>
             <div ref={railRef}>
@@ -362,6 +448,12 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
                 selectedGuestId={selectedGuestId}
                 onSelect={handleSelect}
                 headingRef={railHeadingRef}
+                summaryGuestId={summary?.guestId ?? null}
+                summaryId={summaryId}
+                onGuestHover={handleGuestHover}
+                onGuestHoverEnd={handleGuestHoverEnd}
+                onGuestFocus={handleGuestFocus}
+                onGuestBlur={handleGuestBlur}
               />
             </div>
           </div>
@@ -415,6 +507,21 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
           <p role="status" className="tt-visually-hidden">
             {announcement}
           </p>
+          {summary &&
+            (() => {
+              const summaryGuest = guests.find((guest) => guest.id === summary.guestId) ?? null
+              // `?? null` guards a guest removed from the list (elsewhere, e.g. the Guests
+              // screen in another tab) while their card was open — rendering nothing is the
+              // correct fallback, not a crash over a name that no longer resolves.
+              return summaryGuest ? (
+                <GuestHoverCard
+                  id={summaryId}
+                  guest={summaryGuest}
+                  fields={guestSummaryFields(summaryGuest, guests)}
+                  anchor={summary.rect}
+                />
+              ) : null
+            })()}
         </div>
       ) : (
         <PlanEmpty

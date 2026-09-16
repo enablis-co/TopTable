@@ -279,20 +279,31 @@
   border-radius: inherit;
 }
 
-/* TT-15, handoff "Round tables": the number and fill count sit inside the ring, not below it.
-   Written after the shared .table .face (both 0,2,0) so display: grid wins the tie. The ring's
-   own SVG becomes the sole normal-flow child; .heading and .occupancy are pulled out of flow
-   entirely (position: absolute below) and laid over it, so they no longer compete with the ring
-   for the column's height the way the old stacked layout did. */
+/* TT-15, handoff "Round tables": the number and fill count sit over the ring, not below it. */
 .round .face {
   position: relative;
   display: grid;
   place-items: center;
 }
 
-.round .face svg {
+/* TT-36: the ring's decorative body (TableRing) and its chairs (TableRingSeats) are two separate
+   svg elements now, both direct children of this `<li>` rather than nested inside the face
+   button — a focusable chair inside a button element is invalid HTML, and would join the
+   button's own accessible name via name-from-content (see PlanTable.tsx's own comment). Both are
+   absolutely positioned to fill the exact box the face itself fills, matched by this one
+   selector. `pointer-events: none` here is what stops the ring's own filled body circle
+   (TableRing.module.css's `.body`) from swallowing a click meant for the face beneath it;
+   TableRing.module.css re-enables it on the chairs alone, the one thing in either drawing meant
+   to receive a pointer.
+   Which of the two svg elements a given table renders, and on which side of the face button,
+   decides whether a click or a hover on the ring reaches the button or a chair — see
+   PlanTable.tsx's own comment for the ordering and why it has to be that specific way round. */
+.round > svg {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
+  pointer-events: none;
 }
 
 /* Percentages come from ringGeometry.ts: viewBox 94, centre 47, number at cy − 2 (45/94 =

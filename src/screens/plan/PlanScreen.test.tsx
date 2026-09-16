@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { describe, expect, it, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PlanScreen } from './PlanScreen'
 import { useTopTableStore } from '../../store/store'
@@ -767,6 +767,137 @@ describe('PlanScreen — Escape clears the selection', () => {
     await user.keyboard('{Escape}')
 
     expect(screen.getByRole('status').textContent).toMatch(/selection cleared/i)
+  })
+})
+
+describe('PlanScreen — hovering or focusing a rail row shows that guest\'s summary (C1, C7)', () => {
+  it('hovering a rail row renders a summary naming that guest', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.hover(screen.getByRole('button', { name: 'Guest g-0' }))
+
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+  })
+
+  it('moving the pointer away closes the summary', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    const user = userEvent.setup()
+    renderPlanScreen()
+    const row = screen.getByRole('button', { name: 'Guest g-0' })
+
+    await user.hover(row)
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+
+    await user.unhover(row)
+    expect(screen.queryByRole('group', { name: /Guest g-0/ })).not.toBeInTheDocument()
+  })
+
+  it('never shows a dietary preference, for a guest who has one, alongside an allergy the summary does show (C4)', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests([makeGuest('g-0', { dietaryPreferences: ['vegan'], allergies: ['nuts'] })])
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.hover(screen.getByRole('button', { name: 'Guest g-0' }))
+
+    const card = screen.getByRole('group', { name: /Guest g-0/ })
+    expect(card.textContent).toMatch(/nuts/i)
+    expect(card.textContent).not.toMatch(/vegan/i)
+  })
+})
+
+describe('PlanScreen — Escape and the guest summary (C9)', () => {
+  it('a summary opened for a guest other than the one selected is dismissed on its own, leaving the selection untouched', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(2))
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Guest g-0' }))
+    expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.hover(screen.getByRole('button', { name: 'Guest g-1' }))
+    expect(screen.getByRole('group', { name: /Guest g-1/ })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('group', { name: /Guest g-1/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveAttribute('aria-pressed', 'true')
+    expect(useTopTableStore.getState().pins).toEqual([])
+
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Guest g-0' })).toHaveAttribute('aria-pressed', 'false')
+  })
+})
+
+describe('PlanScreen — hovering or focusing an occupied chair on the floorplan shows that guest\'s summary (C2, C8)', () => {
+  it('hovering an occupied chair renders a summary naming its guest', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    const chair = screen.getByRole('img', { name: /Guest g-0/ })
+    await user.hover(chair)
+
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+  })
+
+  it('moving the pointer away closes it', async () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(1))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    const user = userEvent.setup()
+    renderPlanScreen()
+
+    const chair = screen.getByRole('img', { name: /Guest g-0/ })
+    await user.hover(chair)
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+
+    await user.unhover(chair)
+    expect(screen.queryByRole('group', { name: /Guest g-0/ })).not.toBeInTheDocument()
+  })
+
+  it('an empty chair opens no summary at all — there is no guest to summarise', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    renderPlanScreen()
+
+    const table = tableLabelled('Table 1')
+    const emptyChair = within(table).getByRole('img', { name: /^Seat 1, empty$/ })
+    fireEvent.focus(emptyChair)
+
+    expect(screen.queryByRole('group', { name: /^Summary for/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('PlanScreen — focus outlives a hover that drifted onto, then off, a different chair (reviewer, TT-36)', () => {
+  it('a still-focused chair\'s summary comes back once the mouse leaves a different chair it briefly hovered', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(2))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    useTopTableStore.getState().pinGuest('g-1', 'round-1')
+    renderPlanScreen()
+
+    const focusedChair = screen.getByRole('img', { name: /Guest g-0/ })
+    const otherChair = screen.getByRole('img', { name: /Guest g-1/ })
+
+    fireEvent.focus(focusedChair)
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+
+    // The mouse drifts across a different chair — its hover wins while it lasts...
+    fireEvent.mouseEnter(otherChair)
+    expect(screen.getByRole('group', { name: /Guest g-1/ })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: /Guest g-0/ })).not.toBeInTheDocument()
+
+    // ...but leaving it falls back to whichever chair is still genuinely focused, not to nothing.
+    fireEvent.mouseLeave(otherChair)
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: /Guest g-1/ })).not.toBeInTheDocument()
   })
 })
 

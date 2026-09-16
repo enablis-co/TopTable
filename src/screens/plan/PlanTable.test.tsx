@@ -146,6 +146,20 @@ function chairsByIndex(table: HTMLElement): Map<number, Element> {
   return new Map(chairs.map((chair) => [Number(chair.getAttribute('data-seat-index')), chair]))
 }
 
+/**
+ * TT-36. The table's face `<button>`, located explicitly rather than inline at each call site —
+ * every assertion that must hold of *the button itself* (never of a chair, which is an
+ * ARIA-button `<circle>`, not a `<button>` element `querySelectorAll('button')` would ever match)
+ * reads through this.
+ */
+function faceButtonOf(table: HTMLElement): HTMLButtonElement {
+  const button = table.querySelector('button')
+  if (!button) {
+    throw new Error('expected the table to render a face button')
+  }
+  return button
+}
+
 describe('PlanTable — occupancy against capacity', () => {
   it('no occupants reads empty, and shows "0 of m seats"', () => {
     const table = renderTable(roundSlot({ capacity: 8 }), makeOccupants({ guests: [] }))
@@ -314,10 +328,16 @@ describe('PlanTable — accessible content', () => {
   it('the visible table number remains part of the accessible name — no aria-label displaces it', () => {
     // Guards against an aria-label swallowing the visible text (WCAG 2.5.3) — not a role/name
     // query, which dom-accessibility-api can't compute for a listitem or paragraph role.
+    // TT-36: rescoped to the face button itself, which is the element whose accessible name this
+    // guards — a chair (now a sibling of the button, not a descendant) legitimately carries its
+    // own aria-label (C13) and must not fail this assertion.
     const table = renderTable(roundSlot({ number: 7, label: 'Table 7', capacity: 8 }), makeOccupants())
+    const face = faceButtonOf(table)
     expect(table.textContent).toContain('7')
-    expect(table.querySelector('[aria-label]')).toBeNull()
-    expect(table.querySelector('[aria-labelledby]')).toBeNull()
+    expect(face.hasAttribute('aria-label')).toBe(false)
+    expect(face.hasAttribute('aria-labelledby')).toBe(false)
+    expect(face.querySelector('[aria-label]')).toBeNull()
+    expect(face.querySelector('[aria-labelledby]')).toBeNull()
   })
 })
 
@@ -555,10 +575,16 @@ describe('PlanTable — the top table draws its own chair row (C3, C3c, C3d, TT-
     expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
   })
 
-  it('the top table still carries no aria-label or aria-labelledby anywhere inside it, and its visible label is still in its text, whatever the chair pattern', () => {
+  it('the top table\'s face button still carries no aria-label or aria-labelledby of its own, and its visible label is still in its text, whatever the chair pattern', () => {
+    // TT-36: rescoped to the face button — the top table's own occupied chairs now legitimately
+    // carry aria-label (C13), and they sit outside the button, so this only ever guards the
+    // button's own accessible name.
     const table = renderTable(topSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(true)))
-    expect(table.querySelector('[aria-label]')).toBeNull()
-    expect(table.querySelector('[aria-labelledby]')).toBeNull()
+    const face = faceButtonOf(table)
+    expect(face.hasAttribute('aria-label')).toBe(false)
+    expect(face.hasAttribute('aria-labelledby')).toBe(false)
+    expect(face.querySelector('[aria-label]')).toBeNull()
+    expect(face.querySelector('[aria-labelledby]')).toBeNull()
     expect(table.textContent).toContain('Top table')
   })
 
@@ -612,10 +638,15 @@ describe('PlanTable — each chair carries a stable address: its seat index, and
 })
 
 describe('PlanTable — the chairs change nothing about the table\'s accessible name or its button (C8, C9, TT-44)', () => {
-  it('a seated round table still carries no aria-label or aria-labelledby anywhere inside it, and its visible number is still in its text', () => {
+  it('a seated round table\'s face button still carries no aria-label or aria-labelledby of its own, and its visible number is still in its text', () => {
+    // TT-36: rescoped to the face button — occupied chairs now legitimately carry aria-label
+    // (C13), and they sit outside the button as a sibling, so this only ever guards the button.
     const table = renderTable(roundSlot({ number: 3, label: 'Table 3', capacity: 3 }), occupantsFromPattern([true, false, true]))
-    expect(table.querySelector('[aria-label]')).toBeNull()
-    expect(table.querySelector('[aria-labelledby]')).toBeNull()
+    const face = faceButtonOf(table)
+    expect(face.hasAttribute('aria-label')).toBe(false)
+    expect(face.hasAttribute('aria-labelledby')).toBe(false)
+    expect(face.querySelector('[aria-label]')).toBeNull()
+    expect(face.querySelector('[aria-labelledby]')).toBeNull()
     expect(table.textContent).toContain('3')
   })
 
@@ -669,12 +700,16 @@ describe('PlanTable — the ring circle and the chairs are never both drawn at t
   // Review, TT-44 (fourth pass): the inner selection mark is a <path> (an arc), not a <circle>
   // — a plain circle at its radius collides with the pin and the fill-count text — so this
   // counts both element kinds rather than just circles.
+  // TT-36: a round table's decorative ring and its chairs now render in two separate <svg>
+  // elements (TableRing and TableRingSeats), one on each side of the face button — see
+  // PlanTable.tsx's own comment for why — so this counts marks across every svg the table
+  // renders, not just the first.
   function svgMarks(table: HTMLElement): Element[] {
-    const svg = table.querySelector('svg')
-    if (!svg) {
-      throw new Error('expected a round table to render an <svg>')
+    const svgs = table.querySelectorAll('svg')
+    if (svgs.length === 0) {
+      throw new Error('expected a round table to render at least one <svg>')
     }
-    return Array.from(svg.querySelectorAll('circle, path'))
+    return Array.from(svgs).flatMap((svg) => Array.from(svg.querySelectorAll('circle, path')))
   }
 
   it('at a size where chairs render, the svg carries the body, the inner selection arc and one circle per chair — no separate ring at the chairs\' own radius', () => {
@@ -715,13 +750,14 @@ describe('PlanTable — the ring circle and the chairs are never both drawn at t
  */
 describe('PlanTable — the inner selection arc is always drawn, on every round table (regression, TT-44 review, third pass)', () => {
   // Review, TT-44 (fourth pass): the arc is a <path>, not a <circle> — see the other
-  // describe block above for why.
+  // describe block above for why. TT-36: counts across every svg the table renders — see the
+  // other describe block's own comment on the same helper.
   function svgMarks(table: HTMLElement): Element[] {
-    const svg = table.querySelector('svg')
-    if (!svg) {
-      throw new Error('expected a round table to render an <svg>')
+    const svgs = table.querySelectorAll('svg')
+    if (svgs.length === 0) {
+      throw new Error('expected a round table to render at least one <svg>')
     }
-    return Array.from(svg.querySelectorAll('circle, path'))
+    return Array.from(svgs).flatMap((svg) => Array.from(svg.querySelectorAll('circle, path')))
   }
 
   it('an unselected, full table still carries the inner selection arc, alongside its body and its chairs', () => {
@@ -740,5 +776,331 @@ describe('PlanTable — the inner selection arc is always drawn, on every round 
     const chairs = table.querySelectorAll('[data-seat-index]')
     expect(chairs.length).toBe(8)
     expect(svgMarks(table)).toHaveLength(2 + chairs.length)
+  })
+})
+
+/*
+ * TT-36. Chairs become focusable, named controls, reachable by a single roving tab stop per
+ * table. Written from the acceptance criteria (C8, C10-C14, C17, C19), without opening
+ * TableRing.tsx, TopTableRow.tsx or PlanTable.tsx.
+ */
+describe('PlanTable — an occupied chair is focusable and named for its seat and guest; an empty one names its seat as empty (C8, C13)', () => {
+  it('an occupied chair is reachable by role and its own "Seat n, name" accessible name', () => {
+    const table = renderTable(roundSlot({ capacity: 2 }), occupantsFromPattern([true, false]))
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
+    expect(chair.tagName.toLowerCase()).toBe('circle')
+  })
+
+  it('an empty chair is reachable too, and says so in its own name', () => {
+    const table = renderTable(roundSlot({ capacity: 2 }), occupantsFromPattern([true, false]))
+    expect(within(table).getByRole('img', { name: 'Seat 2, empty' })).toBeInTheDocument()
+  })
+
+  it('the top table\'s own row names its chairs the same way, 1-based (C14)', () => {
+    const table = renderTable(topSlot({ capacity: 3 }), occupantsFromPattern([true, false, true]))
+    expect(within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })).toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 2, empty' })).toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 3, Guest seat-1' })).toBeInTheDocument()
+  })
+})
+
+/*
+ * Reviewer, TT-36. A chair carries no activation of its own — it is a fact to read, not a
+ * control to press — so it must never claim `role="button"` (a screen reader user hearing
+ * "button" and pressing Enter or Space would get nothing, and an unhandled Space falls through
+ * to the browser's own page-scroll default). Written from the reviewer's findings, without
+ * opening TableRing.tsx or TopTableRow.tsx.
+ */
+describe('PlanTable — a chair reads as a fact, not a control (reviewer, TT-36)', () => {
+  it('an occupied chair is role="img", never role="button"', () => {
+    const table = renderTable(roundSlot({ capacity: 2 }), occupantsFromPattern([true, false]))
+    expect(within(table).queryByRole('button', { name: /^Seat/ })).not.toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })).toBeInTheDocument()
+  })
+
+  it('the top table\'s own chairs are role="img" too', () => {
+    const table = renderTable(topSlot({ capacity: 2 }), occupantsFromPattern([true, false]))
+    expect(within(table).queryByRole('button', { name: /^Seat/ })).not.toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })).toBeInTheDocument()
+  })
+
+  it('Space on a focused chair is prevented, so it cannot fall through to the browser\'s page-scroll default', () => {
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+    const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })
+    chair.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('Enter on a focused chair does nothing — no click, no navigation — but is not itself an error', () => {
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+    expect(() => {
+      chair.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    }).not.toThrow()
+  })
+})
+
+/*
+ * Reviewer, TT-36. Every table's own chair group used to be named the identical "Seats", so a
+ * screen reader user navigating by group across a floorplan of many tables heard the same name
+ * over and over with nothing distinguishing one table's seats from another's.
+ */
+describe('PlanTable — a table\'s own seat group is named for that table, not identically "Seats" everywhere (reviewer, TT-36)', () => {
+  it('a round table\'s group is named for its own visible label', () => {
+    const table = renderTable(roundSlot({ number: 7, label: 'Table 7', capacity: 2 }), occupantsFromPattern([false, false]))
+    expect(within(table).getByRole('group', { name: 'Seats at Table 7' })).toBeInTheDocument()
+  })
+
+  it('a different round table\'s group is named differently, from its own label', () => {
+    const table = renderTable(roundSlot({ number: 3, label: 'Table 3', capacity: 2 }), occupantsFromPattern([false, false]))
+    expect(within(table).getByRole('group', { name: 'Seats at Table 3' })).toBeInTheDocument()
+  })
+
+  it('the top table\'s group is named for its own label too', () => {
+    const table = renderTable(topSlot({ capacity: 2 }), occupantsFromPattern([false, false]))
+    expect(within(table).getByRole('group', { name: 'Seats at Top table' })).toBeInTheDocument()
+  })
+})
+
+/*
+ * Reviewer, TT-36 (the blocker). A round table's chairs now sit above the face button so a real
+ * pointer actually reaches one — which means a click that lands on a chair no longer reaches the
+ * button underneath it. Clicking a chair has to do what a click on the face itself would have
+ * done, or placing/selecting a table becomes impossible through roughly a quarter of its own
+ * clickable area (the ring of chairs) on every round table.
+ */
+describe('PlanTable — clicking a chair forwards to the same action the face button would take (reviewer, TT-36)', () => {
+  // Reviewer, TT-36: an empty chair is `fill: none`, and SVG only hit-tests painted geometry, so
+  // a real pointer at an empty chair's own position never actually lands on its `<circle>` — it
+  // falls through to whatever is drawn or laid out underneath. Testing against an *occupied*
+  // chair (a filled disc) is what proves a pointer reaches the element this suite is clicking,
+  // rather than only proving the handler is wired.
+  it('with a guest selected, clicking an occupied chair places them, exactly as clicking the face would', async () => {
+    const user = userEvent.setup()
+    const onPlace = vi.fn()
+    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
+      placing: { guestName: 'Priya Shah', onPlace },
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
+
+    await user.click(chair)
+
+    expect(onPlace).toHaveBeenCalledTimes(1)
+  })
+
+  it('with no guest selected, clicking an occupied chair selects the table, exactly as clicking the face would', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
+      onSelect,
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
+
+    await user.click(chair)
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it('a chair click never places and selects both — placing still wins, exactly as it does on the face', async () => {
+    const user = userEvent.setup()
+    const onPlace = vi.fn()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
+      placing: { guestName: 'Priya Shah', onPlace },
+      onSelect,
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
+
+    await user.click(chair)
+
+    expect(onPlace).toHaveBeenCalledTimes(1)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+})
+
+/*
+ * Reviewer, TT-36: leaving the top table's own chairs unwired would make an identical gesture —
+ * click a seat to place a guest, this screen's own stated instruction — place on every round
+ * table and do nothing on the top one, an inconsistency this ticket introduced (round chairs
+ * became clickable only because they had to sit above the button to receive a pointer at all;
+ * the top table's row never had that problem, but the click still has to reach the same action).
+ */
+describe('PlanTable — a top-table chair click forwards to the same action the face button would take, mirroring the round table (reviewer, TT-36)', () => {
+  it('with a guest selected, clicking an occupied top-table chair places them', async () => {
+    const user = userEvent.setup()
+    const onPlace = vi.fn()
+    const table = renderTableWithProps(topSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
+      placing: { guestName: 'Priya Shah', onPlace },
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
+
+    await user.click(chair)
+
+    expect(onPlace).toHaveBeenCalledTimes(1)
+  })
+
+  it('with no guest selected, clicking an occupied top-table chair selects the table', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(topSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
+      onSelect,
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
+
+    await user.click(chair)
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('PlanTable — exactly one tab stop per table for its chairs, whatever the seat count, never one per chair (C10)', () => {
+  it('a round table of 8 seats has exactly one chair with tabIndex 0, every other at -1', () => {
+    const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
+    const chairs = Array.from(table.querySelectorAll<SVGElement>('[data-seat-index]'))
+    expect(chairs.filter((chair) => chair.tabIndex === 0)).toHaveLength(1)
+    expect(chairs.filter((chair) => chair.tabIndex === -1)).toHaveLength(chairs.length - 1)
+  })
+
+  it('a round table of 6 seats also has exactly one tab stop', () => {
+    const table = renderTable(roundSlot({ capacity: 6 }), occupantsFromPattern(new Array(6).fill(false)))
+    const chairs = Array.from(table.querySelectorAll<SVGElement>('[data-seat-index]'))
+    expect(chairs.filter((chair) => chair.tabIndex === 0)).toHaveLength(1)
+  })
+
+  it('the top table\'s own row has exactly one tab stop too', () => {
+    const table = renderTable(topSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
+    const chairs = Array.from(table.querySelectorAll<SVGElement>('[data-seat-index]'))
+    expect(chairs.filter((chair) => chair.tabIndex === 0)).toHaveLength(1)
+  })
+
+  it('with a table full of occupants, still exactly one tab stop — a name on every chair does not add a stop per chair', () => {
+    const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(true)))
+    const chairs = Array.from(table.querySelectorAll<SVGElement>('[data-seat-index]'))
+    expect(chairs.filter((chair) => chair.tabIndex === 0)).toHaveLength(1)
+  })
+})
+
+describe('PlanTable — arrow keys move the roving tab stop between chairs, wrapping at both ends (C11)', () => {
+  it('ArrowRight moves to the next chair; ArrowLeft moves back to the one before it', async () => {
+    const user = userEvent.setup()
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chairs = chairsByIndex(table)
+    ;(chairs.get(0) as SVGElement).focus()
+
+    await user.keyboard('{ArrowRight}')
+    expect(document.activeElement).toBe(chairs.get(1))
+
+    await user.keyboard('{ArrowLeft}')
+    expect(document.activeElement).toBe(chairs.get(0))
+  })
+
+  it('ArrowUp and ArrowDown behave exactly like ArrowLeft and ArrowRight', async () => {
+    const user = userEvent.setup()
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chairs = chairsByIndex(table)
+    ;(chairs.get(0) as SVGElement).focus()
+
+    await user.keyboard('{ArrowDown}')
+    expect(document.activeElement).toBe(chairs.get(1))
+
+    await user.keyboard('{ArrowUp}')
+    expect(document.activeElement).toBe(chairs.get(0))
+  })
+
+  it('ArrowLeft from the first chair wraps to the last; ArrowRight from the last wraps to the first', async () => {
+    const user = userEvent.setup()
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chairs = chairsByIndex(table)
+    ;(chairs.get(0) as SVGElement).focus()
+
+    await user.keyboard('{ArrowLeft}')
+    expect(document.activeElement).toBe(chairs.get(2))
+
+    await user.keyboard('{ArrowRight}')
+    expect(document.activeElement).toBe(chairs.get(0))
+  })
+
+  it('Home jumps to the first chair; End jumps to the last', async () => {
+    const user = userEvent.setup()
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chairs = chairsByIndex(table)
+    ;(chairs.get(1) as SVGElement).focus()
+
+    await user.keyboard('{End}')
+    expect(document.activeElement).toBe(chairs.get(2))
+
+    await user.keyboard('{Home}')
+    expect(document.activeElement).toBe(chairs.get(0))
+  })
+
+  it('moving the roving tab stop also moves which chair carries tabIndex 0', async () => {
+    const user = userEvent.setup()
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chairs = chairsByIndex(table)
+    ;(chairs.get(0) as SVGElement).focus()
+
+    await user.keyboard('{ArrowRight}')
+
+    expect((chairs.get(1) as SVGElement).tabIndex).toBe(0)
+    expect((chairs.get(0) as SVGElement).tabIndex).toBe(-1)
+    expect((chairs.get(2) as SVGElement).tabIndex).toBe(-1)
+  })
+})
+
+describe('PlanTable — a table remembers the chair it was left on, not seat 1 (C12)', () => {
+  it('moving focus to a later chair, then away, leaves that chair holding the table\'s one tab stop', async () => {
+    const user = userEvent.setup()
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chairs = chairsByIndex(table)
+    ;(chairs.get(0) as SVGElement).focus()
+
+    await user.keyboard('{ArrowRight}{ArrowRight}')
+    expect(document.activeElement).toBe(chairs.get(2))
+
+    ;(chairs.get(2) as SVGElement).blur()
+
+    expect((chairs.get(2) as SVGElement).tabIndex).toBe(0)
+    expect((chairs.get(0) as SVGElement).tabIndex).toBe(-1)
+    expect((chairs.get(1) as SVGElement).tabIndex).toBe(-1)
+  })
+})
+
+describe('PlanTable — where chairs are not drawn, the table contributes no chair tab stop and no focusable chair at all (C19)', () => {
+  it('at MIN_TABLE_SIZE with 80 seats, no chair renders, nothing inside the table carries a tabIndex, and no "Seats" group exists', () => {
+    const table = renderTableSized(
+      roundSlot({ number: 5, label: 'Table 5', capacity: 80 }),
+      occupantsFromPattern(new Array(80).fill(false)),
+      MIN_TABLE_SIZE,
+    )
+
+    expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
+    expect(within(table).queryByRole('group', { name: /^Seats at/ })).not.toBeInTheDocument()
+
+    const face = faceButtonOf(table)
+    const tabbable = Array.from(table.querySelectorAll('*')).filter(
+      (el) => el !== face && (el as SVGElement | HTMLElement).tabIndex === 0,
+    )
+    expect(tabbable).toHaveLength(0)
+  })
+})
+
+describe('PlanTable — the face button\'s own accessible name, queried by role and name, never gains a chair\'s label (C17)', () => {
+  it('at rest, with every chair occupied, the face button\'s name is exactly its own visible number and fill count', () => {
+    const table = renderTable(roundSlot({ number: 7, label: 'Table 7', capacity: 3 }), occupantsFromPattern([true, true, true]))
+    const button = within(table).getByRole('button', { name: /^Table\s*7\s+3\s*of\s*3\s*seats$/i })
+    expect(button.tagName.toLowerCase()).toBe('button')
+  })
+
+  it('while placing, with every chair occupied, the face button\'s name is exactly "Place {guest} at {table}" plus its own figures', () => {
+    const table = renderTableWithProps(
+      roundSlot({ number: 7, label: 'Table 7', capacity: 3 }),
+      occupantsFromPattern([true, true, true]),
+      { placing: { guestName: 'Priya Shah', onPlace: () => {} } },
+    )
+    const button = within(table).getByRole('button', {
+      name: /^Place\s+Priya Shah\s+at\s+Table\s+7\s+3\s*of\s*3\s*seats$/i,
+    })
+    expect(button.tagName.toLowerCase()).toBe('button')
   })
 })

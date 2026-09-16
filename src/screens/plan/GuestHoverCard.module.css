@@ -1,0 +1,54 @@
+/*
+ * TT-36, KB-5/KB-6. The guest hover summary. Canvas zone: --surface against --rule, no shadow —
+ * depth is the border and the colour step against --paper alone (KB-5 "no shadows, anywhere").
+ * `z-index` is deliberately below `src/ui/SlideOver.module.css`'s scrim — the one deliberate,
+ * clicked-into overlay in this app — and above ordinary in-flow content, so a hover card can
+ * never sit on top of a slide-over even though the two never show at once today. It does not
+ * try to rank itself against every other floating layer in this screen individually: nothing in
+ * the gate would keep such a list in step as those layers change, so this stays the one
+ * comparison that actually matters.
+ */
+.card {
+  z-index: 8;
+  width: 260px;
+  padding: var(--s-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.name {
+  margin: 0 0 var(--s-3);
+  font: var(--t-heading);
+}
+
+.fields {
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row + .row {
+  margin-top: var(--s-2);
+}
+
+.label {
+  margin: 0;
+  font: var(--t-label);
+  color: var(--ink-muted);
+}
+
+/* A single flex row for every value — a plain string renders as its one child either way, and
+   the tags list (below) wraps onto more than one line without any rule of its own. */
+.value {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  font: var(--t-body);
+}
