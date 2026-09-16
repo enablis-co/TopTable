@@ -286,16 +286,18 @@
   place-items: center;
 }
 
-/* TT-36: TableRing moved out of the face button (a focusable chair inside a <button> is invalid,
-   and would join its accessible name — see PlanTable.tsx's own comment) and is now this direct
-   sibling, absolutely positioned to fill the exact box the face itself fills. `.table`'s own
-   `container-type: inline-size` already makes it a stacking context, so this positioned, z-index:
-   auto `<svg>` — declared before `.face` in the markup — paints below `.face`'s own positioned
-   `.heading`/`.occupancy` text with no z-index needed here: both are ordered by DOM tree order
-   within that one context, not by which element is "more" positioned.
-   `pointer-events: none` is what stops the ring's own filled body circle (`.body`,
-   TableRing.module.css) from swallowing a click meant for the face beneath it and breaking C15 —
-   TableRing.module.css re-enables it on the chairs alone, once they exist to receive one. */
+/* TT-36: the ring's decorative body (TableRing) and its chairs (TableRingSeats) are two separate
+   svg elements now, both direct children of this `<li>` rather than nested inside the face
+   button — a focusable chair inside a button element is invalid HTML, and would join the
+   button's own accessible name via name-from-content (see PlanTable.tsx's own comment). Both are
+   absolutely positioned to fill the exact box the face itself fills, matched by this one
+   selector. `pointer-events: none` here is what stops the ring's own filled body circle
+   (TableRing.module.css's `.body`) from swallowing a click meant for the face beneath it;
+   TableRing.module.css re-enables it on the chairs alone, the one thing in either drawing meant
+   to receive a pointer.
+   Which of the two svg elements a given table renders, and on which side of the face button,
+   decides whether a click or a hover on the ring reaches the button or a chair — see
+   PlanTable.tsx's own comment for the ordering and why it has to be that specific way round. */
 .round > svg {
   position: absolute;
   inset: 0;

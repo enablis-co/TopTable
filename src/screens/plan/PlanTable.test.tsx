@@ -700,12 +700,16 @@ describe('PlanTable — the ring circle and the chairs are never both drawn at t
   // Review, TT-44 (fourth pass): the inner selection mark is a <path> (an arc), not a <circle>
   // — a plain circle at its radius collides with the pin and the fill-count text — so this
   // counts both element kinds rather than just circles.
+  // TT-36: a round table's decorative ring and its chairs now render in two separate <svg>
+  // elements (TableRing and TableRingSeats), one on each side of the face button — see
+  // PlanTable.tsx's own comment for why — so this counts marks across every svg the table
+  // renders, not just the first.
   function svgMarks(table: HTMLElement): Element[] {
-    const svg = table.querySelector('svg')
-    if (!svg) {
-      throw new Error('expected a round table to render an <svg>')
+    const svgs = table.querySelectorAll('svg')
+    if (svgs.length === 0) {
+      throw new Error('expected a round table to render at least one <svg>')
     }
-    return Array.from(svg.querySelectorAll('circle, path'))
+    return Array.from(svgs).flatMap((svg) => Array.from(svg.querySelectorAll('circle, path')))
   }
 
   it('at a size where chairs render, the svg carries the body, the inner selection arc and one circle per chair — no separate ring at the chairs\' own radius', () => {
@@ -746,13 +750,14 @@ describe('PlanTable — the ring circle and the chairs are never both drawn at t
  */
 describe('PlanTable — the inner selection arc is always drawn, on every round table (regression, TT-44 review, third pass)', () => {
   // Review, TT-44 (fourth pass): the arc is a <path>, not a <circle> — see the other
-  // describe block above for why.
+  // describe block above for why. TT-36: counts across every svg the table renders — see the
+  // other describe block's own comment on the same helper.
   function svgMarks(table: HTMLElement): Element[] {
-    const svg = table.querySelector('svg')
-    if (!svg) {
-      throw new Error('expected a round table to render an <svg>')
+    const svgs = table.querySelectorAll('svg')
+    if (svgs.length === 0) {
+      throw new Error('expected a round table to render at least one <svg>')
     }
-    return Array.from(svg.querySelectorAll('circle, path'))
+    return Array.from(svgs).flatMap((svg) => Array.from(svg.querySelectorAll('circle, path')))
   }
 
   it('an unselected, full table still carries the inner selection arc, alongside its body and its chairs', () => {
@@ -782,20 +787,130 @@ describe('PlanTable — the inner selection arc is always drawn, on every round 
 describe('PlanTable — an occupied chair is focusable and named for its seat and guest; an empty one names its seat as empty (C8, C13)', () => {
   it('an occupied chair is reachable by role and its own "Seat n, name" accessible name', () => {
     const table = renderTable(roundSlot({ capacity: 2 }), occupantsFromPattern([true, false]))
-    const chair = within(table).getByRole('button', { name: 'Seat 1, Guest seat-0' })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
     expect(chair.tagName.toLowerCase()).toBe('circle')
   })
 
   it('an empty chair is reachable too, and says so in its own name', () => {
     const table = renderTable(roundSlot({ capacity: 2 }), occupantsFromPattern([true, false]))
-    expect(within(table).getByRole('button', { name: 'Seat 2, empty' })).toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 2, empty' })).toBeInTheDocument()
   })
 
   it('the top table\'s own row names its chairs the same way, 1-based (C14)', () => {
     const table = renderTable(topSlot({ capacity: 3 }), occupantsFromPattern([true, false, true]))
-    expect(within(table).getByRole('button', { name: 'Seat 1, Guest seat-0' })).toBeInTheDocument()
-    expect(within(table).getByRole('button', { name: 'Seat 2, empty' })).toBeInTheDocument()
-    expect(within(table).getByRole('button', { name: 'Seat 3, Guest seat-1' })).toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })).toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 2, empty' })).toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 3, Guest seat-1' })).toBeInTheDocument()
+  })
+})
+
+/*
+ * Reviewer, TT-36. A chair carries no activation of its own — it is a fact to read, not a
+ * control to press — so it must never claim `role="button"` (a screen reader user hearing
+ * "button" and pressing Enter or Space would get nothing, and an unhandled Space falls through
+ * to the browser's own page-scroll default). Written from the reviewer's findings, without
+ * opening TableRing.tsx or TopTableRow.tsx.
+ */
+describe('PlanTable — a chair reads as a fact, not a control (reviewer, TT-36)', () => {
+  it('an occupied chair is role="img", never role="button"', () => {
+    const table = renderTable(roundSlot({ capacity: 2 }), occupantsFromPattern([true, false]))
+    expect(within(table).queryByRole('button', { name: /^Seat/ })).not.toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })).toBeInTheDocument()
+  })
+
+  it('the top table\'s own chairs are role="img" too', () => {
+    const table = renderTable(topSlot({ capacity: 2 }), occupantsFromPattern([true, false]))
+    expect(within(table).queryByRole('button', { name: /^Seat/ })).not.toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })).toBeInTheDocument()
+  })
+
+  it('Space on a focused chair is prevented, so it cannot fall through to the browser\'s page-scroll default', () => {
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+    const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })
+    chair.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('Enter on a focused chair does nothing — no click, no navigation — but is not itself an error', () => {
+    const table = renderTable(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]))
+    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+    expect(() => {
+      chair.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    }).not.toThrow()
+  })
+})
+
+/*
+ * Reviewer, TT-36. Every table's own chair group used to be named the identical "Seats", so a
+ * screen reader user navigating by group across a floorplan of many tables heard the same name
+ * over and over with nothing distinguishing one table's seats from another's.
+ */
+describe('PlanTable — a table\'s own seat group is named for that table, not identically "Seats" everywhere (reviewer, TT-36)', () => {
+  it('a round table\'s group is named for its own visible label', () => {
+    const table = renderTable(roundSlot({ number: 7, label: 'Table 7', capacity: 2 }), occupantsFromPattern([false, false]))
+    expect(within(table).getByRole('group', { name: 'Seats at Table 7' })).toBeInTheDocument()
+  })
+
+  it('a different round table\'s group is named differently, from its own label', () => {
+    const table = renderTable(roundSlot({ number: 3, label: 'Table 3', capacity: 2 }), occupantsFromPattern([false, false]))
+    expect(within(table).getByRole('group', { name: 'Seats at Table 3' })).toBeInTheDocument()
+  })
+
+  it('the top table\'s group is named for its own label too', () => {
+    const table = renderTable(topSlot({ capacity: 2 }), occupantsFromPattern([false, false]))
+    expect(within(table).getByRole('group', { name: 'Seats at Top table' })).toBeInTheDocument()
+  })
+})
+
+/*
+ * Reviewer, TT-36 (the blocker). A round table's chairs now sit above the face button so a real
+ * pointer actually reaches one — which means a click that lands on a chair no longer reaches the
+ * button underneath it. Clicking a chair has to do what a click on the face itself would have
+ * done, or placing/selecting a table becomes impossible through roughly a quarter of its own
+ * clickable area (the ring of chairs) on every round table.
+ */
+describe('PlanTable — clicking a chair forwards to the same action the face button would take (reviewer, TT-36)', () => {
+  it('with a guest selected, clicking a chair places them, exactly as clicking the face would', async () => {
+    const user = userEvent.setup()
+    const onPlace = vi.fn()
+    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]), {
+      placing: { guestName: 'Priya Shah', onPlace },
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+
+    await user.click(chair)
+
+    expect(onPlace).toHaveBeenCalledTimes(1)
+  })
+
+  it('with no guest selected, clicking a chair selects the table, exactly as clicking the face would', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]), {
+      onSelect,
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+
+    await user.click(chair)
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it('a chair click never places and selects both — placing still wins, exactly as it does on the face', async () => {
+    const user = userEvent.setup()
+    const onPlace = vi.fn()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]), {
+      placing: { guestName: 'Priya Shah', onPlace },
+      onSelect,
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+
+    await user.click(chair)
+
+    expect(onPlace).toHaveBeenCalledTimes(1)
+    expect(onSelect).not.toHaveBeenCalled()
   })
 })
 
@@ -920,7 +1035,7 @@ describe('PlanTable — where chairs are not drawn, the table contributes no cha
     )
 
     expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
-    expect(within(table).queryByRole('group', { name: 'Seats' })).not.toBeInTheDocument()
+    expect(within(table).queryByRole('group', { name: /^Seats at/ })).not.toBeInTheDocument()
 
     const face = faceButtonOf(table)
     const tabbable = Array.from(table.querySelectorAll('*')).filter(

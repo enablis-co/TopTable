@@ -361,9 +361,9 @@ describe('TT-36 C13/C14 — a chair names its own seat and occupant, 1-based, to
       roundSlot({ capacity: 3 }),
       occupantsFromPattern([false, true, false]),
     )
-    expect(within(table).getByRole('button', { name: 'Seat 2, Occupant 0' })).toBeInTheDocument()
-    expect(within(table).getByRole('button', { name: 'Seat 1, empty' })).toBeInTheDocument()
-    expect(within(table).getByRole('button', { name: 'Seat 3, empty' })).toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 2, Occupant 0' })).toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 1, empty' })).toBeInTheDocument()
+    expect(within(table).getByRole('img', { name: 'Seat 3, empty' })).toBeInTheDocument()
   })
 
   it('the top table\'s first seat (index 0) sits to the left of its last seat, matching KB-4\'s printed left-to-right order', () => {

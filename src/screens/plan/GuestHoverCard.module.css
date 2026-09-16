@@ -1,14 +1,15 @@
 /*
  * TT-36, KB-5/KB-6. The guest hover summary. Canvas zone: --surface against --rule, no shadow —
  * depth is the border and the colour step against --paper alone (KB-5 "no shadows, anywhere").
- * `z-index` sits below SlideOver's scrim (10) but above every other floating layer in this
- * screen (AppHeader 1, ClearControls' own menu 1, GuestRowMenu's menu 2, Combobox's suggestion
- * list 5) — a hover card and a slide-over never show at once in this app, but if they somehow
- * did, the slide-over (a deliberate, clicked-into action) should still win.
+ * `z-index` is deliberately below `src/ui/SlideOver.module.css`'s scrim — the one deliberate,
+ * clicked-into overlay in this app — and above ordinary in-flow content, so a hover card can
+ * never sit on top of a slide-over even though the two never show at once today. It does not
+ * try to rank itself against every other floating layer in this screen individually: nothing in
+ * the gate would keep such a list in step as those layers change, so this stays the one
+ * comparison that actually matters.
  */
 .card {
   z-index: 8;
-  overflow-y: auto;
   width: 260px;
   padding: var(--s-4);
   border: 1px solid var(--rule);

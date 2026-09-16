@@ -5,8 +5,10 @@ import type { Guest } from '../../domain/types'
  * TT-36, KB-3. View helper for the guest hover summary — not domain logic: reads the guest list
  * and reports strings, mutating nothing, the same standing `guestFacts.ts` already has.
  *
- * Never reads `dietaryPreferences` (C4) — the field is not referenced anywhere in this file, so
- * the summary's silence on diet is structural rather than a filter a later edit could loosen.
+ * Never reads `dietaryPreferences` — TT-36 keeps it off the summary entirely (KB-2, KB-3: a
+ * dietary preference is a catering count, never a seating matter) — the field is not referenced
+ * anywhere in this file, so that silence is structural rather than a filter a later edit could
+ * loosen.
  */
 
 export type SummaryField = { label: string; value: string }
@@ -25,9 +27,9 @@ function namesOf(guests: readonly Guest[], ids: readonly string[]): string[] {
 }
 
 /**
- * C3's nine facts, in the ticket's own order (A2) rather than KB-3's field order: side, role,
+ * TT-36's nine facts, in the ticket's own order rather than KB-3's field order: side, role,
  * household, partner, kept apart from, allergies, accessibility, tags, social type. A field the
- * guest has nothing in is omitted outright (C6) — no label, no placeholder, no empty row.
+ * guest has nothing in is omitted outright — no label, no placeholder, no empty row.
  * `side`, `role` and `socialType` are non-nullable enums (`src/domain/types.ts`), so they always
  * render; every other field here is the genuinely optional one.
  */

@@ -66,6 +66,8 @@ function renderRail(
     summaryId?: string
     onGuestHover?: (guestId: string, element: HTMLElement) => void
     onGuestHoverEnd?: (guestId: string) => void
+    onGuestFocus?: (guestId: string, element: HTMLElement) => void
+    onGuestBlur?: (guestId: string) => void
   } = {},
 ) {
   const guests = overrides.guests ?? []
@@ -73,6 +75,8 @@ function renderRail(
   const onFiltersChange = overrides.onFiltersChange ?? vi.fn()
   const onGuestHover = overrides.onGuestHover ?? vi.fn()
   const onGuestHoverEnd = overrides.onGuestHoverEnd ?? vi.fn()
+  const onGuestFocus = overrides.onGuestFocus ?? vi.fn()
+  const onGuestBlur = overrides.onGuestBlur ?? vi.fn()
   const headingRef = createRef<HTMLHeadingElement>()
   const utils = render(
     <UnseatedRail
@@ -87,9 +91,11 @@ function renderRail(
       summaryId={overrides.summaryId ?? 'summary-card'}
       onGuestHover={onGuestHover}
       onGuestHoverEnd={onGuestHoverEnd}
+      onGuestFocus={onGuestFocus}
+      onGuestBlur={onGuestBlur}
     />,
   )
-  return { ...utils, onSelect, onFiltersChange, onGuestHover, onGuestHoverEnd, headingRef }
+  return { ...utils, onSelect, onFiltersChange, onGuestHover, onGuestHoverEnd, onGuestFocus, onGuestBlur, headingRef }
 }
 
 /**
@@ -461,20 +467,33 @@ describe('UnseatedRail — hovering or focusing a row reports it for the guest s
     expect(onGuestHoverEnd).toHaveBeenCalledWith('g-1')
   })
 
-  it('focusing a row calls onGuestHover; moving focus to another row calls onGuestHoverEnd for the one it left', () => {
-    const { onGuestHover, onGuestHoverEnd } = renderRail({
+  it('focusing a row calls onGuestFocus; moving focus to another row calls onGuestBlur for the one it left', () => {
+    const { onGuestFocus, onGuestBlur } = renderRail({
       guests: [makeGuest('g-1', { name: 'Danny Whitaker' }), makeGuest('g-2', { name: 'Priya Shah' })],
     })
     const first = screen.getByRole('button', { name: 'Danny Whitaker' })
     const second = screen.getByRole('button', { name: 'Priya Shah' })
 
     fireEvent.focus(first)
-    expect(onGuestHover).toHaveBeenCalledWith('g-1', expect.anything())
+    expect(onGuestFocus).toHaveBeenCalledWith('g-1', expect.anything())
 
     fireEvent.blur(first)
     fireEvent.focus(second)
-    expect(onGuestHoverEnd).toHaveBeenCalledWith('g-1')
-    expect(onGuestHover).toHaveBeenCalledWith('g-2', expect.anything())
+    expect(onGuestBlur).toHaveBeenCalledWith('g-1')
+    expect(onGuestFocus).toHaveBeenCalledWith('g-2', expect.anything())
+  })
+
+  it('focus and hover are reported separately — hovering a row never calls onGuestFocus, and focusing a row never calls onGuestHover', () => {
+    const { onGuestHover, onGuestFocus } = renderRail({ guests: [makeGuest('g-1', { name: 'Danny Whitaker' })] })
+    const row = screen.getByRole('button', { name: 'Danny Whitaker' })
+
+    fireEvent.mouseEnter(row)
+    expect(onGuestHover).toHaveBeenCalledWith('g-1', expect.anything())
+    expect(onGuestFocus).not.toHaveBeenCalled()
+
+    fireEvent.mouseLeave(row)
+    fireEvent.focus(row)
+    expect(onGuestFocus).toHaveBeenCalledWith('g-1', expect.anything())
   })
 
   it('carries aria-describedby, naming the summary card, only on the row whose summary is open', () => {
@@ -520,6 +539,8 @@ describe('UnseatedRail — the hover-summary wiring does not disturb the placeme
           summaryId="summary-card"
           onGuestHover={vi.fn()}
           onGuestHoverEnd={vi.fn()}
+          onGuestFocus={vi.fn()}
+          onGuestBlur={vi.fn()}
         />
       )
     }

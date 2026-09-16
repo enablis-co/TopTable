@@ -7,11 +7,14 @@ import styles from './TopTableRow.module.css'
 
 type TopTableRowProps = {
   seats: number
-  /** TT-44 (C3d). Index `i` is the id of the guest in seat `i`, or `null` when empty — same
-   * contract as `TableRing`'s `seatGuestIds`. */
+  /** Index `i` is the id of the guest in seat `i`, or `null` when empty — same contract as
+   * `TableRingSeats`'s `seatGuestIds`. */
   seatGuestIds: readonly (string | null)[]
-  /** TT-36. Mirrors `TableRing`'s own `guestsBySeat` — the guest itself, for `chairLabel`. */
+  /** Mirrors `TableRingSeats`'s own `guestsBySeat` — the guest itself, for `chairLabel`. */
   guestsBySeat: readonly (Guest | null)[]
+  /** The table's own visible label, so this group's own name distinguishes it from a round
+   * table's identically-numbered seats. */
+  tableLabel: string
   activeSeatIndex: number
   onSeatFocus: (seatIndex: number, element: Element) => void
   onSeatBlur: () => void
@@ -23,17 +26,22 @@ type TopTableRowProps = {
 }
 
 /**
- * TT-44 (amendment, C3-C3d), TT-36, KB-4/KB-6. One chair per top-table seat, drawn as a single
- * row along the edge away from the room rather than a round table's clock face — KB-4 fixes the
- * eight protocol roles left to right, printed and agreed with the venue and the photographer,
- * and a ring would contradict that order.
+ * TT-44 (amendment), TT-36, KB-4/KB-6. One chair per top-table seat, drawn as a single row along
+ * the edge away from the room rather than a round table's clock face — KB-4 fixes the eight
+ * protocol roles left to right, printed and agreed with the venue and the photographer, and a
+ * ring would contradict that order.
  *
- * TT-36: no longer `aria-hidden`/`focusable="false"` — an occupied chair is a real, focusable,
- * named control now (C8, C13), the same change `TableRing` makes for a round table and for the
- * same reason: a focusable element inside an `aria-hidden` subtree is an ARIA violation. The
- * `<svg>` carries `role="group"`/`aria-label="Seats"` instead. `PlanTable.test.tsx`'s
- * one-button-per-table assertions are a tag selector (`querySelectorAll('button')`) and a
- * `<circle role="button">` never counts against them.
+ * TT-36: an occupied chair is a real, focusable, named control now (the same change `TableRing`
+ * makes for a round table, in its own `TableRingSeats`). Unlike a round table, this row sits
+ * entirely in the `<li>`'s own padding, above the pill, and never overlaps the face button at
+ * all — so, unlike a round table's chairs, it needs no reordering relative to the button and no
+ * click forwarding to reach it; a real mouse already lands on a chair here without any help.
+ *
+ * Each chair is `role="img"`, not `role="button"` — it has no activation path (Enter and Space do
+ * nothing, and `PlanTable.tsx`'s own key handler swallows Space so it can't fall through to a
+ * page scroll), so a role implying press-ability would name a control that doesn't exist. It is
+ * a fact to read: `aria-label` names the seat and its guest, and while a summary is open for its
+ * own guest, `aria-describedby` points at it.
  *
  * Reuses `TableRing.module.css`'s `.chairOccupied`/`.chairEmpty` directly, not a second,
  * similar-looking pair — "same shape language, same stroke treatment" means the same CSS
@@ -51,6 +59,7 @@ export function TopTableRow({
   seats,
   seatGuestIds,
   guestsBySeat,
+  tableLabel,
   activeSeatIndex,
   onSeatFocus,
   onSeatBlur,
@@ -68,7 +77,12 @@ export function TopTableRow({
   const radius = topRowChairRadius(seats)
 
   return (
-    <svg className={styles.svg} viewBox={`0 0 ${TOP_ROW.viewBoxWidth} ${TOP_ROW.viewBoxHeight}`} role="group" aria-label="Seats">
+    <svg
+      className={styles.svg}
+      viewBox={`0 0 ${TOP_ROW.viewBoxWidth} ${TOP_ROW.viewBoxHeight}`}
+      role="group"
+      aria-label={`Seats at ${tableLabel}`}
+    >
       {topRowPositions(seats).map((chair) => {
         const guestId = seatGuestIds[chair.seatIndex] ?? null
         const guest = guestsBySeat[chair.seatIndex] ?? null
@@ -81,7 +95,7 @@ export function TopTableRow({
             r={radius}
             data-seat-index={chair.seatIndex}
             data-guest-id={guestId ?? undefined}
-            role="button"
+            role="img"
             aria-label={chairLabel(chair.seatIndex, guest)}
             aria-describedby={guestId !== null && summaryId && guestId === summaryGuestId ? summaryId : undefined}
             tabIndex={chair.seatIndex === activeSeatIndex ? 0 : -1}

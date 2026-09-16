@@ -5,7 +5,7 @@ import type { TableSlot } from '../../domain/seating'
 import { occupancyOf, type TableOccupants } from './floorplan'
 import { MAX_TABLE_SIZE } from './floorplanFit'
 import { initialSeatIndex, nextSeatIndex } from './chairNavigation'
-import { TableRing } from './TableRing'
+import { TableRing, TableRingSeats } from './TableRing'
 import { TopTableRow } from './TopTableRow'
 import styles from './PlanTable.module.css'
 
@@ -22,18 +22,23 @@ type PlanTableProps = {
    * hidden, never unmounted, since it is half of this table's accessible name. Defaults true, so
    * every existing caller (the top table included) keeps rendering it. */
   showFillCount?: boolean
-  /** TT-44. The table's rendered CSS pixel size, for `TableRing`'s chair-vs-dash-ring floor
-   * (C7). Defaults to `MAX_TABLE_SIZE`, matching how `showFillCount` already defaults to `true`,
-   * so the top table and every existing test caller keep chairs. */
+  /** TT-44. The table's rendered CSS pixel size, for the ring's chair-vs-dash-ring floor.
+   * Defaults to `MAX_TABLE_SIZE`, matching how `showFillCount` already defaults to `true`, so the
+   * top table and every existing test caller keep chairs. */
   tableSize?: number
   /** TT-36. Which guest's hover summary, if any, is currently open — see `UnseatedRail`'s own
-   * copy of these same four props for the full rationale. All optional: a caller that hasn't
-   * wired the summary up gets a table with no hover or focus behaviour on its chairs beyond the
-   * roving tabindex itself. */
+   * copy of these same props for the full rationale. Hover and focus are tracked as two separate
+   * pairs (`onGuestHover`/`onGuestHoverEnd` for the mouse, `onGuestFocus`/`onGuestBlur` for the
+   * keyboard) rather than one shared pair: `PlanScreen` gives focus priority when the mouse has
+   * since moved off a *different* guest, and a shared pair could not tell the two gestures apart.
+   * All optional so a caller that hasn't wired the summary up gets a table with no hover or focus
+   * behaviour on its chairs beyond the roving tabindex itself. */
   summaryGuestId?: string | null
   summaryId?: string
   onGuestHover?: (guestId: string, element: Element) => void
   onGuestHoverEnd?: (guestId: string) => void
+  onGuestFocus?: (guestId: string, element: Element) => void
+  onGuestBlur?: (guestId: string) => void
 }
 
 /**
@@ -54,7 +59,7 @@ type PlanTableProps = {
  *
  * Review, TT-15: that priority means no table can be *selected* — and so its detail panel, and
  * the release control that panel is now the only home for, cannot be *opened* — while a guest is
- * selected on the rail. Kept rather than reversed: C15 requires placing-by-click to keep working
+ * selected on the rail. Kept rather than reversed: placing-by-click has to keep working
  * unchanged, and reversing the priority would make the common "guest selected, click a table"
  * gesture sometimes open a panel instead of placing the guest, depending on whether that table
  * happens to already be selected. It is not a dead end — Escape, or clicking the selected guest's
@@ -80,22 +85,42 @@ type PlanTableProps = {
  * own text runs) is silently dropped — the face below carries an explicit `{' '}` between such
  * siblings for exactly that reason.
  *
- * TT-35/TT-44 built `TableRing` and `TopTableRow` as children of the face, inside `faceContent`
- * below; TT-36 moved both out to be siblings of the face `Button` instead (see the comment where
- * they render). A focusable, named chair — which the floorplan half of TT-36 requires — is
- * invalid content for a button element and would join its accessible name via name-from-content;
- * staying outside the button is what keeps this file's whole "no aria-label displaces the
- * visible text" guarantee true regardless of what a chair itself carries. The top table's own
- * middot separator (below) stays a real `aria-hidden` element inside the button, not a CSS
- * `::after` — generated content participates in Chrome's accessible-name computation but not
- * jsdom's, which would make the two disagree silently.
+ * TT-35/TT-44 built the chair row/ring as children of the face, inside `faceContent` below;
+ * TT-36 moved them out to be siblings of the face `Button` instead. A focusable, named chair —
+ * which the floorplan half of TT-36 requires — is invalid content for a button element and would
+ * join its accessible name via name-from-content; staying outside the button is what keeps this
+ * file's whole "no aria-label displaces the visible text" guarantee true regardless of what a
+ * chair itself carries. The top table's own middot separator (below) stays a real `aria-hidden`
+ * element inside the button, not a CSS `::after` — generated content participates in Chrome's
+ * accessible-name computation but not jsdom's, which would make the two disagree silently.
  *
- * TT-36: `activeSeatIndex` is local state, seeded once from `initialSeatIndex` and never
- * re-derived — `FloorplanGrid` keys every table by `slot.id`, so this state survives this
- * component's own re-renders and is what makes C12 ("a table remembers the chair it was left
- * on") true. Arrow/Home/End on a chair move it (`nextSeatIndex`) and move DOM focus to match;
- * hovering or focusing an occupied chair also opens its guest's summary, exactly as a rail row
- * does (`onGuestHover`/`onGuestHoverEnd`).
+ * Review, TT-36: a round table's decorative ring (`TableRing`) and its chairs (`TableRingSeats`)
+ * are two separate components rendered on *opposite sides* of the face button, not one drawing
+ * either fully before or fully after it. `.table`'s own `container-type` makes it a stacking
+ * context, and `.round .face` is itself `position: relative`, so all three — the ring, the
+ * button and the chairs — are positioned, `z-index: auto` siblings within that one context,
+ * painted (and hit-tested) in document order: the *later* one wins wherever two overlap.
+ * `TableRing` stays *before* the button so the button's own visible number and fill count keep
+ * painting on top of the ring's body, exactly as they always have. `TableRingSeats` renders
+ * *after* the button so a real pointer actually reaches a chair instead of the transparent
+ * button sitting over the whole ring winning every hit test — a defect that shipped in this
+ * ticket's own first pass, found in a real browser rather than the suite (jsdom does no layout
+ * or paint order, `docs/engineering-standards.md`). The top table's own row (`TopTableRow`) sits
+ * entirely in the `<li>`'s padding, never overlapping the face at all, so it keeps its original,
+ * single position before the button — nothing here applies to it.
+ *
+ * A chair carries no activation of its own (`role="img"`, not `role="button"` — see
+ * `TableRingSeats`'s own comment), so a *click* on one has nowhere to go by default. Because a
+ * round table's chairs now sit above the button for the reason above, a click that lands on one
+ * would otherwise be swallowed entirely — `handleChairActivate` forwards it to the same action
+ * the face button itself would take for that click, so a table is exactly as placeable or
+ * selectable through a chair as through any other point on its face.
+ *
+ * `activeSeatIndex` is local state, seeded once from `initialSeatIndex` and never re-derived —
+ * `FloorplanGrid` keys every table by `slot.id`, so this state survives this component's own
+ * re-renders and is what makes a table remember the chair it was left on. Arrow/Home/End on a
+ * chair move it (`nextSeatIndex`) and move DOM focus to match; hovering or focusing an occupied
+ * chair also opens its guest's summary, exactly as a rail row does.
  */
 export function PlanTable({
   slot,
@@ -109,26 +134,28 @@ export function PlanTable({
   summaryId,
   onGuestHover,
   onGuestHoverEnd,
+  onGuestFocus,
+  onGuestBlur,
 }: PlanTableProps) {
   const occupancy = occupancyOf(occupants.guests.length, slot.capacity)
   const isPinned = occupants.pinnedCount > 0
   const isViolating = occupants.inViolation
-  // TT-44 (C5): length from `slot.capacity`, not `occupants.seats.length`, so the shared
+  // TT-44: length from `slot.capacity`, not `occupants.seats.length`, so the shared
   // `EMPTY_TABLE` (whose `seats` is always `[]`) still renders a full ring of empty chairs.
   const guestsBySeat = Array.from({ length: slot.capacity }, (_, i) => occupants.seats[i]?.guest ?? null)
   const seatGuestIds = guestsBySeat.map((guest) => guest?.id ?? null)
 
-  // TT-36 (C10, C12). Seeded once — see the file's own doc comment for why this never
-  // re-derives on a later render. Clamped defensively against the table's *current* capacity: a
-  // room edit that shrinks this table after the state was seeded must not leave the stored index
-  // pointing past the last seat, which would leave no chair carrying `tabIndex={0}` at all (C10).
+  // TT-36. Seeded once — see the file's own doc comment for why this never re-derives on a
+  // later render. Clamped defensively against the table's *current* capacity: a room edit that
+  // shrinks this table after the state was seeded must not leave the stored index pointing past
+  // the last seat, which would leave no chair carrying `tabIndex={0}` at all.
   const [activeSeatIndex, setActiveSeatIndex] = useState(() => initialSeatIndex(occupants.seats))
   const safeActiveSeatIndex = Math.min(activeSeatIndex, Math.max(0, slot.capacity - 1))
 
   function handleSeatFocus(seatIndex: number, element: Element) {
     setActiveSeatIndex(seatIndex)
     const guestId = seatGuestIds[seatIndex] ?? null
-    if (guestId !== null) onGuestHover?.(guestId, element)
+    if (guestId !== null) onGuestFocus?.(guestId, element)
   }
 
   // The blurring chair is the one this render's own closure still calls "active" — focus moving
@@ -137,19 +164,28 @@ export function PlanTable({
   // yet re-rendered (and rebound this handler) by the time the old chair's blur fires.
   function handleSeatBlur() {
     const guestId = seatGuestIds[safeActiveSeatIndex] ?? null
-    if (guestId !== null) onGuestHoverEnd?.(guestId)
+    if (guestId !== null) onGuestBlur?.(guestId)
   }
 
   function handleSeatKeyDown(event: KeyboardEvent<SVGCircleElement>) {
     const next = nextSeatIndex(safeActiveSeatIndex, slot.capacity, event.key)
-    if (next === null) return
+    if (next !== null) {
+      event.preventDefault()
+      setActiveSeatIndex(next)
+      const target = event.currentTarget.ownerSVGElement?.querySelector<SVGCircleElement>(
+        `[data-seat-index="${next}"]`,
+      )
+      target?.focus()
+      return
+    }
 
-    event.preventDefault()
-    setActiveSeatIndex(next)
-    const target = event.currentTarget.ownerSVGElement?.querySelector<SVGCircleElement>(
-      `[data-seat-index="${next}"]`,
-    )
-    target?.focus()
+    // A chair has no activation of its own (TableRingSeats's own comment), but the browser's own
+    // default action for an unhandled Space keypress on any focused element is to scroll the
+    // viewport. Swallowed here so tabbing onto a chair and pressing Space never jumps the page
+    // out from under whoever is reading it.
+    if (event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault()
+    }
   }
 
   function handleSeatHover(seatIndex: number, element: Element) {
@@ -160,6 +196,16 @@ export function PlanTable({
   function handleSeatHoverEnd(seatIndex: number) {
     const guestId = seatGuestIds[seatIndex] ?? null
     if (guestId !== null) onGuestHoverEnd?.(guestId)
+  }
+
+  // See the file's own doc comment: a round table's chairs sit above the face button now, so a
+  // click that lands on one needs to do what the button itself would have done for that click.
+  function handleChairActivate() {
+    if (placing) {
+      placing.onPlace()
+    } else {
+      onSelect?.()
+    }
   }
 
   const faceContent = (
@@ -192,22 +238,12 @@ export function PlanTable({
       data-violation={isViolating ? 'true' : undefined}
       data-selected={selected ? 'true' : undefined}
     >
-      {/* TT-44 (amendment, C3-C3d), TT-36 (structural move): the chair row/ring is a sibling of
-          the face below, never a child of it — a focusable chair inside a button element is
-          invalid HTML, and a named one would join the button's own accessible name via
-          name-from-content (TT-36's governing trap; see PlanTable.test.tsx's rescoped aria-label
-          assertions). Round
-          and top tables each render their own shape here (TableRing's clock face, TopTableRow's
-          single line) — the two differ enough that reusing one path for both would be the wrong
-          kind of consistency. Rendered before the button, matching this pair's own DOM-tree-order
-          paint rule: .table's container-type makes it a stacking context, so these
-          position:absolute, z-index:auto siblings paint in tree order, under the button's own
-          positioned heading/occupancy text (PlanTable.module.css). */}
       {slot.kind === 'top' && (
         <TopTableRow
           seats={slot.capacity}
           seatGuestIds={seatGuestIds}
           guestsBySeat={guestsBySeat}
+          tableLabel={slot.label}
           activeSeatIndex={safeActiveSeatIndex}
           onSeatFocus={handleSeatFocus}
           onSeatBlur={handleSeatBlur}
@@ -218,23 +254,7 @@ export function PlanTable({
           summaryId={summaryId}
         />
       )}
-      {slot.kind === 'round' && (
-        <TableRing
-          seats={slot.capacity}
-          pinned={isPinned}
-          seatGuestIds={seatGuestIds}
-          guestsBySeat={guestsBySeat}
-          tableSize={tableSize}
-          activeSeatIndex={safeActiveSeatIndex}
-          onSeatFocus={handleSeatFocus}
-          onSeatBlur={handleSeatBlur}
-          onSeatKeyDown={handleSeatKeyDown}
-          onSeatHover={handleSeatHover}
-          onSeatHoverEnd={handleSeatHoverEnd}
-          summaryGuestId={summaryGuestId}
-          summaryId={summaryId}
-        />
-      )}
+      {slot.kind === 'round' && <TableRing seats={slot.capacity} pinned={isPinned} tableSize={tableSize} />}
       <Button
         variant="quiet"
         className={styles.face}
@@ -250,6 +270,24 @@ export function PlanTable({
         )}
         {faceContent}
       </Button>
+      {slot.kind === 'round' && (
+        <TableRingSeats
+          seats={slot.capacity}
+          seatGuestIds={seatGuestIds}
+          guestsBySeat={guestsBySeat}
+          tableSize={tableSize}
+          tableLabel={slot.label}
+          activeSeatIndex={safeActiveSeatIndex}
+          onSeatFocus={handleSeatFocus}
+          onSeatBlur={handleSeatBlur}
+          onSeatKeyDown={handleSeatKeyDown}
+          onSeatHover={handleSeatHover}
+          onSeatHoverEnd={handleSeatHoverEnd}
+          onSeatClick={handleChairActivate}
+          summaryGuestId={summaryGuestId}
+          summaryId={summaryId}
+        />
+      )}
     </li>
   )
 }

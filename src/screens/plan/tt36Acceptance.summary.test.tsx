@@ -108,7 +108,7 @@ describe('TT-36 C4 — the summary never shows a dietary preference, for a guest
     const user = userEvent.setup()
     renderPlanScreen()
 
-    const chair = screen.getByRole('button', { name: /Maureen Shah/ })
+    const chair = screen.getByRole('img', { name: /Maureen Shah/ })
     await user.hover(chair)
 
     const card = screen.getByRole('group', { name: /Maureen Shah/ })

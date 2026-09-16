@@ -24,6 +24,8 @@ type FloorplanGridProps = {
   summaryId?: string
   onGuestHover?: (guestId: string, element: Element) => void
   onGuestHoverEnd?: (guestId: string) => void
+  onGuestFocus?: (guestId: string, element: Element) => void
+  onGuestBlur?: (guestId: string) => void
 }
 
 type GridStyle = CSSProperties & { '--floorplan-columns': number; '--table-size': string }
@@ -55,6 +57,8 @@ export function FloorplanGrid({
   summaryId,
   onGuestHover,
   onGuestHoverEnd,
+  onGuestFocus,
+  onGuestBlur,
 }: FloorplanGridProps) {
   const slots = tablesInRoom(room)
   const topSlot = slots.find((slot) => slot.kind === 'top')
@@ -87,6 +91,8 @@ export function FloorplanGrid({
             summaryId={summaryId}
             onGuestHover={onGuestHover}
             onGuestHoverEnd={onGuestHoverEnd}
+            onGuestFocus={onGuestFocus}
+            onGuestBlur={onGuestBlur}
           />
         </ul>
       )}
@@ -116,6 +122,8 @@ export function FloorplanGrid({
                 summaryId={summaryId}
                 onGuestHover={onGuestHover}
                 onGuestHoverEnd={onGuestHoverEnd}
+                onGuestFocus={onGuestFocus}
+                onGuestBlur={onGuestBlur}
               />
             ))}
           </ul>

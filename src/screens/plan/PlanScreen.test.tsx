@@ -842,7 +842,7 @@ describe('PlanScreen — hovering or focusing an occupied chair on the floorplan
     const user = userEvent.setup()
     renderPlanScreen()
 
-    const chair = screen.getByRole('button', { name: /Guest g-0/ })
+    const chair = screen.getByRole('img', { name: /Guest g-0/ })
     await user.hover(chair)
 
     expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
@@ -855,7 +855,7 @@ describe('PlanScreen — hovering or focusing an occupied chair on the floorplan
     const user = userEvent.setup()
     renderPlanScreen()
 
-    const chair = screen.getByRole('button', { name: /Guest g-0/ })
+    const chair = screen.getByRole('img', { name: /Guest g-0/ })
     await user.hover(chair)
     expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
 
@@ -868,10 +868,36 @@ describe('PlanScreen — hovering or focusing an occupied chair on the floorplan
     renderPlanScreen()
 
     const table = tableLabelled('Table 1')
-    const emptyChair = within(table).getByRole('button', { name: /^Seat 1, empty$/ })
+    const emptyChair = within(table).getByRole('img', { name: /^Seat 1, empty$/ })
     fireEvent.focus(emptyChair)
 
     expect(screen.queryByRole('group', { name: /^Summary for/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('PlanScreen — focus outlives a hover that drifted onto, then off, a different chair (reviewer, TT-36)', () => {
+  it('a still-focused chair\'s summary comes back once the mouse leaves a different chair it briefly hovered', () => {
+    useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
+    useTopTableStore.getState().setGuests(makeGuests(2))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    useTopTableStore.getState().pinGuest('g-1', 'round-1')
+    renderPlanScreen()
+
+    const focusedChair = screen.getByRole('img', { name: /Guest g-0/ })
+    const otherChair = screen.getByRole('img', { name: /Guest g-1/ })
+
+    fireEvent.focus(focusedChair)
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+
+    // The mouse drifts across a different chair — its hover wins while it lasts...
+    fireEvent.mouseEnter(otherChair)
+    expect(screen.getByRole('group', { name: /Guest g-1/ })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: /Guest g-0/ })).not.toBeInTheDocument()
+
+    // ...but leaving it falls back to whichever chair is still genuinely focused, not to nothing.
+    fireEvent.mouseLeave(otherChair)
+    expect(screen.getByRole('group', { name: /Guest g-0/ })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: /Guest g-1/ })).not.toBeInTheDocument()
   })
 })
 

@@ -102,12 +102,13 @@
   pointer-events: auto;
 }
 
-/* TT-36 (C8, C10). This repo never removes a focus outline (brand.test.ts forbids it) — a chair is the
-   one focusable thing this file draws, and the roving tab stop needs a visible indicator of its
-   own, the same as `.table .face:focus-visible` gives the face button (PlanTable.module.css).
-   `outline-offset` is positive, not inset: a chair can be as small as ~3px across at the scale
-   floor (`ringGeometry.ts`'s `chairDiameterPx`), too small for an offset that eats inward to
-   leave anything of the shape visible at all. */
+/* TT-36. This repo never removes a focus outline (brand.test.ts forbids it) — a chair is the one
+   focusable thing this file draws, and the roving tab stop needs a visible indicator of its own,
+   the same as `.table .face:focus-visible` gives the face button (PlanTable.module.css).
+   `outline-offset` is positive, not inset: `chairRadius` (`ringGeometry.ts`) shrinks a chair down
+   to a floor with room enough for its own stroke and nothing to spare, so an offset that eats
+   inward would leave nothing of the shape visible at all, at every seat count this file ever
+   draws. */
 .chairOccupied:focus-visible,
 .chairEmpty:focus-visible {
   outline: 2px solid var(--slate);
