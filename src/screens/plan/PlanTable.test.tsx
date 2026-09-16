@@ -573,17 +573,19 @@ describe('PlanTable — chairs survive the scale floor, or drop cleanly rather t
 })
 
 /**
- * Regression, review (TT-44). The ring circle used to render only while chairs were hidden
- * (`!showChairs`), which meant `--ring-stroke`/`--ring-stroke-width` — the properties that carry
- * the occupancy, violation AND selected states (PlanTable.module.css) — had nothing left to
- * paint on every KB-3 scenario, since all three seat 8 a table and chairs always show at that
- * count: selecting a table became invisible. jsdom applies no CSS (docs/engineering-standards.md,
- * "what the suite cannot see"), so this cannot assert the stroke actually widens on screen — but
- * it can assert the element those properties paint is never missing, which is the exact defect
- * that shipped: the ring was omitted from the DOM entirely, not merely painted with the wrong
- * value.
+ * Regression, review (TT-44, second pass). The first fix for "selecting a table does nothing
+ * once chairs replace the dashed ring" kept a plain ring circle drawn unconditionally, at the
+ * same radius the chairs' own centres sit on. That collided with C4: the ring's stroke is a
+ * constant CSS width regardless of table size, while a chair shrinks with it, so at the scale
+ * floor the band was wider than a whole chair and painted straight through an empty chair's
+ * hollow, making it read as filled. The ring is back to `!showChairs`-only; selection now widens
+ * the chairs' own stroke instead (`--ring-chair-stroke-width`). jsdom applies no CSS, so this
+ * cannot assert the widened stroke leaves a hole on screen (`ringGeometry.test.ts`'s
+ * `chairDiameterPx` tests are the arithmetic proof of that) — but it can assert the ring
+ * circle's DOM presence tracks `showChairs` exactly, which is the structural guarantee the fix
+ * actually rests on: no ring is ever drawn at the chairs' own radius while chairs are visible.
  */
-describe('PlanTable — a plain ring circle is always present behind the chairs, so the selected/violation outline always has something to paint (regression, TT-44 review)', () => {
+describe('PlanTable — the ring circle and the chairs are never both drawn at the chairs\' own radius (regression, TT-44 review)', () => {
   function svgCircles(table: HTMLElement): Element[] {
     const svg = table.querySelector('svg')
     if (!svg) {
@@ -592,16 +594,16 @@ describe('PlanTable — a plain ring circle is always present behind the chairs,
     return Array.from(svg.querySelectorAll('circle'))
   }
 
-  it('at a size where chairs render, the svg still carries one circle besides the body, the pin and the chairs themselves', () => {
+  it('at a size where chairs render, the svg carries only the body and one circle per chair — no separate ring', () => {
     const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
     const chairs = table.querySelectorAll('[data-seat-index]')
     expect(chairs.length).toBeGreaterThan(0)
 
-    // ring + body + one circle per chair; this table carries no pin.
-    expect(svgCircles(table)).toHaveLength(2 + chairs.length)
+    // body + one circle per chair; this table carries no pin, and no ring.
+    expect(svgCircles(table)).toHaveLength(1 + chairs.length)
   })
 
-  it('at the scale floor, where chairs drop, the same ring circle is still there — the dashed fallback never lost it either', () => {
+  it('at the scale floor, where chairs drop, the dashed fallback ring is drawn in their place', () => {
     const table = renderTableSized(
       roundSlot({ number: 5, label: 'Table 5', capacity: 80 }),
       occupantsFromPattern(new Array(80).fill(false)),

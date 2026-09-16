@@ -53,17 +53,24 @@
    both `--hard` and `--hard-wash` are equally opaque). Both keep the same stroke, so the shape
    difference survives grayscale(1) even where the fill difference would not on its own.
    non-scaling-stroke matches TT-38's rule that geometry scales and stroke weights do not — it
-   is what keeps an empty chair's outline visible at the floor. */
+   is what keeps an empty chair's outline visible at the floor.
+
+   `stroke-width` is `--ring-chair-stroke-width`, not a literal 1px (review, TT-44): the selected
+   state widens it, on the chairs' own stroke rather than on a separate ring at the chairs' own
+   radius — a shared ring's stroke is a constant CSS width regardless of table size, and at
+   MIN_TABLE_SIZE that width exceeded a whole chair's rendered diameter, painting straight
+   through an empty chair's hollow. `ringGeometry.test.ts`'s `chairDiameterPx` keeps the widened
+   value below the smallest chair KB-3's scenarios ever render at the scale floor. */
 .chairOccupied {
   fill: var(--ring-chair-fill);
   stroke: var(--ring-chair-stroke);
-  stroke-width: 1px;
+  stroke-width: var(--ring-chair-stroke-width);
   vector-effect: non-scaling-stroke;
 }
 
 .chairEmpty {
   fill: none;
   stroke: var(--ring-chair-stroke);
-  stroke-width: 1px;
+  stroke-width: var(--ring-chair-stroke-width);
   vector-effect: non-scaling-stroke;
 }

@@ -380,6 +380,27 @@ describe('PlanTable.module.css — a selected table widens its own seat ring (ha
   })
 })
 
+/**
+ * Review, TT-44 (second pass). The dashed fallback ring's own stroke widens on selection
+ * (above), but that ring is never drawn once chairs replace the seat dashes (TableRing.tsx) —
+ * a shared radius with a constant-width stroke painted through an empty chair's hollow at the
+ * scale floor. Selection widens the chairs' own stroke instead, from a 1px default (base
+ * `.table`) to 2px here. `ringGeometry.test.ts`'s `chairDiameterPx` tests are what actually
+ * prove 2px still leaves a hole in the smallest chair KB-3's scenarios render; this test only
+ * proves the CSS says what that arithmetic assumes it says.
+ */
+describe('PlanTable.module.css — a selected table also widens its chairs\' own stroke, 1 → 2 (review, TT-44)', () => {
+  it('the base .table rule declares --ring-chair-stroke-width: 1px', () => {
+    const rule = requireRule(readCss(), BASE_TABLE, 'the base .table rule')
+    expect(rule.body).toMatch(/--ring-chair-stroke-width\s*:\s*1px/i)
+  })
+
+  it('.table[data-selected="true"] declares --ring-chair-stroke-width: 2px', () => {
+    const rule = requireRule(readCss(), SELECTED_TRUE, 'data-selected')
+    expect(rule.body).toMatch(/--ring-chair-stroke-width\s*:\s*2px/i)
+  })
+})
+
 describe('PlanTable.module.css — .round contains its own content instead of stretching into an ellipse', () => {
   it('declares min-height: 0, so aspect-ratio governs height from width alone regardless of content', () => {
     const rule = requireRule(readCss(), /\.round\s*\{/, '.round')

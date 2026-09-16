@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { RING, seatRingDash, chairPositions, chairRadius, chairsVisibleAt } from './ringGeometry'
+import { RING, seatRingDash, chairPositions, chairRadius, chairDiameterPx, chairsVisibleAt } from './ringGeometry'
 import { MAX_TABLE_SIZE, MIN_TABLE_SIZE } from './floorplanFit'
 
 /**
@@ -229,6 +229,41 @@ describe('chairsVisibleAt — chairs survive the scale floor, or drop cleanly ra
     expect(() => chairsVisibleAt(-3, MIN_TABLE_SIZE)).not.toThrow()
     expect(chairsVisibleAt(0, MIN_TABLE_SIZE)).toBe(false)
     expect(chairsVisibleAt(-3, MIN_TABLE_SIZE)).toBe(false)
+  })
+})
+
+/**
+ * Review, TT-44 (second pass). Selection used to widen a ring drawn at the chairs' own radius —
+ * fine for the dashed fallback, but that ring's stroke is a constant CSS width
+ * (non-scaling-stroke) while a chair shrinks with the table, so at MIN_TABLE_SIZE a 7-9px band
+ * was wider than a whole 5.8px chair and painted straight through an empty chair's hollow,
+ * making it read as filled. Selection now widens the chairs' own stroke instead
+ * (`--ring-chair-stroke-width`, PlanTable.module.css) — these tests are what a browser pass
+ * cannot see stay true: the widened stroke, in CSS pixels, is still smaller than the chair it is
+ * drawn on, at the worst case KB-3's scenarios actually reach (8 seats, the scale floor).
+ *
+ * `1` and `2` below are not read from the CSS — they are re-declared here on purpose, the same
+ * way `UNSELECTED_STROKE_WIDTH`/`SELECTED_STROKE_WIDTH` are above, so a change to either side
+ * has to touch both files before the gate goes green again.
+ */
+describe("chairDiameterPx — the selected chair stroke stays narrower than the chair itself, even at the scale floor (review, TT-44)", () => {
+  const CHAIR_STROKE_WIDTH = 1
+  const SELECTED_CHAIR_STROKE_WIDTH = 2
+
+  it('an 8-seat table at MIN_TABLE_SIZE — every KB-3 scenario, at the floor TT-38 stops shrinking at — leaves a hole under both stroke widths', () => {
+    const diameter = chairDiameterPx(8, MIN_TABLE_SIZE)
+    expect(diameter).toBeGreaterThan(SELECTED_CHAIR_STROKE_WIDTH)
+    expect(diameter).toBeGreaterThan(CHAIR_STROKE_WIDTH)
+  })
+
+  it('the widened, selected stroke still leaves more than a sliver of hole at the floor — not just technically positive', () => {
+    const diameter = chairDiameterPx(8, MIN_TABLE_SIZE)
+    const hollow = diameter - SELECTED_CHAIR_STROKE_WIDTH
+    expect(hollow).toBeGreaterThan(1)
+  })
+
+  it('grows with the table size, so a chair well above the floor has even more room to spare', () => {
+    expect(chairDiameterPx(8, MAX_TABLE_SIZE)).toBeGreaterThan(chairDiameterPx(8, MIN_TABLE_SIZE))
   })
 })
 

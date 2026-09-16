@@ -126,8 +126,14 @@ function SeatRow({ row, tableLabel, onRelease }: { row: Row; tableLabel: string;
     <li className={styles.row}>
       <div className={styles.main}>
         <span className={styles.left}>
-          {row.seatNumber !== null && (
+          {/* Review, TT-44: an overflow row carries no seat number, but always rendering this
+              span — empty rather than omitted — reserves the same fixed width `.facts` below
+              insets by, so the name (and the facts line under it) starts at the same left edge
+              whether the row has a number or not. */}
+          {row.seatNumber !== null ? (
             <span className={cx(styles.seatNumber, tabularClass)}>{row.seatNumber}</span>
+          ) : (
+            <span className={styles.seatNumber} aria-hidden="true" />
           )}
           {guest === null ? (
             <span className={styles.empty}>Empty</span>

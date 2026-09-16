@@ -112,9 +112,21 @@ export function chairRadius(seats: number): number {
   return Math.min(4.5, arc)
 }
 
+/**
+ * A chair's rendered diameter in CSS pixels, at a given seat count and the table's own rendered
+ * size — `chairRadius` is in the SVG's own 94-unit viewBox, so it scales by `renderedSize / 94`
+ * like everything else in the drawing, unlike a non-scaling stroke (review, TT-44 — see
+ * `chairsVisibleAt` and `TableRing.module.css`'s `--ring-chair-stroke-width` comment). Exported
+ * so a stroke width — which *is* a constant number of CSS pixels — can be checked against it
+ * directly, rather than trusting a browser pass to notice the two have crossed.
+ */
+export function chairDiameterPx(seats: number, renderedSize: number): number {
+  return (2 * chairRadius(seats) * renderedSize) / RING.viewBox
+}
+
 /** TT-44 (C7): the clean drop for a seat count dense enough that a chair would render as a blur. */
 export function chairsVisibleAt(seats: number, renderedSize: number): boolean {
   if (seats <= 0) return false
 
-  return (2 * chairRadius(seats) * renderedSize) / RING.viewBox >= 3
+  return chairDiameterPx(seats, renderedSize) >= 3
 }

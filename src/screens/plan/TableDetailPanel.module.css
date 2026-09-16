@@ -61,13 +61,16 @@
   min-width: 0;
 }
 
-/* TT-44, KB-6 "Table detail". The second line: role, tags, social type. Left inset
-   approximates the seat number's own rendered width (`--s-4`, roughly two tabular-mono digits
-   at the row's body size) plus the left group's own gap (`--s-2`), so the text sits under the
-   name rather than under the number. Not `1ch`: that unit resolves against *this* rule's own
-   font (`--t-label`, Plex Sans) rather than the seat number's mono font at a different size, so
-   it measured the wrong character's width entirely (review, TT-44) — token composition avoids
-   depending on a sibling rule's font to get a value right. */
+/* TT-44, KB-6 "Table detail". The second line: role, tags, social type. Left inset is the seat
+   number span's own fixed width (below) plus the left group's own gap (`--s-2`), so the text
+   sits under the name rather than under the number. Review, TT-44 (second pass): this used to
+   be `1ch` — wrong twice over, since it resolved against *this* rule's own font (`--t-label`,
+   Plex Sans) rather than the seat number span's mono font, and even fixed would only have
+   matched a two-digit number, which every seat on an 8-seat table (every KB-3 scenario) is not.
+   Giving that span an explicit width, rather than sizing it to its own content, is what makes
+   one fixed inset correct for one digit and two alike — and, since it always renders even for
+   an overflow row's absent number (TableDetailPanel.tsx), correct for a row with no number at
+   all too. */
 .facts {
   margin: var(--s-1) 0 0;
   padding-left: calc(var(--s-4) + var(--s-2));
@@ -77,6 +80,8 @@
 
 .seatNumber {
   flex: none;
+  width: var(--s-4);
+  text-align: right;
   color: var(--ink-muted);
 }
 

@@ -38,20 +38,26 @@ export function TableRing({ seats, pinned, seatGuestIds, tableSize }: TableRingP
       aria-hidden="true"
       focusable="false"
     >
-      {/* Review, TT-44: this circle used to render only when `!showChairs`. Every KB-3 scenario
-          seats 8 a table, so chairs always render, and `--ring-stroke`/`--ring-stroke-width` —
-          which carry the occupancy, violation AND selected states (PlanTable.module.css) — had
-          nothing left to paint: selecting a table became invisible. Keeping this circle always
-          drawn, solid rather than dashed once chairs take over the individual seat marks, gives
-          those three states a ring to paint again in the gaps between chairs. */}
-      <circle
-        className={styles.ring}
-        cx={RING.centre}
-        cy={RING.centre}
-        r={RING.ringRadius}
-        fill="none"
-        strokeDasharray={showChairs ? undefined : `${dash} ${gap}`}
-      />
+      {/* Review, TT-44: this circle briefly rendered unconditionally, to give the selected and
+          violation states something to paint once chairs replaced the seat dashes — but it sits
+          at the exact radius the chairs' own centres do, and its stroke is a constant CSS width
+          (non-scaling-stroke) while a chair shrinks with the table: at MIN_TABLE_SIZE the band
+          (7-9px) was wider than the whole chair (5.8px), painting straight through an empty
+          chair's hollow centre and making it read as filled. Back to `!showChairs` only — the
+          selected state now carries on the chairs' own stroke width instead (see
+          --ring-chair-stroke-width below), and violation already carries on both the body's
+          dashed --ring-body-* stroke (unaffected by chairs) and the chairs' own --ring-chair-
+          stroke colour. */}
+      {!showChairs && (
+        <circle
+          className={styles.ring}
+          cx={RING.centre}
+          cy={RING.centre}
+          r={RING.ringRadius}
+          fill="none"
+          strokeDasharray={`${dash} ${gap}`}
+        />
+      )}
       <circle className={styles.body} cx={RING.centre} cy={RING.centre} r={RING.bodyRadius} />
       {pinned && (
         <circle

@@ -56,6 +56,11 @@
      `--ring-chair-empty-fill` to declare here. */
   --ring-chair-fill: var(--slate);
   --ring-chair-stroke: var(--rule-strong);
+  /* Review, TT-44: 1px, matching the stroke width TT-44 shipped with before selection needed
+     its own treatment on the chair path — kept deliberately thin, since it is read against a
+     chair as small as ~3px across at the scale floor (ringGeometry.test.ts's `chairDiameterPx`
+     is what checks the selected override below still leaves a hole at that size). */
+  --ring-chair-stroke-width: 1px;
 }
 
 /* Shape. Also 0,1,0 — written after .table so the pair above resolves correctly. The ring and
@@ -159,9 +164,15 @@
 
 /* TT-15, handoff "Selecting a table": seat ring stroke-width 7 → 9, nothing else. A top table
    carries this attribute too (it is selectable like any other) but has no TableRing to read it,
-   so it is visually a no-op there — "no other selection treatment" either way. */
+   so it is visually a no-op there — "no other selection treatment" either way.
+   `--ring-stroke-width` only ever paints the dashed fallback ring now (TableRing.tsx, review
+   TT-44) — `--ring-chair-stroke-width` is the equivalent for the chair path, and it widens by
+   the same +1px the fallback ring widens by (a smaller absolute step: the ring's 7→9 headroom
+   assumed a stroke drawn against the whole ring circumference, not against one ~3-6px chair at
+   the scale floor). */
 .table[data-selected='true'] {
   --ring-stroke-width: 9px;
+  --ring-chair-stroke-width: 2px;
 }
 
 /* The dashed hard border is TOP-only: a round table's dashed outline is already the SVG body
