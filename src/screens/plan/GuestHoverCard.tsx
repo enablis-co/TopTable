@@ -29,30 +29,33 @@ type GuestHoverCardProps = {
  * Canvas zone: `--surface` against `--rule`, no shadow — depth is the border and the colour step
  * against `--paper`, never a drop shadow (KB-5).
  *
- * Positioned `fixed` from `anchor` by `hoverCardPosition`, clamped against the card's own
- * measured height so the card is always fully on screen when it can be, and never covers the
- * seat or row it describes — the one criterion this file cannot prove on its own (jsdom does no
- * layout, `docs/engineering-standards.md`); this is the geometry a browser pass measures against.
- * The height isn't known at first render, so it's measured here in a `useLayoutEffect` — before
- * paint, so the wrong position is never painted — off `getBoundingClientRect`, the border box,
- * rather than the content box the padding and border would otherwise be missing from. The
- * measured height must never depend on the computed position, or the effect would loop against
- * itself; the equality guard before `setCardHeight` converges it in one extra render instead of
- * running forever.
+ * Positioned `fixed` by `hoverCardPosition`, clamped against the card's own measured height so
+ * it is always fully on screen when it can be, and never covers the seat or row it describes —
+ * the one criterion this file cannot prove on its own (jsdom does no layout,
+ * `docs/engineering-standards.md`), so a browser pass measures it.
  *
- * There is deliberately no `max-height`/`overflow-y` pairing here any more: this card only ever
- * opens on hover or focus and closes the moment the pointer or focus leaves its anchor, before
- * either could ever reach the card itself to scroll it — a scrollbar neither gesture can trigger
- * is a false affordance, not a safety net. Letting the card take whatever height its own content
- * needs is the honest version of "handle a guest with a lot to show".
+ * The height is not known at first render, so it is measured in a `useLayoutEffect`: before
+ * paint, so no wrong position is ever painted, and off `getBoundingClientRect` for the border
+ * box, since the content box omits the padding and border.
+ *
+ * **The trap:** the measured height must never be allowed to depend on the position computed
+ * from it, or this effect feeds itself. `top` alone cannot resize a `position: fixed` element,
+ * so it holds today; a `max-height` derived from the position would break it. `hoverCardStyles.test.ts`
+ * is what keeps that out.
+ *
+ * There is no `max-height`/`overflow-y` pairing here: the card opens on hover or focus and closes
+ * the moment either leaves the anchor, so neither can ever reach the card to scroll it. A
+ * scrollbar nothing can trigger is a false affordance, so a card too tall for the window keeps
+ * its name and clips its tail instead.
  */
 export function GuestHoverCard({ id, guest, fields, anchor }: GuestHoverCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [cardHeight, setCardHeight] = useState(0)
 
   // Measures every commit on purpose. The rule's suggested `[]` would measure once and never
-  // again, so a taller guest would be placed against the previous one's height — the defect this
-  // fix exists to remove. The equality guard is what stops the chain the rule warns about.
+  // again, so a taller guest would be placed against the previous one's height. What bounds the
+  // chain is that the height cannot depend on the position (see above); the equality guard below
+  // only saves a render React would otherwise bail out of itself.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate; see above
   useLayoutEffect(() => {
     const measured = cardRef.current?.getBoundingClientRect().height ?? 0

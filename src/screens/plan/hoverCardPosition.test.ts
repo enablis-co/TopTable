@@ -3,11 +3,12 @@ import { hoverCardPosition, HOVER_CARD_EDGE_MARGIN, HOVER_CARD_GAP } from './hov
 import type { Viewport } from './hoverCardPosition'
 
 /**
- * TT-36 defect addendum — the hover card clips off the top. Written from the addendum's
- * acceptance criteria (D1-D6, D10) and the repro table in .claude/plans/TT-36.md, without
- * opening hoverCardPosition.ts. D7 (first-paint position) and the browser-only parts of D1/D2/D5
- * are a browser pass, not a unit test (docs/engineering-standards.md — jsdom does no layout).
- * D9 belongs to GuestHoverCard.test.tsx; D8 belongs to hoverCardStyles.test.ts.
+ * TT-36. The hover card's placement arithmetic, pinned where it can actually be pinned: this
+ * function takes the viewport as an argument, so it needs no DOM and no layout.
+ *
+ * What is NOT here: that the rendered card paints at the position computed here, and that it
+ * paints there on the first frame. jsdom does no layout, so those are a browser pass
+ * (docs/engineering-standards.md). The stylesheet's half is hoverCardStyles.test.ts.
  */
 
 function makeAnchor(overrides: Partial<DOMRect>): DOMRect {
@@ -25,29 +26,27 @@ function makeAnchor(overrides: Partial<DOMRect>): DOMRect {
   }
 }
 
-describe('hoverCardPosition — a card that fits is pulled fully onto the screen (D1, D2)', () => {
+describe('hoverCardPosition — a card that fits is pulled fully onto the screen', () => {
   it('a tall card anchored low on a short window gets a positive, on-screen top — shaped like the real repro (floorplan chair)', () => {
-    // .claude/plans/TT-36.md repro row 1: viewport 1024x480, anchor.top 263.9 / anchor.bottom
-    // 269.7, cardHeight 430.3. The old code picked the "bottom" branch here (roomBelow 210.3 <
-    // roomAbove 263.9 is false, so placeBelow is false) and produced top -160.5.
+    // A chair low in a short window, with a card taller than the room above it. The old code
+    // anchored such a card to the viewport's bottom edge and let its top run off the screen,
+    // taking the guest's name with it.
     const anchor = makeAnchor({ top: 263.9, bottom: 269.7, left: 500, right: 550 })
     const viewport: Viewport = { width: 1024, height: 480 }
     const cardHeight = 430.3
 
     const style = hoverCardPosition(anchor, cardHeight, viewport)
 
-    // toBeCloseTo, not toBe: 480 - 16 - 430.3 is not exactly representable in IEEE-754, so the
-    // arithmetic itself (not the fix) lands a few ulps off 33.7. The precision here (5 decimal
-    // places) is far tighter than anything that would mask a real clamping bug.
+    // toBeCloseTo, not toBe: the subtraction is not exactly representable in IEEE-754, so the
+    // test's own literals land a few ulps apart. Nothing about the fix is approximate.
     expect(style.top as number).toBeCloseTo(33.7, 5)
-    expect(style.top).not.toBe(-160.5)
     expect(style.top as number).toBeGreaterThanOrEqual(HOVER_CARD_EDGE_MARGIN)
     expect((style.top as number) + cardHeight).toBeLessThanOrEqual(viewport.height - HOVER_CARD_EDGE_MARGIN)
   })
 
   it('the same clamp fires for an unseated-rail anchor further down the same short window', () => {
-    // Repro row 3: same viewport and cardHeight as above, but the anchor is a rail row near the
-    // bottom of the window (anchor.bottom 394.1) rather than a floorplan chair.
+    // The same clamp, reached from the other anchor kind: an unseated rail row rather than a
+    // floorplan chair.
     const anchor = makeAnchor({ top: 384.1, bottom: 394.1, left: 20, right: 300 })
     const viewport: Viewport = { width: 1024, height: 480 }
     const cardHeight = 430.3
@@ -83,12 +82,13 @@ describe('hoverCardPosition — a card that fits is pulled fully onto the screen
   })
 })
 
-describe('hoverCardPosition — a card too tall for the window clips its tail, never its name (D3)', () => {
+describe('hoverCardPosition — a card too tall for the window clips its tail, never its name', () => {
   it('returns top === 16 exactly when cardHeight > viewport.height - 32, regardless of where the anchor sits', () => {
-    // >= 16 would also be satisfied by a card shoved off the bottom, which is the bug this fix
-    // removes. The exact value is the point: the name stays visible, only the tail clips.
+    // The exact value is the point. A `>=` assertion would also pass for a card shoved off the
+    // bottom instead — the same defect at the other end, losing the tail's facts rather than
+    // the name.
     const viewport: Viewport = { width: 1024, height: 480 }
-    const cardHeight = 450 // > 480 - 32 = 448
+    const cardHeight = 450 // taller than the window leaves room for
 
     const anchoredNearTop = hoverCardPosition(makeAnchor({ top: 20, bottom: 40 }), cardHeight, viewport)
     const anchoredNearBottom = hoverCardPosition(makeAnchor({ top: 460, bottom: 470 }), cardHeight, viewport)
@@ -97,9 +97,9 @@ describe('hoverCardPosition — a card too tall for the window clips its tail, n
     expect(anchoredNearBottom.top).toBe(16)
   })
 
-  it('the exact-9-field case from the addendum: a card past the fit threshold still clamps to 16, not a value pushed toward the bottom', () => {
+  it('a card only just past the fit threshold still clamps to the top margin, not toward the bottom', () => {
     const viewport: Viewport = { width: 1024, height: 480 }
-    const cardHeight = 448.1 // just over the 448 threshold
+    const cardHeight = 448.1 // a hair over what fits
 
     const style = hoverCardPosition(makeAnchor({ top: 100, bottom: 120 }), cardHeight, viewport)
 
@@ -107,11 +107,11 @@ describe('hoverCardPosition — a card too tall for the window clips its tail, n
   })
 })
 
-describe('hoverCardPosition — a card that already fits is not moved unnecessarily (D4)', () => {
+describe('hoverCardPosition — a card that already fits is not moved unnecessarily', () => {
   it('when the anchor sits high enough that the card fits without clamping, top === anchor.top', () => {
     const anchor = makeAnchor({ top: 100, bottom: 120, left: 10, right: 60 })
     const viewport: Viewport = { width: 1024, height: 800 }
-    const cardHeight = 200 // anchor.top (100) <= viewport.height - 16 - cardHeight (584)
+    const cardHeight = 200 // comfortably fits below the anchor
 
     const style = hoverCardPosition(anchor, cardHeight, viewport)
 
@@ -129,7 +129,7 @@ describe('hoverCardPosition — a card that already fits is not moved unnecessar
   })
 })
 
-describe('hoverCardPosition — the card never overlaps the anchor it describes, on either side (D5)', () => {
+describe('hoverCardPosition — the card never overlaps the anchor it describes, on either side', () => {
   it('with room only on the right, the card sits to the right and sets left, never right', () => {
     // Anchor flush against the left edge: there is no room to place the card on the left.
     const anchor = makeAnchor({ top: 100, bottom: 120, left: 0, right: 50 })
@@ -155,11 +155,21 @@ describe('hoverCardPosition — the card never overlaps the anchor it describes,
   })
 })
 
-describe('hoverCardPosition — the horizontal budget is never negative (D6)', () => {
+describe('hoverCardPosition — the horizontal budget is never negative', () => {
   // Both sides are cramped below HOVER_CARD_GAP here — an anchor nearly as wide as a narrow
-  // window — so whichever side wins the room comparison still has less space than the gap
-  // alone requires. That is the case the Math.max(..., 0) clamp exists for; an anchor flush
-  // against one edge with plenty of room on the other never reaches the negative branch at all.
+  // window — so whichever side wins the room comparison still has less space than the gap alone
+  // requires. That is the case the Math.max(..., 0) clamp exists for; an anchor flush against
+  // one edge with plenty of room on the other never reaches the negative branch at all.
+  //
+  // The trap: these inputs return maxWidth 0, and a zero-width card cannot honour the
+  // never-overlap guarantee — its text would spill out of the box and across the anchor. So
+  // these assert the arithmetic does not go negative, and nothing more. They are NOT a claim
+  // that the card renders acceptably at this size.
+  //
+  // No anchor in the app can reach it: the nav rail holds every chair and rail row at least
+  // ~200px clear of the left edge, so the roomier side is never below the gap. A layout change
+  // that lets an anchor span nearly the full width would make it reachable, and then the card
+  // needs a minimum width rather than a wider clamp here.
   it('clamps to zero rather than going negative when the room on the right (the chosen side) is smaller than the gap', () => {
     const viewport: Viewport = { width: 200, height: 800 }
     // roomLeft = 3, roomRight = 200 - 196 = 4: the right has (barely) more room, so the card
@@ -185,7 +195,7 @@ describe('hoverCardPosition — the horizontal budget is never negative (D6)', (
   })
 })
 
-describe('hoverCardPosition — a missing anchor renders hidden, not at a computed position (D10)', () => {
+describe('hoverCardPosition — a missing anchor renders hidden, not at a computed position', () => {
   it('returns display: none and no top when anchor is null', () => {
     const viewport: Viewport = { width: 1024, height: 800 }
 
