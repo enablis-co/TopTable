@@ -22,6 +22,15 @@ Parameters:
     Default: enablis-co/TopTable
     Description: owner/repo, used to scope the OIDC trust condition.
 
+  GitHubSubjectRepository:
+    Type: String
+    Default: enablis-co@183766552/TopTable@1360462050
+    Description: >-
+      owner@owner-id/repo@repo-id. This repository has immutable OIDC subjects enabled, so
+      GitHub presents the id-qualified form rather than owner/repo, and a trust condition
+      matching only owner/repo never matches. Read the live value from
+      /repos/OWNER/REPO/actions/oidc/customization/sub (sub_claim_prefix).
+
 # CloudFront reads certificates only from us-east-1, and this template issues its own
 # certificate rather than taking an ARN as a parameter — so a by-hand apply in the wrong
 # region must fail outright rather than merely produce a certificate CloudFront can't use.
@@ -154,7 +163,13 @@ Resources:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
                 # Not narrowed to main: TT-43 assumes this role from pull request branches.
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubRepository}:*'
+                # Both subject forms, because the id-qualified one is a repository toggle
+                # (see GitHubSubjectRepository): matching only one breaks every deploy the
+                # moment it is flipped. Both are repo-scoped, so accepting either costs
+                # nothing. TT-41.
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GitHubRepository}:*'
+                  - !Sub 'repo:${GitHubSubjectRepository}:*'
       Policies:
         - PolicyName: publish
           PolicyDocument:
@@ -198,7 +213,10 @@ Resources:
                 # role holds — including iam:PutRolePolicy on itself — with no reviewer.
                 # See infra/README.md for the deployment-branch policy that restricts
                 # infra-apply to main on top of this.
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubRepository}:environment:infra-*'
+                # Both subject forms, for the reason given on the publish role.
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GitHubRepository}:environment:infra-*'
+                  - !Sub 'repo:${GitHubSubjectRepository}:environment:infra-*'
       Policies:
         - PolicyName: infra
           PolicyDocument:
@@ -308,5 +326,3 @@ Outputs:
 
   NameServers:
     Value: !Join [',', !GetAtt HostedZone.NameServers]
-
-# TT-41 diagnostic touch: comment-only, so CloudFormation sees no change.
