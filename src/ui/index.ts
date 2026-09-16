@@ -31,6 +31,8 @@ export type { PillInputProps } from './PillInput'
 export { Mark } from './Mark'
 export type { MarkSize } from './Mark'
 
+export { capitalizeFirst } from './capitalizeFirst'
+
 export { cx } from './cx'
 
 export { tabularClass } from './tabular'

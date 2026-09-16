@@ -1,6 +1,6 @@
 import type { Guest } from '../../domain/types'
 import { hasNeeds } from '../../domain/guests'
-import { Tag } from '../../ui'
+import { Tag, capitalizeFirst } from '../../ui'
 import { GuestRowMenu } from './GuestRowMenu'
 import styles from './GuestTable.module.css'
 
@@ -10,10 +10,6 @@ type GuestTableProps = {
   highlightId?: string | null
   onEdit: (id: string) => void
   onRemove: (id: string) => void
-}
-
-function capitalizeFirst(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 /** Calls `hasNeeds` rather than re-deriving "has an allergy or an accessibility need" here —

@@ -11,7 +11,7 @@ import {
 } from '../../domain/types'
 import type { AgeBand } from '../../domain/types'
 import { availablePartners, tagsInUse } from '../../domain/guests'
-import { Button, PillInput, Select, SlideOver, TextField } from '../../ui'
+import { Button, PillInput, Select, SlideOver, TextField, capitalizeFirst } from '../../ui'
 import { ConflictPicker } from './ConflictPicker'
 import { draftFromGuest, emptyDraft, guestFromDraft, validateDraft } from './guestDraft'
 import type { GuestDraft } from './guestDraft'
@@ -44,10 +44,6 @@ const AGE_BAND_LABELS: Record<AgeBand, string> = {
   child: `Child (under ${AGE_BAND_UPPER_BOUND.child})`,
   teen: `Teen (under ${AGE_BAND_UPPER_BOUND.teen})`,
   adult: `Adult (${AGE_BAND_UPPER_BOUND.teen} and over)`,
-}
-
-function capitalizeFirst(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 /** "a, b or c", for spelling out a closed vocabulary in a hint without hand-typing it a second
