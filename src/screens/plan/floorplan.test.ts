@@ -14,6 +14,7 @@ import {
 import type { SeatingView, TableOccupants } from './floorplan'
 import type { Guest, Pin, RoomConfig } from '../../domain/types'
 import { seatPins } from '../../domain/seating'
+import type { SeatedTable, SeatingPlan } from '../../domain/seating'
 import { allocate } from '../../domain/allocate'
 
 /**
@@ -51,8 +52,12 @@ function makeGuests(count: number): Guest[] {
   return Array.from({ length: count }, (_, index) => makeGuest(`g-${index}`))
 }
 
+// `seats` defaults to `[]`, not to `guests` — a per-seat array built from `guests` directly
+// would encode "the first n seats are occupied", which is exactly the compacted model C5 exists
+// to forbid (review, TT-44). Nothing in this file reads a fixture's `seats` without overriding
+// it, so the empty default costs nothing and claims nothing about seat order.
 function occupantsFixture(overrides: Partial<TableOccupants> = {}): TableOccupants {
-  return { guests: [], pinnedCount: 0, inViolation: false, ...overrides }
+  return { guests: [], seats: [], pinnedCount: 0, inViolation: false, ...overrides }
 }
 
 describe('occupancyOf — the three states, and the degenerate zero-capacity table', () => {
@@ -132,7 +137,7 @@ describe('planTotals', () => {
 })
 
 describe('occupantsAt — the empty-table default, never undefined', () => {
-  const emptyTable: TableOccupants = { guests: [], pinnedCount: 0, inViolation: false }
+  const emptyTable: TableOccupants = { guests: [], seats: [], pinnedCount: 0, inViolation: false }
 
   it('returns the empty-table value for any id at all when nothing is seated', () => {
     expect(occupantsAt(NOTHING_SEATED, 'top')).toEqual(emptyTable)
@@ -256,7 +261,7 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
 
     expect(Object.keys(seating.byTableId)).toEqual(['round-1'])
     expect(seating.byTableId['round-2']).toBeUndefined()
-    expect(occupantsAt(seating, 'round-2')).toEqual({ guests: [], pinnedCount: 0, inViolation: false })
+    expect(occupantsAt(seating, 'round-2')).toEqual({ guests: [], seats: [], pinnedCount: 0, inViolation: false })
   })
 
   it("a table's guests appear in seat order, which is also guest-list order for an un-allocated plan", () => {
@@ -357,8 +362,13 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
     const seating = seatingViewFrom(plan, new Set(['round-1']))
 
     expect(Object.keys(seating.byTableId)).toEqual(['round-1'])
-    expect(occupantsAt(seating, 'round-1')).toEqual({ guests: [], pinnedCount: 0, inViolation: true })
-    expect(occupantsAt(seating, 'round-2')).toEqual({ guests: [], pinnedCount: 0, inViolation: false })
+    expect(occupantsAt(seating, 'round-1')).toEqual({
+      guests: [],
+      seats: [null, null, null, null],
+      pinnedCount: 0,
+      inViolation: true,
+    })
+    expect(occupantsAt(seating, 'round-2')).toEqual({ guests: [], seats: [], pinnedCount: 0, inViolation: false })
   })
 
   it('pinnedCount sums correctly against a real seatPins-derived seating view, with two honoured pins', () => {
@@ -379,5 +389,48 @@ describe('seatingViewFrom — a domain SeatingPlan projected onto this screen (T
     const plan = allocate(room, guests, [])
 
     expect(seatingViewFrom(plan)).toEqual(seatingViewFrom(plan))
+  })
+
+  /**
+   * TT-44, C5. `seatingViewFrom`'s job is to carry a gap through untouched — it does not itself
+   * decide where gaps come from. `src/domain/allocate.ts` can leave one (R2 in the TT-44 plan:
+   * `seatIntoFirstAllowedSeat` skips a seat a rule refuses), so the table built here is the
+   * domain's own `SeatedTable` shape constructed directly, with the gap already in it, rather
+   * than produced through `seatPins` — which always fills the lowest free index and so can
+   * never itself leave one seat empty ahead of a later, filled one.
+   */
+  it('preserves a gap: a guest at seat index 0 and seat index 2 with index 1 empty produces seats [guest, null, guest, ...] — not compacted', () => {
+    const guestZero = makeGuest('g-0')
+    const guestTwo = makeGuest('g-2')
+    const table: SeatedTable = {
+      id: 'round-1',
+      kind: 'round',
+      number: 1,
+      label: 'Table 1',
+      capacity: 4,
+      seats: [{ guest: guestZero, pinned: true }, null, { guest: guestTwo, pinned: true }, null],
+      overflow: [],
+    }
+    const plan: SeatingPlan = { tables: [table], unseated: [] }
+
+    const occupants = occupantsAt(seatingViewFrom(plan), 'round-1')
+
+    expect(occupants.seats.map((seat) => seat?.guest.id ?? null)).toEqual(['g-0', null, 'g-2', null])
+  })
+
+  it('overflow occupants appear in guests but never in seats — seats stays exactly capacity-length', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 0 }
+    const guests = Array.from({ length: 9 }, (_, index) => makeGuest(`g-${index + 1}`))
+    const pins: Pin[] = guests.map((guest) => ({ guestId: guest.id, tableId: 'round-1' }))
+    const plan = seatPins(room, guests, pins)
+
+    const occupants = occupantsAt(seatingViewFrom(plan), 'round-1')
+
+    expect(occupants.seats).toHaveLength(8)
+    expect(occupants.seats.map((seat) => seat?.guest.id ?? null)).toEqual([
+      'g-1', 'g-2', 'g-3', 'g-4', 'g-5', 'g-6', 'g-7', 'g-8',
+    ])
+    expect(occupants.seats.some((seat) => seat?.guest.id === 'g-9')).toBe(false)
+    expect(occupants.guests.map(({ guest }) => guest.id)).toContain('g-9')
   })
 })

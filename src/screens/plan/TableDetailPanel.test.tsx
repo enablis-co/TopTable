@@ -417,3 +417,84 @@ describe('every changing figure carries the tabular class (C13)', () => {
     expect(tabularText).toContain('2')
   })
 })
+
+/**
+ * TT-44. Each occupied guest row gets a second line under the name: role, tags and social
+ * type, joined "Role · tag, tag · socialtype" with role capitalised (KB-6 table detail
+ * wireframe, TT-44's own acceptance criteria C11-C14). `findExact` (defined above) locates the
+ * element whose own full text is exactly the target string — the same technique this file
+ * already uses for the occupancy figure and the needs rows.
+ */
+describe('the second line under each occupied guest names their role, tags and social type (C11, C12, C13, C14)', () => {
+  it('reads "Best man · uni, footie · livewire" — role capitalised, tags and social type as stored', () => {
+    const guest = makeGuest({ name: 'Danny Whitaker', role: 'best man', tags: ['uni', 'footie'], socialType: 'livewire' })
+    const table = roundTable({ seats: [seat(guest, false), ...new Array<Seat | null>(7).fill(null)] })
+    const { container } = render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
+
+    expect(findExact(container, 'Best man · uni, footie · livewire')).toBeInTheDocument()
+  })
+
+  it('a guest with no tags renders no empty segment and no stray separator — "Guest · sociable"', () => {
+    const guest = makeGuest({ name: 'Kev Braithwaite', role: 'guest', tags: [], socialType: 'sociable' })
+    const table = roundTable({ seats: [seat(guest, false), ...new Array<Seat | null>(7).fill(null)] })
+    const { container } = render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
+
+    expect(findExact(container, 'Guest · sociable')).toBeInTheDocument()
+    // Guards the doubled-or-trailing-separator failure mode directly, not only via the exact match above.
+    expect(container.textContent).not.toMatch(/·\s*·/)
+  })
+
+  it('an empty seat row renders the seat number and "Empty", and no facts line at all', () => {
+    const table = roundTable({ seats: [null, ...new Array<Seat | null>(7).fill(null)] })
+    render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
+
+    const rows = within(screen.getByRole('list')).getAllByRole('listitem')
+    const rowText = textOf(rows[0])
+    expect(seatNumberIsPresent(rowText, 1)).toBe(true)
+    expect(rowText).toContain('Empty')
+    expect(rowText).not.toMatch(/·/)
+  })
+
+  it('an over-capacity overflow row is a guest like any other, and carries a facts line too', () => {
+    const overflowGuest = makeGuest({ name: 'Overflow Guest', role: 'usher', tags: ['work'], socialType: 'quiet' })
+    const table = roundTable({
+      seats: SAMPLE_NAMES.map((name) => seat(makeGuest({ name }), true)),
+      overflow: [seat(overflowGuest, true)],
+    })
+    const { container } = render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
+
+    expect(findExact(container, 'Usher · work · quiet')).toBeInTheDocument()
+  })
+})
+
+describe('the facts line never joins the release control\'s accessible name (C17)', () => {
+  it('the release control\'s accessible name is still exactly "Release {name} from {label}", found by role and name alone', () => {
+    const pinnedGuest = makeGuest({
+      name: 'Maureen Shah',
+      role: 'mother of the bride',
+      tags: ['family'],
+      socialType: 'sociable',
+    })
+    const table = roundTable({ seats: [seat(pinnedGuest, true), ...new Array<Seat | null>(7).fill(null)] })
+    render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
+
+    // If the facts line were nested inside the button rather than beside it, its extra text
+    // would change the computed accessible name and this exact-name query would find nothing.
+    const releaseButton = screen.getByRole('button', { name: `Release Maureen Shah from ${table.label}` })
+    expect(releaseButton).toBeInTheDocument()
+    // The facts text is real and present in the row — just not inside this control.
+    expect(within(screen.getByRole('list')).getByText(/Mother of the bride/)).toBeInTheDocument()
+  })
+})
+
+describe('the auto marker on a solver-seated guest is unchanged, and now also carries a facts line (C18, regression: TT-15)', () => {
+  it('a solver-seated guest still reads "auto", and its row also carries the role/tags/social-type line', () => {
+    const guest = makeGuest({ name: 'Tom Fenwick', role: 'groomsman', tags: ['uni'], socialType: 'quiet' })
+    const table = roundTable({ seats: [seat(guest, false), ...new Array<Seat | null>(7).fill(null)] })
+    const { container } = render(<TableDetailPanel table={table} onRelease={vi.fn()} onDismiss={vi.fn()} />)
+
+    const rows = within(screen.getByRole('list')).getAllByRole('listitem')
+    expect(textOf(rows[0])).toContain('auto')
+    expect(findExact(container, 'Groomsman · uni · quiet')).toBeInTheDocument()
+  })
+})

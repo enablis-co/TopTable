@@ -52,6 +52,12 @@ export type TableOccupants = {
    * call on one would silently poison every empty table in the app at once.
    */
   guests: readonly SeatedGuest[]
+  /**
+   * TT-44. One entry per seat, index 0 is seat 1, `null` is empty — never compacted, so a gap a
+   * seating rule left behind (`src/domain/allocate.ts`) stays a gap here too. Overflow is never
+   * in this array, only in `guests`.
+   */
+  seats: readonly (SeatedGuest | null)[]
   pinnedCount: number
   inViolation: boolean
 }
@@ -61,7 +67,7 @@ export type SeatingView = {
   byTableId: Readonly<Record<string, TableOccupants>>
 }
 
-const EMPTY_TABLE: TableOccupants = { guests: [], pinnedCount: 0, inViolation: false }
+const EMPTY_TABLE: TableOccupants = { guests: [], seats: [], pinnedCount: 0, inViolation: false }
 
 /**
  * The empty SeatingView: every table clean and unpinned. Nothing in the running app builds
@@ -97,11 +103,21 @@ export function seatingViewFrom(
   for (const table of plan.tables) {
     const seated: SeatedGuest[] = []
     const overflow: SeatedGuest[] = []
+    // Index-preserving, unlike `seated` above: a `null` seat stays `null` here rather than being
+    // skipped, so chair `i` (TT-44) can read seat index `i` directly instead of assuming the
+    // first `k` seats are occupied — `src/domain/allocate.ts` can leave a gap earlier than a
+    // guest seated later at the same table.
+    const seats: (SeatedGuest | null)[] = []
     let pinnedCount = 0
 
     for (const seat of table.seats) {
-      if (!seat) continue
-      seated.push({ guest: seat.guest, pinned: seat.pinned })
+      if (!seat) {
+        seats.push(null)
+        continue
+      }
+      const seatedGuest: SeatedGuest = { guest: seat.guest, pinned: seat.pinned }
+      seated.push(seatedGuest)
+      seats.push(seatedGuest)
       if (seat.pinned) pinnedCount += 1
     }
     // Overflow renders after the seated occupants, so a hand pin that overfilled a table still
@@ -114,7 +130,7 @@ export function seatingViewFrom(
     const inViolation = hardViolationTableIds.has(table.id)
     if (seated.length === 0 && overflow.length === 0 && !inViolation) continue
 
-    byTableId[table.id] = { guests: [...seated, ...overflow], pinnedCount, inViolation }
+    byTableId[table.id] = { guests: [...seated, ...overflow], seats, pinnedCount, inViolation }
   }
 
   return { byTableId }

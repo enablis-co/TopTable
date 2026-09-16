@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { SELECTED_SELECTION_STROKE_WIDTH } from './ringGeometry'
 
 /**
  * jsdom applies no CSS at all, so PlanTable.test.tsx can only see the `data-*` attributes and
@@ -380,6 +381,89 @@ describe('PlanTable.module.css — a selected table widens its own seat ring (ha
   })
 })
 
+/**
+ * Review, TT-44 (second pass). The dashed fallback ring's own stroke widens on selection
+ * (above), but that ring is never drawn once chairs replace the seat dashes (TableRing.tsx) —
+ * a shared radius with a constant-width stroke painted through an empty chair's hollow at the
+ * scale floor. Selection widens the chairs' own stroke instead, from a 1px default (base
+ * `.table`) to 2px here. `ringGeometry.test.ts`'s `chairDiameterPx` tests are what actually
+ * prove 2px still leaves a hole in the smallest chair KB-3's scenarios render; this test only
+ * proves the CSS says what that arithmetic assumes it says.
+ */
+describe('PlanTable.module.css — a selected table also widens its chairs\' own stroke, 1 → 2 (review, TT-44)', () => {
+  it('the base .table rule declares --ring-chair-stroke-width: 1px', () => {
+    const rule = requireRule(readCss(), BASE_TABLE, 'the base .table rule')
+    expect(rule.body).toMatch(/--ring-chair-stroke-width\s*:\s*1px/i)
+  })
+
+  it('.table[data-selected="true"] declares --ring-chair-stroke-width: 2px', () => {
+    const rule = requireRule(readCss(), SELECTED_TRUE, 'data-selected')
+    expect(rule.body).toMatch(/--ring-chair-stroke-width\s*:\s*2px/i)
+  })
+})
+
+/**
+ * Review, TT-44 (third pass). Neither the fallback ring's stroke-width nor the chairs' own read
+ * clearly on a full table — this is the mark that does: a dedicated inner arc
+ * (`RING.selectionRadius`/`SELECTION_ARC`, `ringGeometry.ts`), invisible by default and widened
+ * only when selected, whose colour still has to switch per state to stay legible against
+ * whichever body fill sits under it (the same problem `--table-number-ink` already solves for
+ * the digits).
+ *
+ * Review, TT-44 (fourth pass): the widened width is asserted against
+ * `SELECTED_SELECTION_STROKE_WIDTH`, not a second hand-typed `3px` — `ringGeometry.test.ts`'s
+ * own margin proofs read the same constant, so a change to either side without the other fails
+ * one gate or the other, rather than both quietly agreeing on a stale number.
+ */
+describe('PlanTable.module.css — a selected table also widens a dedicated inner arc, bold enough to read on a full table (review, TT-44 third pass)', () => {
+  it('the base .table rule declares --ring-selection-stroke-width: 0, invisible until selected', () => {
+    const rule = requireRule(readCss(), BASE_TABLE, 'the base .table rule')
+    expect(rule.body).toMatch(/--ring-selection-stroke-width\s*:\s*0\b/i)
+  })
+
+  it(`.table[data-selected="true"] declares --ring-selection-stroke-width: ${SELECTED_SELECTION_STROKE_WIDTH}px`, () => {
+    const rule = requireRule(readCss(), SELECTED_TRUE, 'data-selected')
+    expect(rule.body).toMatch(
+      new RegExp(`--ring-selection-stroke-width\\s*:\\s*${SELECTED_SELECTION_STROKE_WIDTH}px`, 'i'),
+    )
+  })
+
+  it('the base .table rule defaults --ring-selection-stroke to --slate, legible against every body fill except .full\'s own', () => {
+    const rule = requireRule(readCss(), BASE_TABLE, 'the base .table rule')
+    expect(rule.body).toMatch(/--ring-selection-stroke\s*:\s*var\(--slate\)/i)
+  })
+
+  it('.table[data-occupancy="full"] overrides --ring-selection-stroke to --on-slate, the same colour it gives --ring-pin for the same reason', () => {
+    const rule = requireRule(readCss(), OCCUPANCY_FULL, 'data-occupancy="full"')
+    expect(rule.body).toMatch(/--ring-selection-stroke\s*:\s*var\(--on-slate\)/i)
+  })
+
+  it('.table[data-violation="true"] redeclares --ring-selection-stroke back to --slate — a full-and-violating table\'s body is --hard-wash, not slate, so .full\'s white would vanish on it', () => {
+    const rule = requireRule(readCss(), VIOLATION_TRUE, 'data-violation')
+    expect(rule.body).toMatch(/--ring-selection-stroke\s*:\s*var\(--slate\)/i)
+  })
+})
+
+/**
+ * Review, TT-44 (fifth pass). `SELECTION_ARC`'s own angular margins (`ringGeometry.ts`,
+ * `ringGeometry.test.ts`) hold at every table size only because the stroke that draws the arc
+ * adds no angular extent of its own — a round cap would grow the arc's end by its own radius,
+ * eating straight into the margin against the pin. This asserts the CSS actually says so,
+ * rather than trusting an SVG default nobody declared.
+ */
+describe('TableRing.module.css — .selection declares stroke-linecap: butt, so the arc adds no angular extent of its own (review, TT-44 fifth pass)', () => {
+  const RING_CSS_PATH = join(DIR, 'TableRing.module.css')
+
+  function readRingCss(): string {
+    return readFileSync(RING_CSS_PATH, 'utf8')
+  }
+
+  it('.selection declares stroke-linecap: butt', () => {
+    const rule = requireRule(readRingCss(), /\.selection\s*\{/, '.selection')
+    expect(rule.body).toMatch(/stroke-linecap\s*:\s*butt\b/i)
+  })
+})
+
 describe('PlanTable.module.css — .round contains its own content instead of stretching into an ellipse', () => {
   it('declares min-height: 0, so aspect-ratio governs height from width alone regardless of content', () => {
     const rule = requireRule(readCss(), /\.round\s*\{/, '.round')
@@ -570,5 +654,52 @@ describe("PlanTable.module.css — the face fills the table's width always", () 
   it('the base .face rule grows by default', () => {
     const rule = requireRule(readCss(), FACE_BASE, '.table .face')
     expect(rule.body).toMatch(/flex\s*:\s*1\b/)
+  })
+})
+
+/**
+ * TT-44, C4. "A chair reads as occupied or empty by shape as well as colour" (KB-5: severity —
+ * and by extension state generally — is shape first, colour second). Read as text, the same way
+ * this file already reads every other PlanTable.module.css/TableRing.module.css rule: jsdom
+ * applies no CSS, so this proves the two chair rules are *declared* distinctly, never that they
+ * *render* distinctly (that is the browser pass, per the TT-44 plan's R6).
+ */
+describe('TableRing.module.css — an occupied chair and an empty chair differ by more than colour (C4)', () => {
+  const RING_CSS_PATH = join(DIR, 'TableRing.module.css')
+
+  function readRingCss(): string {
+    return readFileSync(RING_CSS_PATH, 'utf8')
+  }
+
+  /**
+   * Review, TT-44: the original version of this test only checked that the two rules named
+   * different custom properties, which would still pass if both properties happened to resolve
+   * to the same, or a merely near-identical, colour — exactly what happened here (a near-white
+   * `--ring-chair-empty-fill` that only read as hollow next to `--paper` by accident, and read
+   * as nothing of the sort once the violation material made both fills real, opaque colours:
+   * `--hard` and `--hard-wash`). A property-name difference is not a shape difference. This
+   * asserts the actual shape instead: `.chairOccupied` is a filled disc (`fill` from a custom
+   * property), `.chairEmpty` is `fill: none` — a real hole, true under every state a --ring-*
+   * property could ever resolve to.
+   */
+  it('.chairOccupied is a filled disc; .chairEmpty is hollow — a shape difference, not just two colours', () => {
+    const css = readRingCss()
+    const occupied = requireRule(css, /\.chairOccupied\s*\{/, '.chairOccupied')
+    const empty = requireRule(css, /\.chairEmpty\s*\{/, '.chairEmpty')
+
+    const occupiedFill = /fill\s*:\s*(var\([^)]+\))/i.exec(occupied.body)?.[1]
+    expect(occupiedFill, 'expected .chairOccupied to declare fill from a custom property').toBeTruthy()
+
+    expect(empty.body).toMatch(/fill\s*:\s*none\b/i)
+    expect(empty.body).not.toMatch(/fill\s*:\s*var\(/i)
+  })
+
+  it("both chair rules keep their outline visible at the scale floor — vector-effect: non-scaling-stroke, TT-38's geometry-scales-strokes-do-not rule", () => {
+    const css = readRingCss()
+    const occupied = requireRule(css, /\.chairOccupied\s*\{/, '.chairOccupied')
+    const empty = requireRule(css, /\.chairEmpty\s*\{/, '.chairEmpty')
+
+    expect(occupied.body).toMatch(/vector-effect\s*:\s*non-scaling-stroke/i)
+    expect(empty.body).toMatch(/vector-effect\s*:\s*non-scaling-stroke/i)
   })
 })

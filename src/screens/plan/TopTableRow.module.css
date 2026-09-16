@@ -1,0 +1,19 @@
+/*
+ * TT-44 (amendment). Positions the chair row entirely in the top table's own `<li>` padding —
+ * above the pill, never over it — so it never touches `.top .face`'s own constant slate
+ * material (the amended ticket is explicit that bar stays as it is; only the chairs carry
+ * per-seat state). `left`/`right` land on the padding edge of `.table`'s own `position:
+ * relative` box; `.table`'s 1px border sits outside that again, so this inset does not need to
+ * repeat it.
+ */
+.svg {
+  position: absolute;
+  top: 0;
+  left: var(--s-3);
+  right: var(--s-3);
+  height: 12px;
+  display: block;
+  /* Chairs sit close to this box's own top and bottom edges (TOP_ROW.chairY, ringGeometry.ts) —
+     visible, not hidden, matches TableRing.module.css's own .svg rule for the same reason. */
+  overflow: visible;
+}

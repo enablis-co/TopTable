@@ -1,7 +1,9 @@
 import { Button, cx, tabularClass } from '../../ui'
 import type { TableSlot } from '../../domain/seating'
 import { occupancyOf, type TableOccupants } from './floorplan'
+import { MAX_TABLE_SIZE } from './floorplanFit'
 import { TableRing } from './TableRing'
+import { TopTableRow } from './TopTableRow'
 import styles from './PlanTable.module.css'
 
 type PlanTableProps = {
@@ -17,6 +19,10 @@ type PlanTableProps = {
    * hidden, never unmounted, since it is half of this table's accessible name. Defaults true, so
    * every existing caller (the top table included) keeps rendering it. */
   showFillCount?: boolean
+  /** TT-44. The table's rendered CSS pixel size, for `TableRing`'s chair-vs-dash-ring floor
+   * (C7). Defaults to `MAX_TABLE_SIZE`, matching how `showFillCount` already defaults to `true`,
+   * so the top table and every existing test caller keep chairs. */
+  tableSize?: number
 }
 
 /**
@@ -77,14 +83,28 @@ export function PlanTable({
   onSelect,
   selected,
   showFillCount = true,
+  tableSize = MAX_TABLE_SIZE,
 }: PlanTableProps) {
   const occupancy = occupancyOf(occupants.guests.length, slot.capacity)
   const isPinned = occupants.pinnedCount > 0
   const isViolating = occupants.inViolation
+  // TT-44 (C5): length from `slot.capacity`, not `occupants.seats.length`, so the shared
+  // `EMPTY_TABLE` (whose `seats` is always `[]`) still renders a full ring of empty chairs.
+  const seatGuestIds = Array.from(
+    { length: slot.capacity },
+    (_, i) => occupants.seats[i]?.guest.id ?? null,
+  )
 
   const faceContent = (
     <>
-      {slot.kind === 'round' && <TableRing seats={slot.capacity} pinned={isPinned} />}
+      {slot.kind === 'round' && (
+        <TableRing
+          seats={slot.capacity}
+          pinned={isPinned}
+          seatGuestIds={seatGuestIds}
+          tableSize={tableSize}
+        />
+      )}
       <p className={styles.heading}>
         {slot.kind === 'round' && !placing && <span className="tt-visually-hidden">Table </span>}
         {slot.kind === 'top' ? slot.label : slot.number}
@@ -113,6 +133,14 @@ export function PlanTable({
       data-violation={isViolating ? 'true' : undefined}
       data-selected={selected ? 'true' : undefined}
     >
+      {/* TT-44 (amendment, C3-C3d): the top table's own chair row, a sibling of the face below
+          rather than a child of it — it sits above the pill, in this <li>'s own padding, never
+          over the always-slate face, so it needs none of the face's own layout and cannot
+          affect the button's accessible name by construction. Round tables render their
+          equivalent (TableRing) inside the face instead, because that one has to share the
+          face's own grid with the visible number (TT-15) — the two tables' shapes differ enough
+          that reusing one path for both would be the wrong kind of consistency. */}
+      {slot.kind === 'top' && <TopTableRow seats={slot.capacity} seatGuestIds={seatGuestIds} />}
       <Button
         variant="quiet"
         className={styles.face}

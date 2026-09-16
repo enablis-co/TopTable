@@ -35,15 +35,23 @@
 
 .row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3);
+  flex-direction: column;
+  align-items: stretch;
   padding: 7px 0;
   border-bottom: 1px solid var(--sunken);
 }
 
 .row:last-child {
   border-bottom: none;
+}
+
+/* TT-44. Carries what `.row` laid out directly before this ticket — the seat number, the name
+   or release control, and the pinned dot / "auto" marker, all on one line. */
+.main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
 }
 
 .left {
@@ -53,8 +61,27 @@
   min-width: 0;
 }
 
+/* TT-44, KB-6 "Table detail". The second line: role, tags, social type. Left inset is the seat
+   number span's own fixed width (below) plus the left group's own gap (`--s-2`), so the text
+   sits under the name rather than under the number. Review, TT-44 (second pass): this used to
+   be `1ch` — wrong twice over, since it resolved against *this* rule's own font (`--t-label`,
+   Plex Sans) rather than the seat number span's mono font, and even fixed would only have
+   matched a two-digit number, which every seat on an 8-seat table (every KB-3 scenario) is not.
+   Giving that span an explicit width, rather than sizing it to its own content, is what makes
+   one fixed inset correct for one digit and two alike — and, since it always renders even for
+   an overflow row's absent number (TableDetailPanel.tsx), correct for a row with no number at
+   all too. */
+.facts {
+  margin: var(--s-1) 0 0;
+  padding-left: calc(var(--s-4) + var(--s-2));
+  font: var(--t-label);
+  color: var(--ink-muted);
+}
+
 .seatNumber {
   flex: none;
+  width: var(--s-4);
+  text-align: right;
   color: var(--ink-muted);
 }
 
