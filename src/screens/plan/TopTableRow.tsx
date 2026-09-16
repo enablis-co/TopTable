@@ -21,6 +21,11 @@ type TopTableRowProps = {
   onSeatKeyDown: (event: KeyboardEvent<SVGCircleElement>) => void
   onSeatHover: (seatIndex: number, element: Element) => void
   onSeatHoverEnd: (seatIndex: number) => void
+  /** Forwards a click on any chair to the same action a click on the face button would take —
+   * see `TableRingSeats`'s own comment for why a round table's chairs need this, and this file's
+   * own doc comment for why the top table gets it too even though it never had the hit-testing
+   * problem that made it mandatory there. */
+  onSeatClick: () => void
   summaryGuestId: string | null
   summaryId?: string
 }
@@ -34,8 +39,14 @@ type TopTableRowProps = {
  * TT-36: an occupied chair is a real, focusable, named control now (the same change `TableRing`
  * makes for a round table, in its own `TableRingSeats`). Unlike a round table, this row sits
  * entirely in the `<li>`'s own padding, above the pill, and never overlaps the face button at
- * all — so, unlike a round table's chairs, it needs no reordering relative to the button and no
- * click forwarding to reach it; a real mouse already lands on a chair here without any help.
+ * all — so, unlike a round table's chairs, it needs no reordering relative to the button to
+ * receive a pointer; a real mouse already lands on a chair here without any help.
+ *
+ * `onSeatClick` still forwards a click to the same action the face button would take, even
+ * though nothing here forces it the way the round table's own hit-testing does. Leaving it
+ * unwired made an identical gesture — click a seat to place a guest, the screen's own stated
+ * instruction — do nothing on this table while it worked on every round one, an inconsistency
+ * this ticket introduced by making round chairs clickable at all, not a pre-existing gap.
  *
  * Each chair is `role="img"`, not `role="button"` — it has no activation path (Enter and Space do
  * nothing, and `PlanTable.tsx`'s own key handler swallows Space so it can't fall through to a
@@ -66,6 +77,7 @@ export function TopTableRow({
   onSeatKeyDown,
   onSeatHover,
   onSeatHoverEnd,
+  onSeatClick,
   summaryGuestId,
   summaryId,
 }: TopTableRowProps) {
@@ -104,6 +116,7 @@ export function TopTableRow({
             onKeyDown={onSeatKeyDown}
             onMouseEnter={(event) => onSeatHover(chair.seatIndex, event.currentTarget)}
             onMouseLeave={() => onSeatHoverEnd(chair.seatIndex)}
+            onClick={onSeatClick}
           />
         )
       })}

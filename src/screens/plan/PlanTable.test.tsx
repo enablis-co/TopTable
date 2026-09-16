@@ -871,26 +871,31 @@ describe('PlanTable — a table\'s own seat group is named for that table, not i
  * clickable area (the ring of chairs) on every round table.
  */
 describe('PlanTable — clicking a chair forwards to the same action the face button would take (reviewer, TT-36)', () => {
-  it('with a guest selected, clicking a chair places them, exactly as clicking the face would', async () => {
+  // Reviewer, TT-36: an empty chair is `fill: none`, and SVG only hit-tests painted geometry, so
+  // a real pointer at an empty chair's own position never actually lands on its `<circle>` — it
+  // falls through to whatever is drawn or laid out underneath. Testing against an *occupied*
+  // chair (a filled disc) is what proves a pointer reaches the element this suite is clicking,
+  // rather than only proving the handler is wired.
+  it('with a guest selected, clicking an occupied chair places them, exactly as clicking the face would', async () => {
     const user = userEvent.setup()
     const onPlace = vi.fn()
-    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]), {
+    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
       placing: { guestName: 'Priya Shah', onPlace },
     })
-    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
 
     await user.click(chair)
 
     expect(onPlace).toHaveBeenCalledTimes(1)
   })
 
-  it('with no guest selected, clicking a chair selects the table, exactly as clicking the face would', async () => {
+  it('with no guest selected, clicking an occupied chair selects the table, exactly as clicking the face would', async () => {
     const user = userEvent.setup()
     const onSelect = vi.fn()
-    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]), {
+    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
       onSelect,
     })
-    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
 
     await user.click(chair)
 
@@ -901,16 +906,51 @@ describe('PlanTable — clicking a chair forwards to the same action the face bu
     const user = userEvent.setup()
     const onPlace = vi.fn()
     const onSelect = vi.fn()
-    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([false, false, false]), {
+    const table = renderTableWithProps(roundSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
       placing: { guestName: 'Priya Shah', onPlace },
       onSelect,
     })
-    const chair = within(table).getByRole('img', { name: 'Seat 1, empty' })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
 
     await user.click(chair)
 
     expect(onPlace).toHaveBeenCalledTimes(1)
     expect(onSelect).not.toHaveBeenCalled()
+  })
+})
+
+/*
+ * Reviewer, TT-36: leaving the top table's own chairs unwired would make an identical gesture —
+ * click a seat to place a guest, this screen's own stated instruction — place on every round
+ * table and do nothing on the top one, an inconsistency this ticket introduced (round chairs
+ * became clickable only because they had to sit above the button to receive a pointer at all;
+ * the top table's row never had that problem, but the click still has to reach the same action).
+ */
+describe('PlanTable — a top-table chair click forwards to the same action the face button would take, mirroring the round table (reviewer, TT-36)', () => {
+  it('with a guest selected, clicking an occupied top-table chair places them', async () => {
+    const user = userEvent.setup()
+    const onPlace = vi.fn()
+    const table = renderTableWithProps(topSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
+      placing: { guestName: 'Priya Shah', onPlace },
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
+
+    await user.click(chair)
+
+    expect(onPlace).toHaveBeenCalledTimes(1)
+  })
+
+  it('with no guest selected, clicking an occupied top-table chair selects the table', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
+    const table = renderTableWithProps(topSlot({ capacity: 3 }), occupantsFromPattern([true, false, false]), {
+      onSelect,
+    })
+    const chair = within(table).getByRole('img', { name: 'Seat 1, Guest seat-0' })
+
+    await user.click(chair)
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
   })
 })
 

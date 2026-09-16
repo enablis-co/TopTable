@@ -110,11 +110,15 @@ type PlanTableProps = {
  * single position before the button — nothing here applies to it.
  *
  * A chair carries no activation of its own (`role="img"`, not `role="button"` — see
- * `TableRingSeats`'s own comment), so a *click* on one has nowhere to go by default. Because a
- * round table's chairs now sit above the button for the reason above, a click that lands on one
- * would otherwise be swallowed entirely — `handleChairActivate` forwards it to the same action
- * the face button itself would take for that click, so a table is exactly as placeable or
- * selectable through a chair as through any other point on its face.
+ * `TableRingSeats`'s own comment), so a *click* on one has nowhere to go by default.
+ * `handleChairActivate` forwards it to the same action the face button itself would take for
+ * that click, and both `TableRingSeats` and `TopTableRow` are wired to it — not only the round
+ * table, whose chairs would otherwise swallow the click entirely by sitting above the button
+ * (the reason above). The top table's own row never had that problem, but leaving its chairs
+ * unwired would have made an identical gesture — click a seat to place a guest, this screen's
+ * own stated instruction — place on every round table and do nothing on the top one, an
+ * inconsistency this ticket introduced rather than a pre-existing gap. A table is exactly as
+ * placeable or selectable through a chair as through any other point on its face, on both kinds.
  *
  * `activeSeatIndex` is local state, seeded once from `initialSeatIndex` and never re-derived —
  * `FloorplanGrid` keys every table by `slot.id`, so this state survives this component's own
@@ -250,6 +254,7 @@ export function PlanTable({
           onSeatKeyDown={handleSeatKeyDown}
           onSeatHover={handleSeatHover}
           onSeatHoverEnd={handleSeatHoverEnd}
+          onSeatClick={handleChairActivate}
           summaryGuestId={summaryGuestId}
           summaryId={summaryId}
         />
