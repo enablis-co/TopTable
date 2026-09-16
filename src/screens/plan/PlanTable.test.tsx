@@ -277,8 +277,13 @@ describe('PlanTable — the top table is distinct from a round table', () => {
   })
 
   it('the top table carries a decorative, aria-hidden middot between its label and its occupancy pair — a round table carries none', () => {
+    // Review, TT-44 (amendment): found by its text, not by being the first aria-hidden element —
+    // the top table's own chair row (TopTableRow) is aria-hidden too, and renders ahead of the
+    // face in DOM order.
     const top = renderTable(topSlot(), makeOccupants())
-    const topSeparator = top.querySelector('[aria-hidden="true"]')
+    const topSeparator = Array.from(top.querySelectorAll('[aria-hidden="true"]')).find(
+      (el) => el.textContent === '·',
+    )
     expect(topSeparator?.textContent).toBe('·')
 
     const round = renderTable(roundSlot(), makeOccupants())
@@ -480,7 +485,7 @@ describe('PlanTable — selecting a table for the detail panel (TT-15)', () => {
   })
 })
 
-describe('PlanTable — chairs, one per seat, on round tables only (C1, C3, TT-44)', () => {
+describe('PlanTable — chairs, one per seat, on a round table (C1, TT-44)', () => {
   it('a round table of 8 seats renders 8 chair elements, each its own element', () => {
     const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
     expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(8)
@@ -490,10 +495,85 @@ describe('PlanTable — chairs, one per seat, on round tables only (C1, C3, TT-4
     const table = renderTable(roundSlot({ capacity: 6 }), occupantsFromPattern(new Array(6).fill(false)))
     expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(6)
   })
+})
 
-  it('the top table draws no chairs at all, whatever its occupancy', () => {
-    const table = renderTable(topSlot({ capacity: 8 }), occupantsFromPattern([true, false, true, false, false, false, false, false]))
+/**
+ * TT-44 (amendment, C3-C3d). The top table draws chairs too, now — a single row along the edge
+ * away from the room, in KB-4's fixed left-to-right order, not a round table's clock face.
+ */
+describe('PlanTable — the top table draws its own chair row (C3, C3c, C3d, TT-44 amendment)', () => {
+  it('an eight-seat top table (Celebrity scale, Small and cosy) renders 8 chair elements', () => {
+    const table = renderTable(topSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
+    expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(8)
+  })
+
+  it('a six-seat top table (Adding up) renders 6 chair elements — the row spaces to the actual seat count', () => {
+    const table = renderTable(topSlot({ capacity: 6 }), occupantsFromPattern(new Array(6).fill(false)))
+    expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(6)
+  })
+
+  it('a gap at seat index 1, with guests at 0 and 2, draws chair 0 and chair 2 occupied and chair 1 empty — same per-index reading as a round table (C3d, C5)', () => {
+    const occupants = occupantsFromPattern([true, false, true])
+    const table = renderTable(topSlot({ capacity: 3 }), occupants)
+    const chairs = chairsByIndex(table)
+
+    expect(chairs.get(0)?.hasAttribute('data-guest-id')).toBe(true)
+    expect(chairs.get(1)?.hasAttribute('data-guest-id')).toBe(false)
+    expect(chairs.get(2)?.hasAttribute('data-guest-id')).toBe(true)
+  })
+
+  it('an occupied chair carries the data-guest-id of the guest actually in that seat; an empty chair carries none (C3d, C6)', () => {
+    const occupants = occupantsFromPattern([true, false, true])
+    const table = renderTable(topSlot({ capacity: 3 }), occupants)
+    const chairs = chairsByIndex(table)
+    const seatedIds = occupants.seats.map((seat) => seat?.guest.id ?? null)
+
+    expect(chairs.get(0)?.getAttribute('data-guest-id')).toBe(seatedIds[0])
+    expect(chairs.get(1)?.hasAttribute('data-guest-id')).toBe(false)
+    expect(chairs.get(2)?.getAttribute('data-guest-id')).toBe(seatedIds[2])
+  })
+
+  /**
+   * C3b, and the amendment's own open question with the venue: left to right from the room's
+   * side is the stated default, and "nothing on screen would show it" if drawn the wrong way
+   * round — this is the one assertion that would actually catch a reversed row, rather than
+   * only confirming the chairs are evenly spaced.
+   */
+  it('seat 1 (index 0) renders to the left of the last seat — KB-4\'s printed order, read from the room\'s side', () => {
+    const table = renderTable(topSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
+    const chairs = chairsByIndex(table)
+    const first = chairs.get(0)
+    const last = chairs.get(7)
+
+    expect(first?.getAttribute('cx')).toBeTruthy()
+    expect(last?.getAttribute('cx')).toBeTruthy()
+    expect(Number(first?.getAttribute('cx'))).toBeLessThan(Number(last?.getAttribute('cx')))
+  })
+
+  it('a seat count dense enough drops the row cleanly rather than blurring it — the same guard a round table\'s chairs have (C7)', () => {
+    const table = renderTable(topSlot({ capacity: 100 }), occupantsFromPattern(new Array(100).fill(false)))
     expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
+  })
+
+  it('the top table still carries no aria-label or aria-labelledby anywhere inside it, and its visible label is still in its text, whatever the chair pattern', () => {
+    const table = renderTable(topSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(true)))
+    expect(table.querySelector('[aria-label]')).toBeNull()
+    expect(table.querySelector('[aria-labelledby]')).toBeNull()
+    expect(table.textContent).toContain('Top table')
+  })
+
+  it('a chair contributes no text of its own — a seated top table\'s own text still names no guest', () => {
+    const guest = makeGuest('g-named', { name: 'Danny Whitaker' })
+    const table = renderTable(
+      topSlot({ capacity: 1 }),
+      makeOccupants({ guests: seatedGuests([guest]), seats: seatedGuests([guest]) }),
+    )
+    expect(table.textContent).not.toContain('Danny Whitaker')
+  })
+
+  it('still renders exactly one button, whatever the chair occupancy pattern', () => {
+    const table = renderTable(topSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(true)))
+    expect(table.querySelectorAll('button')).toHaveLength(1)
   })
 })
 

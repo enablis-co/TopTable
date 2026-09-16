@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { RING, seatRingDash, chairPositions, chairRadius, chairDiameterPx, chairsVisibleAt } from './ringGeometry'
+import {
+  RING,
+  seatRingDash,
+  chairPositions,
+  chairRadius,
+  chairDiameterPx,
+  chairsVisibleAt,
+  TOP_ROW,
+  topRowPositions,
+  topRowChairRadius,
+  topRowChairDiameterPx,
+  topRowChairsVisibleAt,
+} from './ringGeometry'
 import { MAX_TABLE_SIZE, MIN_TABLE_SIZE } from './floorplanFit'
 
 /**
@@ -304,5 +316,139 @@ describe('chairPositions and chairsVisibleAt — deterministic (engineering-stan
 
   it('chairsVisibleAt returns the identical value for the same input called twice', () => {
     expect(chairsVisibleAt(8, MIN_TABLE_SIZE)).toEqual(chairsVisibleAt(8, MIN_TABLE_SIZE))
+  })
+})
+
+/**
+ * TT-44 (amendment, C3/C3a-C3d), KB-4. The top table's own row — a single line, not a ring, so
+ * these are exercised the same way `chairPositions`/`chairRadius` are above: numeric fixtures,
+ * no rendering.
+ */
+describe('topRowPositions — evenly spaced left to right, one chair per seat (C3, C3c)', () => {
+  it.each([1, 6, 8, 10, 26])('returns exactly %i position(s) for %i seat(s)', (n) => {
+    expect(topRowPositions(n)).toHaveLength(n)
+  })
+
+  it('returns an empty array for zero seats, and for a negative count, rather than throwing', () => {
+    expect(() => topRowPositions(0)).not.toThrow()
+    expect(() => topRowPositions(-3)).not.toThrow()
+    expect(topRowPositions(0)).toEqual([])
+    expect(topRowPositions(-3)).toEqual([])
+  })
+
+  it('seat indices run 0..n-1, each exactly once', () => {
+    const indices = topRowPositions(8)
+      .map((chair) => chair.seatIndex)
+      .sort((a, b) => a - b)
+    expect(indices).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+  })
+
+  it('every chair sits on the same horizontal line — cy is identical for every seat, at 6 and at 8 seats', () => {
+    for (const n of [6, 8]) {
+      const cys = new Set(topRowPositions(n).map((chair) => chair.cy))
+      expect(cys.size).toBe(1)
+    }
+  })
+
+  /**
+   * C3b, and the amendment's own open question with the venue, not blocking: seat 1 (index 0)
+   * is built at screen left, "as left to right from the room's side" — the stated default.
+   * `column` in `topRowPositions` is the one line to flip if the answer comes back the other
+   * way; this is the test that would catch a reversal, the same reason `chairPositions`'s own
+   * four-o'clock test exists for a round table's clockwise order.
+   */
+  it("seat index 0 sits strictly left of every later seat, at both KB-4 top-table sizes (C3b)", () => {
+    for (const n of [6, 8]) {
+      const positions = topRowPositions(n)
+      const first = positions[0]
+      if (!first) {
+        throw new Error('expected at least one chair position')
+      }
+      for (const chair of positions.slice(1)) {
+        expect(first.cx).toBeLessThan(chair.cx)
+      }
+    }
+  })
+
+  it('seat index i+1 sits strictly to the right of seat index i — the row is monotonically increasing left to right, not merely spread out', () => {
+    const positions = topRowPositions(8)
+    for (let i = 1; i < positions.length; i++) {
+      const previous = positions[i - 1]
+      const current = positions[i]
+      if (!previous || !current) {
+        throw new Error('expected a full row of chairs')
+      }
+      expect(current.cx).toBeGreaterThan(previous.cx)
+    }
+  })
+
+  it('a single seat sits centred in the row', () => {
+    const [only] = topRowPositions(1)
+    expect(only?.cx).toBeCloseTo(TOP_ROW.viewBoxWidth / 2, 5)
+  })
+
+  it.each([6, 8, 10, 26])('every chair for %i seats stays within the viewBox, clear of both edges', (n) => {
+    const radius = topRowChairRadius(n)
+    for (const chair of topRowPositions(n)) {
+      expect(chair.cx - radius).toBeGreaterThanOrEqual(0)
+      expect(chair.cx + radius).toBeLessThanOrEqual(TOP_ROW.viewBoxWidth)
+    }
+  })
+
+  it('is deterministic: the same seat count produces a deeply equal row twice', () => {
+    expect(topRowPositions(8)).toEqual(topRowPositions(8))
+  })
+})
+
+describe('topRowChairRadius — adjacent chairs never overlap, at six and eight seats and well past them', () => {
+  it.each([2, 6, 8, 10, 26, 60])('adjacent chairs for %i seats never overlap: centre-to-centre distance exceeds twice the chair radius', (n) => {
+    const positions = topRowPositions(n)
+    const radius = topRowChairRadius(n)
+    for (let i = 1; i < positions.length; i++) {
+      const previous = positions[i - 1]
+      const current = positions[i]
+      if (!previous || !current) {
+        throw new Error('expected a full row of chairs')
+      }
+      expect(current.cx - previous.cx).toBeGreaterThan(2 * radius)
+    }
+  })
+
+  it('is zero for zero seats, and for a negative seat count, rather than throwing', () => {
+    expect(() => topRowChairRadius(0)).not.toThrow()
+    expect(() => topRowChairRadius(-5)).not.toThrow()
+    expect(topRowChairRadius(0)).toBe(0)
+    expect(topRowChairRadius(-5)).toBe(0)
+  })
+})
+
+describe('topRowChairsVisibleAt — the row survives the six- and eight-seat top table, or drops cleanly rather than blur (C7, C3c)', () => {
+  it('an eight-seat top table (Celebrity scale, Small and cosy) stays visible at the row\'s own rendered width', () => {
+    expect(topRowChairsVisibleAt(8, TOP_ROW.viewBoxWidth)).toBe(true)
+  })
+
+  it('a six-seat top table (Adding up) stays visible too', () => {
+    expect(topRowChairsVisibleAt(6, TOP_ROW.viewBoxWidth)).toBe(true)
+  })
+
+  it('a seat count dense enough for this row\'s own fixed width drops cleanly, rather than blurring into overlapping shapes', () => {
+    expect(topRowChairsVisibleAt(100, TOP_ROW.viewBoxWidth)).toBe(false)
+  })
+
+  it('is false for a degenerate zero or negative seat count, rather than throwing', () => {
+    expect(() => topRowChairsVisibleAt(0, TOP_ROW.viewBoxWidth)).not.toThrow()
+    expect(() => topRowChairsVisibleAt(-3, TOP_ROW.viewBoxWidth)).not.toThrow()
+    expect(topRowChairsVisibleAt(0, TOP_ROW.viewBoxWidth)).toBe(false)
+    expect(topRowChairsVisibleAt(-3, TOP_ROW.viewBoxWidth)).toBe(false)
+  })
+
+  it('is deterministic: the same input twice gives the same answer', () => {
+    expect(topRowChairsVisibleAt(8, TOP_ROW.viewBoxWidth)).toEqual(topRowChairsVisibleAt(8, TOP_ROW.viewBoxWidth))
+  })
+
+  it('grows with the row\'s own rendered width, mirroring chairDiameterPx', () => {
+    expect(topRowChairDiameterPx(8, TOP_ROW.viewBoxWidth * 2)).toBeGreaterThan(
+      topRowChairDiameterPx(8, TOP_ROW.viewBoxWidth),
+    )
   })
 })

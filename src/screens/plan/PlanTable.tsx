@@ -3,6 +3,7 @@ import type { TableSlot } from '../../domain/seating'
 import { occupancyOf, type TableOccupants } from './floorplan'
 import { MAX_TABLE_SIZE } from './floorplanFit'
 import { TableRing } from './TableRing'
+import { TopTableRow } from './TopTableRow'
 import styles from './PlanTable.module.css'
 
 type PlanTableProps = {
@@ -132,6 +133,14 @@ export function PlanTable({
       data-violation={isViolating ? 'true' : undefined}
       data-selected={selected ? 'true' : undefined}
     >
+      {/* TT-44 (amendment, C3-C3d): the top table's own chair row, a sibling of the face below
+          rather than a child of it — it sits above the pill, in this <li>'s own padding, never
+          over the always-slate face, so it needs none of the face's own layout and cannot
+          affect the button's accessible name by construction. Round tables render their
+          equivalent (TableRing) inside the face instead, because that one has to share the
+          face's own grid with the visible number (TT-15) — the two tables' shapes differ enough
+          that reusing one path for both would be the wrong kind of consistency. */}
+      {slot.kind === 'top' && <TopTableRow seats={slot.capacity} seatGuestIds={seatGuestIds} />}
       <Button
         variant="quiet"
         className={styles.face}

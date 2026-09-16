@@ -141,3 +141,94 @@ export function chairsVisibleAt(seats: number, renderedSize: number): boolean {
 
   return chairDiameterPx(seats, renderedSize) >= 3
 }
+
+/**
+ * TT-44 (amendment, C3/C3a-C3d), KB-4. The top table's seats are not drawn on a ring — KB-4
+ * fixes them in a single left-to-right line (chief bridesmaid through best man), printed and
+ * agreed with the venue and the photographer, and a clock face would contradict that order. This
+ * is that row's own geometry, in its own small viewBox rather than `RING`'s square one: the top
+ * table is a pill (KB-6 "Floorplan"), not a circle, and its chairs read as a strip above that
+ * pill, not a ring around it.
+ *
+ * `viewBoxWidth` is 194, not a round number: it is `TopTableRow.tsx`'s actual rendered width,
+ * derived from `PlanTable.module.css`'s fixed `.top` width (220px) minus the base `.table`
+ * rule's padding and border on both sides (`(12 + 1) × 2 = 26`; `220 − 26 = 194`) — the top
+ * table never scales the way a round table does, so its viewBox can be its one true rendered
+ * width instead of an abstract unit needing a separate conversion. A future change to either
+ * CSS number has to update this one too; there is no way to share the literal between a CSS
+ * file and this one, the same trade `MIN_TABLE_SIZE` (`floorplanFit.ts`) already makes.
+ */
+export const TOP_ROW = Object.freeze({
+  viewBoxWidth: 194,
+  viewBoxHeight: 12,
+  /** Chair centres all sit on this line, vertically centred in the strip. */
+  chairY: 6,
+  /** Clears the end chairs from the viewBox's left and right edges by more than a chair's own
+   * radius at the cap below (4.5), so they are never clipped. */
+  margin: 10,
+})
+
+export type TopRowChair = {
+  seatIndex: number
+  cx: number
+  cy: number
+}
+
+/**
+ * One chair per seat, evenly spaced left to right between the two margins — a single seat sits
+ * centred. Seat index `i` is KB-4's own seat `i` (position `i + 1`; `src/domain/seating.ts`'s
+ * `topTableRoleOrder` already returns roles in that same position order), so the drawn order
+ * has to match the seat index exactly, with no reversal or centring trick that would shift it.
+ *
+ * `column` is deliberately its own line, equal to `seatIndex` and nothing more: seat 1 (index 0)
+ * at screen left is the amended ticket's stated default — "built as left to right from the
+ * room's side" — and an open, non-blocking question with the venue, not a settled fact. If the
+ * answer comes back the other way, this is the one line to flip, to
+ * `const column = seats - 1 - seatIndex`, rather than a direction re-derived from scratch
+ * wherever the row is drawn.
+ */
+export function topRowPositions(seats: number): TopRowChair[] {
+  if (seats <= 0) return []
+  if (seats === 1) return [{ seatIndex: 0, cx: TOP_ROW.viewBoxWidth / 2, cy: TOP_ROW.chairY }]
+
+  const span = TOP_ROW.viewBoxWidth - 2 * TOP_ROW.margin
+
+  return Array.from({ length: seats }, (_, seatIndex) => {
+    const column = seatIndex
+    return {
+      seatIndex,
+      cx: TOP_ROW.margin + (column * span) / (seats - 1),
+      cy: TOP_ROW.chairY,
+    }
+  })
+}
+
+/**
+ * Mirrors `chairRadius`'s own reasoning, simplified: adjacent centres on a straight line are
+ * exactly `spacing` apart, with no arc-versus-chord approximation to correct for, so `0.38` of
+ * that spacing is all that is needed to keep two neighbours from touching, at every seat count,
+ * exactly (`2 × 0.38 × spacing = 0.76 × spacing < spacing`). No floor below the `4.5` cap, for
+ * the same reason `chairRadius` dropped its floor (review, TT-44): a constant floor stops
+ * shrinking exactly where the true spacing keeps shrinking, and the two eventually cross.
+ */
+export function topRowChairRadius(seats: number): number {
+  if (seats <= 0) return 0
+  if (seats === 1) return Math.min(4.5, TOP_ROW.margin)
+
+  const spacing = (TOP_ROW.viewBoxWidth - 2 * TOP_ROW.margin) / (seats - 1)
+  return Math.min(4.5, 0.38 * spacing)
+}
+
+/** Mirrors `chairDiameterPx`, for the row's own viewBox width rather than a round table's
+ * rendered size. */
+export function topRowChairDiameterPx(seats: number, renderedWidth: number): number {
+  return (2 * topRowChairRadius(seats) * renderedWidth) / TOP_ROW.viewBoxWidth
+}
+
+/** Mirrors `chairsVisibleAt` (C7): the row's own clean drop for a seat count dense enough that a
+ * chair would render as a blur, rather than a round table's. */
+export function topRowChairsVisibleAt(seats: number, renderedWidth: number): boolean {
+  if (seats <= 0) return false
+
+  return topRowChairDiameterPx(seats, renderedWidth) >= 3
+}
