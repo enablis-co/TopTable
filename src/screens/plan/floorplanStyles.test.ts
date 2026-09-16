@@ -401,6 +401,40 @@ describe('PlanTable.module.css — a selected table also widens its chairs\' own
   })
 })
 
+/**
+ * Review, TT-44 (third pass). Neither the fallback ring's stroke-width nor the chairs' own read
+ * clearly on a full table — this is the mark that does: a dedicated inner ring
+ * (`RING.selectionRadius`, `ringGeometry.ts`), invisible by default and widened only when
+ * selected, whose colour still has to switch per state to stay legible against whichever body
+ * fill sits under it (the same problem `--table-number-ink` already solves for the digits).
+ */
+describe('PlanTable.module.css — a selected table also widens a dedicated inner ring, bold enough to read on a full table (review, TT-44 third pass)', () => {
+  it('the base .table rule declares --ring-selection-stroke-width: 0, invisible until selected', () => {
+    const rule = requireRule(readCss(), BASE_TABLE, 'the base .table rule')
+    expect(rule.body).toMatch(/--ring-selection-stroke-width\s*:\s*0\b/i)
+  })
+
+  it('.table[data-selected="true"] declares --ring-selection-stroke-width: 3px', () => {
+    const rule = requireRule(readCss(), SELECTED_TRUE, 'data-selected')
+    expect(rule.body).toMatch(/--ring-selection-stroke-width\s*:\s*3px/i)
+  })
+
+  it('the base .table rule defaults --ring-selection-stroke to --slate, legible against every body fill except .full\'s own', () => {
+    const rule = requireRule(readCss(), BASE_TABLE, 'the base .table rule')
+    expect(rule.body).toMatch(/--ring-selection-stroke\s*:\s*var\(--slate\)/i)
+  })
+
+  it('.table[data-occupancy="full"] overrides --ring-selection-stroke to --on-slate, the same colour it gives --ring-pin for the same reason', () => {
+    const rule = requireRule(readCss(), OCCUPANCY_FULL, 'data-occupancy="full"')
+    expect(rule.body).toMatch(/--ring-selection-stroke\s*:\s*var\(--on-slate\)/i)
+  })
+
+  it('.table[data-violation="true"] redeclares --ring-selection-stroke back to --slate — a full-and-violating table\'s body is --hard-wash, not slate, so .full\'s white would vanish on it', () => {
+    const rule = requireRule(readCss(), VIOLATION_TRUE, 'data-violation')
+    expect(rule.body).toMatch(/--ring-selection-stroke\s*:\s*var\(--slate\)/i)
+  })
+})
+
 describe('PlanTable.module.css — .round contains its own content instead of stretching into an ellipse', () => {
   it('declares min-height: 0, so aspect-ratio governs height from width alone regardless of content', () => {
     const rule = requireRule(readCss(), /\.round\s*\{/, '.round')

@@ -26,6 +26,17 @@ export const RING = Object.freeze({
   /** Pin centre offset from (centre, centre): (cx + pinOffset, cy − pinOffset). */
   pinOffset: 19,
   pinRadius: 3.6,
+  /**
+   * Review, TT-44 (third pass). "Selected" needs a single, large-enough mark to read at a
+   * glance on a full table at the scale floor — the chairs' own stroke (TableRing.module.css's
+   * `--ring-chair-stroke-width`) is too little ink spread across eight ~6px dots, and a ring
+   * sharing the chairs' own radius is the collision already fixed once (a non-scaling stroke
+   * painting through an empty chair's hole). `selectionRadius` sits well inside `bodyRadius`
+   * instead — structurally unable to reach the chairs at any seat count or table size, since it
+   * never leaves the body's own footprint. `ringGeometry.test.ts` checks the margin on both
+   * sides directly rather than trusting that "well inside" holds by eye.
+   */
+  selectionRadius: 28,
 })
 
 export type SeatRingDash = {

@@ -46,6 +46,19 @@
   fill: var(--ring-pin);
 }
 
+/* Review, TT-44 (third pass): invisible by default (`--ring-selection-stroke-width` defaults to
+   0 on the base `.table` rule), a real ring only once `.table[data-selected='true']` widens it.
+   Sits at `RING.selectionRadius`, well inside the body — never at the chairs' own radius, so it
+   cannot repeat the collision fixed on `.chairOccupied`/`.chairEmpty` below. `--ring-selection-
+   stroke` still has to vary with occupancy/violation (PlanTable.module.css), the same problem
+   `--table-number-ink` solves for the digits: this ring sits on the body's own fill, so its
+   colour needs to stay legible against whichever fill that is. */
+.selection {
+  stroke: var(--ring-selection-stroke, none);
+  stroke-width: var(--ring-selection-stroke-width, 0);
+  vector-effect: non-scaling-stroke;
+}
+
 /* TT-44, KB-5 "colour never carries meaning alone", A2 "hollow vs filled": occupied is a filled
    disc, empty a hollow ring — a real shape difference, not two colours filed under the same
    name (review, TT-44: a near-white `--ring-chair-empty-fill` only read as hollow next to

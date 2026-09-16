@@ -267,6 +267,36 @@ describe("chairDiameterPx — the selected chair stroke stays narrower than the 
   })
 })
 
+/**
+ * Review, TT-44 (third pass). Widening the chairs' own stroke does not read at a glance on a
+ * full table — too little ink, spread across eight tiny dots, against the lowest-contrast
+ * stroke colour in the system. Selection now also widens a dedicated ring at
+ * `RING.selectionRadius`, well inside the body rather than sharing the chairs' own radius —
+ * these tests are the arithmetic proof that "well inside" actually holds, at the widest stroke
+ * this ring is ever asked to draw and at the smallest table size it is ever drawn on, rather
+ * than trusting a browser pass to notice if it doesn't.
+ */
+describe('RING.selectionRadius — the selected-state ring stays inside the body and nowhere near the chairs (review, TT-44 third pass)', () => {
+  const SELECTED_SELECTION_STROKE_WIDTH = 3
+
+  it('is strictly inside bodyRadius, with room to spare before any stroke is even added', () => {
+    expect(RING.selectionRadius).toBeLessThan(RING.bodyRadius)
+  })
+
+  it("its outer edge, at the widest stroke it draws, stays inside the body at MIN_TABLE_SIZE — the smallest a non-scaling stroke's true, in-viewBox width is ever squeezed against", () => {
+    const halfWidthInViewBoxUnits = (SELECTED_SELECTION_STROKE_WIDTH * RING.viewBox) / (2 * MIN_TABLE_SIZE)
+    expect(RING.selectionRadius + halfWidthInViewBoxUnits).toBeLessThan(RING.bodyRadius)
+  })
+
+  it("cannot reach the chairs' own inner edge at any seat count, since it never leaves the body's own footprint", () => {
+    // A chair's inner edge is `RING.ringRadius - chairRadius(seats)`, at minimum (the widest a
+    // chair ever draws) `RING.ringRadius - 4.5` — the same 4.5 cap `chairRadius` itself is
+    // built against. `bodyRadius` sitting below that, on its own, is what makes every seat
+    // count safe at once, without re-deriving chairRadius here.
+    expect(RING.bodyRadius).toBeLessThan(RING.ringRadius - 4.5)
+  })
+})
+
 describe('chairPositions and chairsVisibleAt — deterministic (engineering-standards.md: same input, same output)', () => {
   it('chairPositions returns a deeply equal value for the same input called twice', () => {
     expect(chairPositions(8)).toEqual(chairPositions(8))

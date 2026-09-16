@@ -61,6 +61,14 @@
      chair as small as ~3px across at the scale floor (ringGeometry.test.ts's `chairDiameterPx`
      is what checks the selected override below still leaves a hole at that size). */
   --ring-chair-stroke-width: 1px;
+  /* Review, TT-44 (third pass): the inner selection ring (TableRing.tsx/.module.css). Width 0
+     is invisible — only `.table[data-selected='true']` below gives it one. Colour defaults to
+     `--slate`, right for every fill it sits on except .full's own slate body; that occupancy
+     rule overrides it to `--on-slate`, and data-violation redeclares it back (below) for the
+     same reason it redeclares every other property .full sets — a violating table's body isn't
+     slate any more, whatever its occupancy. */
+  --ring-selection-stroke: var(--slate);
+  --ring-selection-stroke-width: 0;
 }
 
 /* Shape. Also 0,1,0 — written after .table so the pair above resolves correctly. The ring and
@@ -138,9 +146,11 @@
   --ring-stroke: var(--slate);
   --ring-body-fill: var(--slate);
   --ring-body-stroke: none;
-  /* The pin sits inside the SVG, on the slate body it is drawn over — unlike the text below,
-     it really is on that fill, so --on-slate (white) is right here and only here. */
+  /* The pin and the selection ring (review, TT-44 third pass) both sit inside the SVG, on the
+     slate body they are drawn over — unlike the text below, they really are on that fill, so
+     --on-slate (white) is right for both, and only here. */
   --ring-pin: var(--on-slate);
+  --ring-selection-stroke: var(--on-slate);
   --table-number-ink: var(--on-slate);
   --table-count-ink: var(--chrome-ink-dim);
 }
@@ -153,6 +163,11 @@
   --ring-body-stroke-width: 1.8px;
   --ring-body-dasharray: 6 4;
   --ring-pin: var(--slate);
+  /* Review, TT-44 (third pass): redeclared, not inherited from .full — a violating table's body
+     is --hard-wash (a light fill), whatever its occupancy, so the selection ring needs the dark
+     tone every other state uses, not .full's white. Without this, a full-and-violating,
+     selected table would paint a white ring on a light-pink body and lose it entirely. */
+  --ring-selection-stroke: var(--slate);
   --table-number-ink: var(--hard-deep);
   --table-count-ink: var(--hard-deep);
   /* TT-44. A violating table's occupied chairs join its material rather than staying slate; an
@@ -166,13 +181,20 @@
    carries this attribute too (it is selectable like any other) but has no TableRing to read it,
    so it is visually a no-op there — "no other selection treatment" either way.
    `--ring-stroke-width` only ever paints the dashed fallback ring now (TableRing.tsx, review
-   TT-44) — `--ring-chair-stroke-width` is the equivalent for the chair path, and it widens by
-   the same +1px the fallback ring widens by (a smaller absolute step: the ring's 7→9 headroom
-   assumed a stroke drawn against the whole ring circumference, not against one ~3-6px chair at
-   the scale floor). */
+   TT-44) — `--ring-chair-stroke-width` is the equivalent for the chair path, widened by a
+   smaller +1px (the ring's 7→9 headroom assumed a stroke drawn against the whole ring
+   circumference, not against one ~3-6px chair at the scale floor).
+   Review, TT-44 (third pass): neither of those reads clearly on a *full* table — the chairs'
+   own stroke is the lowest-contrast one in the system (`--rule-strong` against a `--slate`
+   fill), spread across eight ~6px dots, and 24 of Celebrity scale's 26 tables are full.
+   `--ring-selection-stroke-width` is the real signal now: one continuous ring, well inside the
+   body, bold enough to read at a glance regardless of occupancy. The chair widening above stays
+   too — harmless, and still correct on an empty or partial table's chairs — but it is no longer
+   the thing carrying the state on its own. */
 .table[data-selected='true'] {
   --ring-stroke-width: 9px;
   --ring-chair-stroke-width: 2px;
+  --ring-selection-stroke-width: 3px;
 }
 
 /* The dashed hard border is TOP-only: a round table's dashed outline is already the SVG body

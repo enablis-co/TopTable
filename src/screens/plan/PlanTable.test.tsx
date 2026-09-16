@@ -594,13 +594,14 @@ describe('PlanTable — the ring circle and the chairs are never both drawn at t
     return Array.from(svg.querySelectorAll('circle'))
   }
 
-  it('at a size where chairs render, the svg carries only the body and one circle per chair — no separate ring', () => {
+  it('at a size where chairs render, the svg carries the body, the inner selection ring and one circle per chair — no separate ring at the chairs\' own radius', () => {
     const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(false)))
     const chairs = table.querySelectorAll('[data-seat-index]')
     expect(chairs.length).toBeGreaterThan(0)
 
-    // body + one circle per chair; this table carries no pin, and no ring.
-    expect(svgCircles(table)).toHaveLength(1 + chairs.length)
+    // body + the always-present inner selection ring (review, TT-44 third pass) + one circle
+    // per chair; this table carries no pin, and no dashed fallback ring.
+    expect(svgCircles(table)).toHaveLength(2 + chairs.length)
   })
 
   it('at the scale floor, where chairs drop, the dashed fallback ring is drawn in their place', () => {
@@ -611,7 +612,48 @@ describe('PlanTable — the ring circle and the chairs are never both drawn at t
     )
     expect(table.querySelectorAll('[data-seat-index]')).toHaveLength(0)
 
-    // ring + body, no chairs, no pin.
-    expect(svgCircles(table)).toHaveLength(2)
+    // dashed ring + body + the inner selection ring, no chairs, no pin.
+    expect(svgCircles(table)).toHaveLength(3)
+  })
+})
+
+/**
+ * Regression, review (TT-44, third pass). Widening the chairs' own stroke (previous fix) does
+ * not read at a glance on a *full* table: the stroke is the lowest-contrast one in the system
+ * (`--rule-strong` against a `--slate` fill) and it is spread across eight ~6px dots rather than
+ * one continuous mark — and 24 of Celebrity scale's 26 tables are full. Selection now also
+ * widens a dedicated inner ring, well inside the body (`RING.selectionRadius`,
+ * `ringGeometry.ts`), which cannot repeat the chairs'-radius collision fixed in the previous
+ * pass. jsdom applies no CSS, so this cannot assert the ring reads clearly on screen
+ * (`ringGeometry.test.ts` proves the geometry never reaches the chairs or overflows the body;
+ * the browser pass is what confirms legibility) — but it can assert the ring element itself is
+ * always present, on every table, selected or not, occupied or not: the one DOM fact the fix
+ * actually depends on.
+ */
+describe('PlanTable — the inner selection ring is always drawn, on every round table (regression, TT-44 review, third pass)', () => {
+  function svgCircles(table: HTMLElement): Element[] {
+    const svg = table.querySelector('svg')
+    if (!svg) {
+      throw new Error('expected a round table to render an <svg>')
+    }
+    return Array.from(svg.querySelectorAll('circle'))
+  }
+
+  it('an unselected, full table still carries the inner ring circle, alongside its body and its chairs', () => {
+    const table = renderTable(roundSlot({ capacity: 8 }), occupantsFromPattern(new Array(8).fill(true)))
+    const chairs = table.querySelectorAll('[data-seat-index]')
+    expect(chairs.length).toBe(8)
+    expect(svgCircles(table)).toHaveLength(2 + chairs.length)
+  })
+
+  it('a selected, full table renders the same circle count as an unselected one — width is a CSS fact this suite cannot see, but presence is', () => {
+    const table = renderTableWithProps(
+      roundSlot({ capacity: 8 }),
+      occupantsFromPattern(new Array(8).fill(true)),
+      { selected: true },
+    )
+    const chairs = table.querySelectorAll('[data-seat-index]')
+    expect(chairs.length).toBe(8)
+    expect(svgCircles(table)).toHaveLength(2 + chairs.length)
   })
 })
