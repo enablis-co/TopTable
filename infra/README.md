@@ -17,15 +17,19 @@ assumes is created by this stack — it does not exist until the stack has been 
 once.
 
 All commands: `--profile <your-sso-profile> --region us-east-1`, where `<your-sso-profile>`
-is whatever profile resolves to account `920373033530` for you — step 0 confirms that
-rather than naming a profile, because a profile name is one operator's own and a second
-operator's is a different string.
+is whatever profile resolves to the Top Table AWS account for you. Step 0 confirms the
+account rather than this file naming it: a profile name is one operator's own and a second
+operator's is a different string, and the account number is not something a public
+repository needs to carry.
 
 0. **Preflight.**
    ```
    aws sts get-caller-identity
    ```
-   Confirms the identity is account `920373033530`.
+   Check the `Account` it returns against the Top Table account id before going further.
+   Ask someone who knows it, or read it from a console session — applying this stack to the
+   wrong account creates a second site and a second hosted zone, and the mistake is not
+   obvious afterwards.
    ```
    aws s3api head-bucket --bucket toptable-site
    ```
