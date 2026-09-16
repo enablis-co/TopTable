@@ -1,0 +1,212 @@
+name: infrastructure
+
+# Path-filtered on purpose: this workflow deploys nothing unless infra/ changed. It must
+# NOT be added to the branch protection rule for main — a required check that a path
+# filter skips never reports, and every unrelated pull request would block forever
+# waiting for it. See docs/git-and-releases.md.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['infra/**', '.github/workflows/infrastructure.yml']
+  push:
+    branches: [main]
+    paths: ['infra/**', '.github/workflows/infrastructure.yml']
+
+# One infrastructure change at a time: two changesets against the same stack race.
+concurrency:
+  group: infrastructure
+  cancel-in-progress: false
+
+jobs:
+  # Posts a changeset on the pull request. Never executes it.
+  changeset:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: infra-plan
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Validate the template
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infra/hosting.yaml
+
+      - name: Confirm the stack exists
+        run: |
+          set -euo pipefail
+          if ! aws cloudformation describe-stacks --stack-name "${{ vars.STACK_NAME }}" >/dev/null 2>&1; then
+            echo "Stack ${{ vars.STACK_NAME }} does not exist. The first apply is by hand — see infra/README.md." >&2
+            exit 1
+          fi
+
+      - name: Create the changeset
+        id: create
+        run: |
+          set -euo pipefail
+
+          name="tt41-pr-${{ github.event.pull_request.number }}-${{ github.run_id }}"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+          aws cloudformation create-change-set \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --change-set-name "$name" \
+            --change-set-type UPDATE \
+            --template-body file://infra/hosting.yaml \
+            --parameters file://infra/parameters.json \
+            --capabilities CAPABILITY_NAMED_IAM
+
+          # wait change-set-create-complete exits non-zero on the no-change case too, so
+          # its own exit code cannot distinguish "no changes" from a real failure. Read
+          # the changeset's own status instead.
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --change-set-name "$name" || true
+
+      - name: Describe the changeset and report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          name="${{ steps.create.outputs.name }}"
+          stack="${{ vars.STACK_NAME }}"
+
+          status=$(aws cloudformation describe-change-set \
+            --stack-name "$stack" --change-set-name "$name" \
+            --query 'Status' --output text)
+          reason=$(aws cloudformation describe-change-set \
+            --stack-name "$stack" --change-set-name "$name" \
+            --query 'StatusReason' --output text)
+
+          if [ "$status" = "FAILED" ]; then
+            case "$reason" in
+              *"didn't contain changes"*|*"No updates are to be performed"*)
+                echo "no infrastructure changes" | gh pr comment "${{ github.event.pull_request.number }}" --body-file -
+                aws cloudformation delete-change-set --stack-name "$stack" --change-set-name "$name"
+                exit 0
+                ;;
+              *)
+                echo "Changeset failed: $reason" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          {
+            echo "### Infrastructure changeset: \`$name\`"
+            echo
+            echo "| Action | Logical ID | Type | Replacement |"
+            echo "|---|---|---|---|"
+            aws cloudformation describe-change-set \
+              --stack-name "$stack" --change-set-name "$name" \
+              --query 'Changes[].ResourceChange.[Action,LogicalResourceId,ResourceType,Replacement]' \
+              --output text | awk -F'\t' '{printf "| %s | %s | %s | %s |\n", $1, $2, $3, $4}'
+            echo
+            echo "Not executed. Merging this pull request applies it."
+          } | gh pr comment "${{ github.event.pull_request.number }}" --body-file -
+
+  # Applies the template on merge. Gated on infra-apply with required reviewers — the
+  # only reason this job's environment differs from the changeset job's.
+  apply:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: infra-apply
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Validate the template
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://infra/hosting.yaml
+
+      - name: Confirm the stack is in an updatable state
+        run: |
+          set -euo pipefail
+          status=$(aws cloudformation describe-stacks \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --query 'Stacks[0].StackStatus' --output text 2>&1) || {
+            echo "Stack ${{ vars.STACK_NAME }} does not exist. The first apply is by hand — see infra/README.md." >&2
+            exit 1
+          }
+          case "$status" in
+            CREATE_COMPLETE|UPDATE_COMPLETE|UPDATE_ROLLBACK_COMPLETE)
+              ;;
+            *)
+              echo "Stack is in $status, which is not updatable. See infra/README.md for recovery." >&2
+              exit 1
+              ;;
+          esac
+
+      # A changeset created from the merge commit's own template, not the one posted on
+      # the pull request — the pull request's changeset may be stale by the time it
+      # merges (see .claude/plans/TT-41.md, A6). This is still "the reviewable artefact
+      # applies", because it is created from the same template text the pull request's
+      # changeset was.
+      - name: Create and execute the changeset
+        run: |
+          set -euo pipefail
+
+          name="tt41-merge-${{ github.sha }}"
+
+          aws cloudformation create-change-set \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --change-set-name "$name" \
+            --change-set-type UPDATE \
+            --template-body file://infra/hosting.yaml \
+            --parameters file://infra/parameters.json \
+            --capabilities CAPABILITY_NAMED_IAM
+
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --change-set-name "$name" || true
+
+          status=$(aws cloudformation describe-change-set \
+            --stack-name "${{ vars.STACK_NAME }}" --change-set-name "$name" \
+            --query 'Status' --output text)
+          reason=$(aws cloudformation describe-change-set \
+            --stack-name "${{ vars.STACK_NAME }}" --change-set-name "$name" \
+            --query 'StatusReason' --output text)
+
+          if [ "$status" = "FAILED" ]; then
+            case "$reason" in
+              *"didn't contain changes"*|*"No updates are to be performed"*)
+                echo "No infrastructure changes to apply."
+                exit 0
+                ;;
+              *)
+                echo "Changeset failed: $reason" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          aws cloudformation execute-change-set \
+            --stack-name "${{ vars.STACK_NAME }}" --change-set-name "$name"
+
+          aws cloudformation wait stack-update-complete \
+            --stack-name "${{ vars.STACK_NAME }}"
+
+      - name: Report the failing resource
+        if: failure()
+        run: |
+          aws cloudformation describe-stack-events \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].[LogicalResourceId,ResourceStatusReason]' \
+            --output table
