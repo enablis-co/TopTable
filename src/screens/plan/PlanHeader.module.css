@@ -111,11 +111,11 @@
    meaning alone). The negative right margin mirrors .stats' own so the text lands flush with the
    header's right edge rather than inset by the stats' padding. */
 .publishState {
-  margin: var(--s-1) 0 0;
+  /* The column's own gap does the spacing; a margin-top here would apply it twice. */
+  margin: 0 calc(var(--s-2) * -1) 0 0;
   font: var(--t-caption);
   color: var(--ink);
   text-align: right;
-  margin-right: calc(var(--s-2) * -1);
 }
 
 /* Every stat reserves the same 2px at its own foot, filled by .statToggle's border below when a
