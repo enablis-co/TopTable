@@ -3,10 +3,21 @@ import { defaultWeightFor } from './contract'
 import type { RuleOutcome, RuleReport } from './engine'
 
 /**
- * The plan fit score (TT-16, reworked by TT-46): one number, 0-100, over every registered rule,
- * hard and soft alike (KB-8 "The arithmetic"). Named `score.ts`, which `registry.ts`'s
- * `./*.rule.ts` glob cannot match — the same reason `contract.ts` carries that name.
+ * The plan fit score (TT-16, reworked by TT-46 and TT-48): one number, 0-100, over every
+ * registered rule, hard and soft alike, scaled by how much of the plan is seated (KB-8 "The
+ * arithmetic"). Named `score.ts`, which `registry.ts`'s `./*.rule.ts` glob cannot match — the
+ * same reason `contract.ts` carries that name.
  */
+
+export type PlanCoverage = {
+  /** Every guest the plan knows about (TT-48). Defined here, not imported from `seating.ts`'s
+   *  `PlanOccupancy` — that type is structurally assignable to this one, so a caller passing it
+   *  needs no conversion, and this file's dependency surface stays at `./contract` and
+   *  `./engine`. */
+  guests: number
+  /** Guests holding a real seat. A guest in a table's overflow does not count. */
+  seated: number
+}
 
 export type ScoreDimension = {
   ruleId: string
@@ -28,13 +39,15 @@ export type ScoreDimension = {
 }
 
 export type PlanScore = {
-  /** 0-100, or null when no rule had an opportunity to be satisfied (TT-16). Never 0 for
-   *  "nothing to say". Plainly rounded: 100 means the weighted mean rounds to 100, never that
-   *  the plan carries no violation — the breakdown's exact missed counts are where a finding
-   *  behind a rounded 100 is visible. There is no cap and no floor. This is never permission to
-   *  publish: that is `isPublishable(report)` in `engine.ts`, a function of the report alone, and
-   *  `PlanScore` deliberately carries no `publishable` field for it to read (TT-46, KB-8 "The
-   *  score is not permission"). */
+  /** 0-100, or null when no rule had an opportunity to be satisfied, or when the plan has no
+   *  guests at all (TT-16, TT-48). Never 0 for "nothing to say" — a plan with guests but nobody
+   *  seated scores 0 on its own account (TT-48's coverage factor), which is different from having
+   *  nothing to score. Plainly rounded, once, at the end: 100 means the weighted mean, scaled by
+   *  coverage, rounds to 100, never that the plan carries no violation — the breakdown's exact
+   *  missed counts are where a finding behind a rounded 100 is visible. There is no cap and no
+   *  floor. This is never permission to publish: that is `isPublishable(report)` in `engine.ts`, a
+   *  function of the report alone, and `PlanScore` deliberately carries no `publishable` field for
+   *  it to read (TT-46, KB-8 "The score is not permission"). */
   score: number | null
   /** Hard dimensions before soft, worst first within each: weight × (1 − fit) descending, ruleId
    *  ascending as tie-break (TT-46 A9; TT-16's original order kept as the secondary sort). A rule
@@ -98,7 +111,16 @@ function breakdownOrder(a: ScoreDimension, b: ScoreDimension): number {
   return a.ruleId < b.ruleId ? -1 : a.ruleId > b.ruleId ? 1 : 0
 }
 
-export function scorePlan(report: RuleReport): PlanScore {
+export function scorePlan(report: RuleReport, coverage: PlanCoverage): PlanScore {
+  // A plan with no guests has nothing to score (TT-48; KB-8) — checked before anything else, and
+  // dimensions emptied rather than only the score nulled, so `ScoreBreakdownPanel.tsx`'s own
+  // invariant ("mounts only when the score is non-null, which implies at least one dimension")
+  // stays true. `!(x > 0)` also catches a non-finite or negative `guests`, either of which would
+  // otherwise reach the division below as `NaN`.
+  if (!(coverage.guests > 0)) {
+    return { score: null, dimensions: [] }
+  }
+
   const dimensions = report.outcomes
     .filter((outcome) => normaliseCount(outcome.opportunities) > 0)
     .map(toDimension)
@@ -115,5 +137,16 @@ export function scorePlan(report: RuleReport): PlanScore {
     weightTotal += dimension.weight
   }
 
-  return { score: Math.round((weightedSum / weightTotal) * 100), dimensions }
+  const fit = weightedSum / weightTotal
+  // The coverage factor (TT-48): how much of the plan is seated, guests as the denominator, not
+  // seats — a room that cannot seat everyone is a real problem the score should show rather than
+  // grade on a curve. Applied once, here, so no rule author has to count their own opportunities
+  // over the seated plan to compensate, and every unseated guest already lowered `fit` once via
+  // `everyone-seated` (TT-47) — that double count is deliberate, the rule is what makes the plan
+  // unpublishable and this factor is what guarantees nought at zero rather than merely a low
+  // number. One rounding, at the very end: rounding `fit` first and then scaling would let a
+  // half-seated plan round up past fifty.
+  const factor = clamp01(coverage.seated / coverage.guests)
+
+  return { score: Math.round(fit * factor * 100), dimensions }
 }

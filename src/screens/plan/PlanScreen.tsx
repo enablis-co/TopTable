@@ -4,7 +4,7 @@ import { useTopTableStore } from '../../store/store'
 import { useNavigation } from '../../shell/navigation'
 import { totalSeats } from '../../domain/capacity'
 import { pinnedTableFor } from '../../domain/pins'
-import { normaliseRoom, seatPins, tablesInRoom } from '../../domain/seating'
+import { normaliseRoom, planOccupancy, seatPins, tablesInRoom } from '../../domain/seating'
 import { allocate } from '../../domain/allocate'
 import { evaluateRegistered, registeredSeatGuard } from '../../domain/rules/registry'
 import { isPublishable, tablesWithHardViolation } from '../../domain/rules/engine'
@@ -126,9 +126,12 @@ export function PlanScreen({ allocated, setAllocated }: PlanScreenProps) {
     [allocated, room, guests, pins, seatGuard],
   )
   const report = useMemo(() => evaluateRegistered(plan), [plan])
+  // TT-48. Derived from the same `plan` object `report` was evaluated from, so the score, the
+  // violations and the coverage factor can never describe different plans.
+  const occupancy = useMemo(() => planOccupancy(plan), [plan])
   // TT-16. Derived from the same report the violations panel reads, so the score and the
   // violations list can never disagree about which plan they describe.
-  const planScore = useMemo(() => scorePlan(report), [report])
+  const planScore = useMemo(() => scorePlan(report, occupancy), [report, occupancy])
   // TT-46. Derived from the same report as planScore and the violations list, so the score, the
   // violations and the publishability line can never disagree about which plan they describe.
   const publishable = useMemo(() => isPublishable(report), [report])
