@@ -487,8 +487,13 @@ describe('AC5 — Auto-allocate remains the screen\'s only filled control, inclu
   })
 })
 
-describe('AC6 — a hard violation survives "Clear allocation", and clears once the pins are cleared too', () => {
-  it('over-pinning a table past capacity: the violation names the table after clearing the allocation, and is gone after clearing the pins', async () => {
+describe('AC6 — a hard violation survives "Clear allocation", and the capacity violation itself clears once the pins are cleared too', () => {
+  // TT-47 (KB-2: "A guest with no seat is a violation wherever the room still has an empty
+  // seat"): clearing every pin here leaves three guests genuinely unseated in a room with seats
+  // to spare (4 total seats, 3 guests) — that is now a hard violation in its own right, so the
+  // final state is not a clean plan, it is a *different* hard violation than the capacity one
+  // this test was originally built around.
+  it('over-pinning a table past capacity: the violation names the table after clearing the allocation, and a fresh everyone-seated violation replaces it once the pins are cleared too', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 2, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(3))
     useTopTableStore.getState().pinGuest('g-0', 'round-1')
@@ -510,8 +515,8 @@ describe('AC6 — a hard violation survives "Clear allocation", and clears once 
     await user.click(within(openPrompt()).getByRole('button', { name: 'Clear allocation and pins' }))
 
     expect(document.body.textContent).not.toContain('Table 1 over capacity')
-    expect(document.body.textContent).toContain('No violations.')
-    expect(violationEntries()).toHaveLength(0)
+    expect(document.body.textContent).toContain('3 guests have no seat')
+    expect(violationEntries()).toHaveLength(1)
     expect(readHeaderFigures(document.body.textContent ?? '').pinned).toBe(0)
   })
 })
