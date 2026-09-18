@@ -50,7 +50,7 @@ export type PlanScore = {
    *  it to read (TT-46, KB-8 "The score is not permission"). */
   score: number | null
   /** Hard dimensions before soft, worst first within each: weight × (1 − fit) descending, ruleId
-   *  ascending as tie-break (TT-46 A9; TT-16's original order kept as the secondary sort). A rule
+   *  ascending as tie-break (TT-46; TT-16's original order kept as the secondary sort). A rule
    *  with no opportunities, at either severity, is not here. */
   dimensions: readonly ScoreDimension[]
 }
@@ -95,7 +95,7 @@ function severityRank(severity: Severity): number {
   return severity === 'hard' ? 0 : 1
 }
 
-/** Hard before soft (TT-46 A9), worst first within a severity — what a person wants when the
+/** Hard before soft (TT-46), worst first within a severity — what a person wants when the
  *  question is "what cost me" — ruleId ascending as the final tie-break. Fully determined by the
  *  data, so it is deterministic regardless of the order the rules were evaluated in — the same
  *  property that makes the sum below order-independent. */
