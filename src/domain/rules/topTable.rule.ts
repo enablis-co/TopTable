@@ -7,8 +7,8 @@ const PROTOCOL_ROLE_IDS = new Set<string>(PROTOCOL_ROLES)
 
 /**
  * Every protocol role somebody on this guest list actually holds — walked from every table's
- * seats and overflow, plus the unseated, so a role nobody holds is never counted as a chance
- * (A4). Private to this file, on `partnersAdjacent.rule.ts`'s `knownGuestsById`: a rule stays
+ * seats and overflow, plus the unseated, so a role nobody holds is never counted as a chance.
+ * Private to this file, modelled on `partnersAdjacent.rule.ts`'s `knownGuestsById`: a rule stays
  * self-contained rather than sharing a helper across two files.
  */
 function protocolRolesOnGuestList(plan: RulePlan): ReadonlySet<string> {
@@ -47,18 +47,27 @@ function protocolRolesOnGuestList(plan: RulePlan): ReadonlySet<string> {
  * overrides, so restoring the check to match that page would make every hand-pinned top table
  * seat a hard violation.
  *
- * `opportunities` (TT-49, KB-8) is the top table's capacity, flat — never a function of who is
- * seated or pinned, so an incomplete plan cannot outscore a complete one. `missed` counts a seat
- * as a chance lost only when the guest list holds that seat's protocol role: an occupied,
- * unpinned seat that fires a finding, or an empty seat whose role somebody on the list holds. A
- * role nobody holds costs nothing while its seat sits empty.
+ * `opportunities` (TT-49, KB-8) counts a top-table seat only when `topTableRoleOrder` names it a
+ * protocol role and somebody on this guest list actually holds that role — not the table's raw
+ * capacity. A guest list holding none of KB-4's roles gives this rule nothing to count, so it
+ * drops out of the mean rather than scoring a false 1.0, and a top table wider than the roles in
+ * play never inflates the denominator with seats nobody could ever fill. It still depends only
+ * on the room and the guest list, never on who is seated or pinned, so an incomplete plan cannot
+ * outscore a complete one. `missed` counts a seat as a chance lost exactly when it is such an
+ * opportunity and does not hold that role's holder: empty, or occupied unpinned by someone else.
+ * A pinned seat is never missed but stays an opportunity.
  */
 export const rule = {
   id: 'top-table',
   severity: 'hard',
-  // No longer in seatGuardFrom's set — inert only because allocate.ts's phase 4 (the only phase
-  // that calls allowSeat) is round tables only. A top table becoming a fill destination must
-  // re-examine this; allocateWithRules.test.ts is the suite that would catch it.
+  // `remedy: 'flag'` is forced, not chosen: `contract.ts` types a hard `remedy: 'seating'` rule's
+  // `evaluate` against `GuardPlan` (tables only), and this rule needs the full guest list. That
+  // drops it out of `seatGuardFrom`'s guardable set, which is inert twice over even setting that
+  // aside: phase 3 (`seatProtocolOverflowBlock`, `allocate.ts:282-287`) is the only other phase
+  // that calls `allowSeat`, and it only ever offers round-table candidates, while every finding
+  // this rule raises carries `tableIds: ['top']` — a value `seatGuardFrom`'s
+  // `finding.tableIds.includes(candidate.tableId)` can never match. A top table becoming a fill
+  // destination must re-examine this; allocateWithRules.test.ts is the suite that would catch it.
   remedy: 'flag',
   description: 'The top table contains only guests holding a protocol role, in the protocol order',
   evaluate: (plan) => {
@@ -67,7 +76,8 @@ export const rule = {
 
     const expected = topTableRoleOrder(table.capacity)
     const rolesOnGuestList = protocolRolesOnGuestList(plan)
-    const opportunities = table.capacity
+    const isOpportunity = expected.map((role) => rolesOnGuestList.has(role))
+    const opportunities = isOpportunity.filter(Boolean).length
     const findings: Finding[] = []
     let missed = 0
 
@@ -75,7 +85,7 @@ export const rule = {
       const expectedRole = expected[index]
 
       if (!seat) {
-        if (expectedRole !== undefined && rolesOnGuestList.has(expectedRole)) missed += 1
+        if (isOpportunity[index]) missed += 1
         return
       }
       if (seat.pinned) return
