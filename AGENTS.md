@@ -17,41 +17,39 @@ and the pages they point at, you are guessing.
 
 ## Connecting to Tickety
 
-`.mcp.json` is committed and reads `${TICKETY_MCP_URL:-http://localhost:3000/mcp}`. The default is
-your own machine, because that is where Tickety actually runs today. **The public host is not
-deployed.** When it goes up, override the variable to point at it; nothing in this repo has to
-change on the day.
+`.mcp.json` is committed and reads `${TICKETY_MCP_URL:-https://tickety.enablis.tech/mcp}`. The
+default is the deployed host, because that is where Tickety runs. A fresh clone reaches the
+requirements with nothing to install, nothing to start and no override to set.
 
 MCP has no failover. The client expands that variable once, at config load, and connects once, at
 session start. Nothing retries onto a second URL when the first is unreachable, so the default is
-not a fallback — it is simply the choice made when you have not made one. Pointing it at localhost
-means a missing override lands on a server you can start, rather than a host that does not resolve.
+not a fallback — it is simply the choice made when you have not made one. Pointing it at the
+deployed host means a missing override lands on a server that is up, rather than on a port on your
+machine with nothing behind it.
 
-One thing has to be true, and it is not true on a fresh clone.
+### Pointing it somewhere else
 
-**Tickety has to be running.** It is a separate repo, cloned alongside this one.
+The deployed host needs no override. To aim somewhere else — a Tickety you are changing, running on
+your own machine — set the variable in `.claude/settings.local.json`, which is gitignored and
+therefore yours alone. A shell `export` of the same variable also works and is the better choice
+for a terminal session; the settings file is the one that reaches the desktop app, which does not
+read your shell profile.
+
+```json
+{
+  "env": {
+    "TICKETY_MCP_URL": "http://localhost:3000/mcp"
+  }
+}
+```
+
+That one is a separate repo, cloned alongside this one, and you start it yourself.
 
 ```bash
 cd ../tickety && npm ci && npm run dev    # serves http://localhost:3000/mcp
 ```
 
 Leave it running. Nothing in this repo starts it, and nothing in this repo should try.
-
-### Pointing it somewhere else
-
-Working locally needs no override. To aim at a different host — a deployed Tickety, or a port other
-than 3000 — set the variable in `.claude/settings.local.json`, which is gitignored and therefore
-yours alone. A shell `export` of the same variable also works and is the better choice for a
-terminal session; the settings file is the one that reaches the desktop app, which does not read
-your shell profile.
-
-```json
-{
-  "env": {
-    "TICKETY_MCP_URL": "https://tickety.enablis.co/mcp"
-  }
-}
-```
 
 **Then restart the session.** MCP servers connect once, at startup. Changing the variable or
 `.mcp.json` mid-session does nothing until you restart. Trust the folder when prompted, because
@@ -68,8 +66,9 @@ Read the failure rather than working around it:
 
 | Error | Meaning |
 |---|---|
-| `ECONNREFUSED 127.0.0.1:3000` | You are on the default. Tickety is not running, or not on port 3000 |
-| `ENOTFOUND tickety.enablis.co` | An override pointed the client at the public host, which is not deployed |
+| `ENOTFOUND tickety.enablis.co` | A stale override, from before the host was deployed. It is `tickety.enablis.tech` now; drop the override rather than correcting it |
+| `ECONNREFUSED 127.0.0.1:3000` | An override points at a local Tickety, and it is not running, or not on port 3000 |
+| A 4xx or 5xx from `tickety.enablis.tech` | The deployed host is up but unhappy. Not something this repo can fix; say so rather than falling back to a local one |
 | Tools absent entirely | The server failed at startup, or the project's MCP servers are unapproved |
 
 **A failure here is not a missing capability, and it is not a reason to proceed.** If the tools

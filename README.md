@@ -33,9 +33,9 @@ and the shell they sit in is TT-7.
 They are in **Tickety**, an issue tracker and knowledge base served over MCP. This repo holds *how*
 we build. Tickety holds *what* we are building and why.
 
-It needs a local server running and a URL override before it will connect, and neither is true on
-a fresh clone. [`AGENTS.md`](AGENTS.md) has the setup and the traversal. Read it before changing
-anything — a requirement inferred from this repo alone is a guess.
+It is served from `tickety.enablis.tech`, and a fresh clone reaches it with nothing to install and
+nothing to start. [`AGENTS.md`](AGENTS.md) has the connection and the traversal. Read it before
+changing anything — a requirement inferred from this repo alone is a guess.
 
 ## Scripts
 
