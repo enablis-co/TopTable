@@ -7,7 +7,7 @@ import { allocate } from '../allocate'
 import { planOccupancy, seatPins, topTableRoleOrder, topTableSeatPlacement } from '../seating'
 import type { Seat, SeatedTable } from '../seating'
 import { PROTOCOL_ROLES } from '../types'
-import type { Guest, RoomConfig } from '../types'
+import type { Guest, Pin, RoomConfig } from '../types'
 import type { ScenarioId } from '../scenarios'
 import type { RulePlan } from './contract'
 import { evaluateRegistered } from './registry'
@@ -665,10 +665,12 @@ describe('top table — a role holder hand-pinned away to a round table leaves t
 })
 
 describe('top table — a role holder wrongly seated costs only the seat they are sitting in; their own seat is saved by their presence elsewhere at the same top table (TT-49, corrected)', () => {
-  it('two role holders unpinned in seats that are themselves genuine opportunities (each held by a third guest), one pinned civilian, and their own two seats left empty: two findings, two misses — not four, because each wanderer is seated somewhere at this top table', () => {
-    // Seat order (topTableRoleOrder(8)): 0 chief bridesmaid, 1 father of the groom,
-    // 2 mother of the bride, 3 groom, 4 bride, 5 father of the bride, 6 mother of the groom,
-    // 7 best man.
+  it('two role holders unpinned in seats that are themselves genuine opportunities (each held by a third guest), one civilian pinned into the seat topTableSeatPlacement(8, 1) actually reserves, and the wanderers\' own seats left empty: two findings, two misses — not four, because each wanderer is seated somewhere at this top table', () => {
+    // topTableSeatPlacement(8, 1) reserves seat 7 (index 7) for the table's one roleless pin, and
+    // re-centres the other seven protocol roles into seats 0-6 in order: chief bridesmaid, father
+    // of the groom, mother of the bride, groom, bride, father of the bride, mother of the groom —
+    // best man has no seat at all in this reduced layout, not seat 7 as a direct, unreduced
+    // reading of topTableRoleOrder(8) would suggest.
     const bestMan = makeGuest('wandering-best-man', { role: PROTOCOL_ROLES[7] })
     const motherOfGroom = makeGuest('wandering-mother-of-groom', { role: PROTOCOL_ROLES[6] })
     const civilian = makeGuest('pinned-civilian')
@@ -686,13 +688,13 @@ describe('top table — a role holder wrongly seated costs only the seat they ar
       seats: [
         { guest: bestMan, pinned: false }, // seat 0 (chief bridesmaid) — not his seat, unpinned: a finding, and a miss
         { guest: motherOfGroom, pinned: false }, // seat 1 (father of the groom) — likewise
-        { guest: civilian, pinned: true }, // seat 2 (mother of the bride) — nobody holds this role, and it is pinned besides
+        null, // seat 2 (mother of the bride) — nobody holds this role
         null, // seat 3 (groom) — nobody holds this role
         null, // seat 4 (bride) — nobody holds this role
         null, // seat 5 (father of the bride) — nobody holds this role
         null, // seat 6 (mother of the groom) — her own seat, held, empty, but she is seated at seat 1 —
         // present at this top table, just in the wrong chair — so this seat is not missed
-        null, // seat 7 (best man) — his own seat, held, empty, but he is seated at seat 0 for the same reason
+        { guest: civilian, pinned: true }, // seat 7 — the seat topTableSeatPlacement(8, 1) reserves for a roleless pin; no protocol role applies here, so the pin costs nothing on its own. Best man's own chance is taken by his presence at seat 0, with no seat of his own left to be missed
       ],
       overflow: [],
     }
@@ -704,10 +706,12 @@ describe('top table — a role holder wrongly seated costs only the seat they ar
     expect([...findings.flatMap((finding) => finding.guestIds)].sort()).toEqual(
       ['wandering-best-man', 'wandering-mother-of-groom'].sort(),
     )
-    // Opportunities are unaffected (seats 0, 1, 6 and 7 are all genuine chances, same as before);
-    // missed drops from four to two, because seat 6 and seat 7 are saved by their own occupants
-    // being present elsewhere at this table rather than absent from it altogether — the case a
-    // seat-position check could not tell apart from a role holder pinned away to a round table.
+    // Opportunities are unaffected (chief bridesmaid, father of the groom, mother of the groom and
+    // best man are all genuine chances on this guest list, same as before); missed drops from four
+    // to two, because the mother of the groom's own seat is saved by her presence elsewhere at
+    // this table, and the best man's chance is taken by presence too even though the reduced
+    // layout gives his role no seat at all — the case a seat-position check could not tell apart
+    // from a role holder pinned away to a round table.
     expect(opportunities).toBe(4)
     expect(missed).toBe(2)
   })
@@ -753,6 +757,9 @@ describe('top table — the opportunities contract holds on every scenario above
     return { tables: [emptyTopTable(10)], unseated: roleHolders(10, 'contract-ten') }
   }
 
+  // Same shape as the "wandering role holders" fixture above: topTableSeatPlacement(8, 1)
+  // reserves seat 7 for the table's one roleless pin, not seat 2, so the civilian pin sits there
+  // and seats 0-6 carry the seven roles the reduced layout actually names.
   function misplacedRoleHoldersPlan(): RulePlan {
     const bestMan = makeGuest('contract-best-man', { role: PROTOCOL_ROLES[7] })
     const motherOfGroom = makeGuest('contract-mother-of-groom', { role: PROTOCOL_ROLES[6] })
@@ -768,12 +775,12 @@ describe('top table — the opportunities contract holds on every scenario above
       seats: [
         { guest: bestMan, pinned: false },
         { guest: motherOfGroom, pinned: false },
+        null,
+        null,
+        null,
+        null,
+        null,
         { guest: civilian, pinned: true },
-        null,
-        null,
-        null,
-        null,
-        null,
       ],
       overflow: [],
     }
@@ -909,6 +916,53 @@ describe('top table — the solver and the rule agree: allocate with no pins tou
       const plan = allocate(room, [...holders, ...civilians], [])
 
       expect(topTableRule.evaluate(plan).findings).toEqual([])
+    },
+  )
+})
+
+describe("top table — opportunities never exceeds the top table's own capacity, for every plan either builder produces (TT-49 review: a signal the two counting passes agree on the layout)", () => {
+  // A hand-built RulePlan can push opportunities past capacity (e.g. capacity 2, two unpinned
+  // civilians occupying both seats, on a guest list holding all eight protocol roles elsewhere)
+  // without that being a bug in the rule to fix — a hand-built fixture is not a plan `allocate` or
+  // `seatPins` could ever produce, and the contract this suite actually leans on is
+  // findings.length <= missed <= opportunities, checked above. This is a stronger, additional
+  // guarantee that holds only for the two real builders, and it is an assertion, not a fix.
+  const CAPACITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
+
+  it.each(CAPACITIES)(
+    'capacity %i, through allocate: a full set of protocol role holders plus two civilians hand-pinned to the top table',
+    (capacity) => {
+      const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: capacity }
+      const holders = roleHolders(capacity, `cap-guard-allocate-${capacity}`)
+      const civilians = [
+        makeGuest(`cap-guard-allocate-${capacity}-civilian-a`),
+        makeGuest(`cap-guard-allocate-${capacity}-civilian-b`),
+      ]
+      const pins: Pin[] = civilians.map((guest) => ({ guestId: guest.id, tableId: 'top' }))
+
+      const plan = allocate(room, [...holders, ...civilians], pins)
+      const { opportunities } = topTableRule.evaluate(plan)
+
+      expect(opportunities).toBeLessThanOrEqual(capacity)
+    },
+  )
+
+  it.each(CAPACITIES)(
+    'capacity %i, through seatPins: the same guest list, seated purely by hand pins',
+    (capacity) => {
+      const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: capacity }
+      const holders = roleHolders(capacity, `cap-guard-seatpins-${capacity}`)
+      const civilians = [
+        makeGuest(`cap-guard-seatpins-${capacity}-civilian-a`),
+        makeGuest(`cap-guard-seatpins-${capacity}-civilian-b`),
+      ]
+      const guests = [...holders, ...civilians]
+      const pins: Pin[] = guests.map((guest) => ({ guestId: guest.id, tableId: 'top' }))
+
+      const plan = seatPins(room, guests, pins)
+      const { opportunities } = topTableRule.evaluate(plan)
+
+      expect(opportunities).toBeLessThanOrEqual(capacity)
     },
   )
 })

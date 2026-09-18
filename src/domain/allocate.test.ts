@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { allocate } from './allocate'
 import type { SeatCandidate, SeatGuard } from './allocate'
-import { seatOf, tablesInRoom, topTableRoleOrder } from './seating'
+import { seatOf, tablesInRoom, topTableRoleOrder, topTableSeatPlacement } from './seating'
 import type { SeatedTable } from './seating'
 import { PROTOCOL_ROLES } from './types'
 import type { Guest, Pin, RoomConfig } from './types'
@@ -665,5 +665,81 @@ describe('allocate — what a guard is handed', () => {
     const marker: SeatsAreReadonly = true
 
     expect(marker).toBe(true)
+  })
+})
+
+/** One guest per role `topTableRoleOrder(capacity)` names, none of them pinned — capped at eight
+ *  guests, whatever `capacity` is, because `topTableRoleOrder` never names more. */
+function protocolHoldersFor(capacity: number, idPrefix: string): Guest[] {
+  return topTableRoleOrder(capacity).map((role, index) => makeGuest(`${idPrefix}-${index}-${role}`, { role }))
+}
+
+/**
+ * TT-49 review: `topTableSeatPlacement` is the one definition of where a pinned, roleless
+ * occupant sits, and `allocate` and the top-table rule agree about a plan's score only because
+ * `allocate` actually seats its pinned, roleless top-table occupants at exactly the seats
+ * `topTableSeatPlacement(capacity, pinnedWithoutRoleCount)` reserves for them. Nothing but this
+ * test enforces that; `allocate` passes its own count of such guests into the shared function
+ * while the rule re-derives the same count by inspecting the finished plan, and the two could
+ * silently drift apart from each other without a test ever failing to say so.
+ *
+ * `seatPins` deliberately does not conform to this contract: it drops a pinned guest into the
+ * first free seat in guest-list order, not into `topTableSeatPlacement`'s reserved seats. That is
+ * safe only because every occupant `seatPins` produces is pinned — TT-14 exempts a pinned seat
+ * from every finding, so no seat it fills is ever judged against a role — and this test, not
+ * `seatPins`'s own suite, is the one that would fail if `seatPins` ever stopped pinning everything
+ * it seats.
+ */
+describe('allocate — a pinned, roleless top-table occupant lands exactly where topTableSeatPlacement reserves for them (TT-49 review)', () => {
+  const CAPACITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
+  const PIN_COUNTS = [0, 1, 2, 3] as const
+
+  const cases = CAPACITIES.flatMap((capacity) =>
+    PIN_COUNTS.filter((pinCount) => pinCount <= capacity).map((pinCount) => [capacity, pinCount] as const),
+  )
+
+  it.each(cases)(
+    'top table of capacity %i, %i roleless guests hand-pinned to it alongside a full set of protocol role holders',
+    (capacity, pinCount) => {
+      const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: capacity }
+      const holders = protocolHoldersFor(capacity, `pin-contract-${capacity}-${pinCount}`)
+      const civilians = Array.from({ length: pinCount }, (_, i) =>
+        makeGuest(`pin-contract-${capacity}-${pinCount}-civilian-${i}`),
+      )
+      const pins: Pin[] = civilians.map((guest) => ({ guestId: guest.id, tableId: 'top' }))
+
+      const plan = allocate(room, [...holders, ...civilians], pins)
+      const top = plan.tables.find((table) => table.id === 'top')
+      if (!top) throw new Error('expected a top table')
+
+      const civilianIds = new Set(civilians.map((guest) => guest.id))
+      const actualPinSeats = top.seats
+        .map((seat, index) => (seat && seat.pinned && civilianIds.has(seat.guest.id) ? index : null))
+        .filter((index): index is number => index !== null)
+        .sort((a, b) => a - b)
+
+      const expectedPinSeats = [...topTableSeatPlacement(capacity, pinCount).pinSeatIndices].sort((a, b) => a - b)
+
+      expect(actualPinSeats).toEqual(expectedPinSeats)
+    },
+  )
+
+  it('still holds when more roleless guests are pinned to the top table than it has seats, and the rest overflow', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: 3 }
+    const civilians = Array.from({ length: 5 }, (_, i) => makeGuest(`pin-contract-overflow-civilian-${i}`))
+    const pins: Pin[] = civilians.map((guest) => ({ guestId: guest.id, tableId: 'top' }))
+
+    const plan = allocate(room, civilians, pins)
+    const top = plan.tables.find((table) => table.id === 'top')
+    if (!top) throw new Error('expected a top table')
+
+    const actualPinSeats = top.seats
+      .map((seat, index) => (seat ? index : null))
+      .filter((index): index is number => index !== null)
+      .sort((a, b) => a - b)
+    const expectedPinSeats = [...topTableSeatPlacement(3, 5).pinSeatIndices].sort((a, b) => a - b)
+
+    expect(actualPinSeats).toEqual(expectedPinSeats)
+    expect(top.overflow.length).toBeGreaterThan(0)
   })
 })
