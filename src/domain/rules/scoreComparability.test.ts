@@ -44,7 +44,7 @@ import type { ScenarioId } from '../scenarios'
  * TT-48 (KB-8, "plan score = fit × (guests seated ÷ guests)"): `scorePlan` now takes a mandatory
  * second `PlanCoverage` argument. Where a test scores a hand-built `RuleOutcome` report with no
  * real plan behind it, `COMPLETE_COVERAGE` below keeps the factor at exactly one, so every figure
- * already pinned in this file from before TT-48 is untouched (48-A3, 48-A8) — the coverage number
+ * already pinned in this file from before TT-48 is untouched — the coverage number
  * itself is arbitrary, since it is a property of the whole guest list and these fixtures build no
  * such list. Where a test drives a real `RulePlan` through `evaluateRegistered` (TT-47 registers a
  * fourth rule, `everyone-seated`, into that same registry), the coverage is hand-counted from that
@@ -52,7 +52,7 @@ import type { ScenarioId } from '../scenarios'
  * `guests` is seated + overflow + unseated (TT-47's own definition, restated here rather than
  * imported, so this file never depends on reading `planOccupancy`'s own source to get it right) —
  * and TT-47 lands as a fourth contributing dimension there, so the two pinned figures (95, 80)
- * before TT-47 move to 97 and 18 once it and TT-48 are both in.
+ * from before TT-47 landed move to 97 and 18 once it and TT-48 are both in.
  */
 
 const COMPLETE_COVERAGE: PlanCoverage = { guests: 9, seated: 9 }

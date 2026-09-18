@@ -29,7 +29,7 @@ import type { RuleOutcome, RuleReport } from './engine'
  * argument (`{ guests, seated }`) and scales the weighted mean by `seated / guests` before the one
  * final rounding. Every re-derived call below passes `COMPLETE_COVERAGE` — a `PlanCoverage` whose
  * `seated` equals its `guests`, so the factor is exactly one and every hand-computed figure already
- * in this file is untouched by TT-48 (48-A3, 48-A8): the coverage figure itself is arbitrary, since
+ * in this file is untouched by TT-48: the coverage figure itself is arbitrary, since
  * `PlanCoverage` is a property of the whole guest list, never of any one rule's own opportunities,
  * and none of the fixtures below is built from a real plan for `scorePlan` to derive it from. TT-48's
  * own new behaviour — a real, incomplete coverage actually moving the score — gets its own
@@ -469,7 +469,7 @@ describe("scorePlan — a dimension's description is the outcome's own, never de
  * arithmetic in isolation from any one rule's opportunities.
  */
 describe('scorePlan — TT-48: scaled by the proportion of guests seated', () => {
-  it('complete coverage gives exactly the weighted mean — the factor is one (48-A3)', () => {
+  it('complete coverage gives exactly the weighted mean — the factor is one', () => {
     const report = makeReport([
       makeOutcome({ ruleId: 'hard-half', severity: 'hard', opportunities: 4, missed: 2 }), // fit 0.5
       makeOutcome({ ruleId: 'soft-perfect', severity: 'soft', opportunities: 4, missed: 0 }), // fit 1.0
@@ -479,7 +479,7 @@ describe('scorePlan — TT-48: scaled by the proportion of guests seated', () =>
     expect(scorePlan(report, { guests: 12, seated: 12 }).score).toBe(63)
   })
 
-  it('an empty plan — nobody seated at all — scores 0, never null, once there is something to judge (48-A4)', () => {
+  it('an empty plan — nobody seated at all — scores 0, never null, once there is something to judge', () => {
     const report = makeReport([makeOutcome({ ruleId: 'some-rule', opportunities: 4, missed: 0 })]) // fit 1.0
 
     // Mean is 1.0, but the factor is 0/70 = 0 -> round(1.0 × 0 × 100) = 0.
@@ -488,7 +488,7 @@ describe('scorePlan — TT-48: scaled by the proportion of guests seated', () =>
     expect(result.score).not.toBeNull()
   })
 
-  it('a half-seated plan cannot score above fifty: a perfect mean scores exactly 50, an imperfect one strictly less (48-A5)', () => {
+  it('a half-seated plan cannot score above fifty: a perfect mean scores exactly 50, an imperfect one strictly less', () => {
     const perfectMean = makeReport([makeOutcome({ ruleId: 'clean', opportunities: 4, missed: 0 })]) // fit 1.0
     const imperfectMean = makeReport([makeOutcome({ ruleId: 'flawed', opportunities: 10, missed: 2 })]) // fit 0.8
 
@@ -500,7 +500,7 @@ describe('scorePlan — TT-48: scaled by the proportion of guests seated', () =>
     expect(imperfectResult.score as number).toBeLessThan(50)
   })
 
-  it('no guests at all returns score: null and dimensions: [], even though the report carries a real, scoreable dimension (48-A7, 48-A9)', () => {
+  it('no guests at all returns score: null and dimensions: [], even though the report carries a real, scoreable dimension', () => {
     const report = makeReport([makeOutcome({ ruleId: 'capacity', severity: 'hard', opportunities: 10, missed: 2 })])
 
     const result = scorePlan(report, { guests: 0, seated: 0 })
@@ -509,7 +509,7 @@ describe('scorePlan — TT-48: scaled by the proportion of guests seated', () =>
     expect(result.dimensions).toEqual([])
   })
 
-  it('the denominator is guests, not seats: a short room fully seated (40 of 70 guests) scores the mean × 40/70, not the plain mean (48-A6)', () => {
+  it('the denominator is guests, not seats: a short room fully seated (40 of 70 guests) scores the mean × 40/70, not the plain mean', () => {
     const report = makeReport([makeOutcome({ ruleId: 'clean', opportunities: 4, missed: 0 })]) // fit 1.0
 
     // Mean is 1.0. 1.0 × (40/70) × 100 = 57.142... → 57. Never the plain mean (100).
@@ -518,7 +518,7 @@ describe('scorePlan — TT-48: scaled by the proportion of guests seated', () =>
     expect(result.score).not.toBe(100)
   })
 
-  it('the factor is applied once and the whole figure rounded once, never fit rounded first and then scaled (48-A2)', () => {
+  it('the factor is applied once and the whole figure rounded once, never fit rounded first and then scaled', () => {
     // fit = 1 - 1/3 = 0.66666..., a value whose own rounding to a percentage (67) would give a
     // different, wrong answer if scaled afterwards: 67 × 0.5 → 33.5 → 34 (wrong). The one correct
     // rounding is 0.66666... × 0.5 × 100 = 33.333... → 33.

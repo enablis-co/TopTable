@@ -76,7 +76,7 @@ beforeEach(() => {
 })
 
 describe('TT-48 — the coverage factor, driven end to end through the real PlanScreen', () => {
-  it('a configured room with a guest list and no allocation reads 0% Fit and Cannot be published (48-A4)', () => {
+  it('a configured room with a guest list and no allocation reads 0% Fit and Cannot be published', () => {
     useTopTableStore.getState().setRoom({ roundTables: 5, seatsEach: 8, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(10))
     renderPlanScreen()
@@ -86,7 +86,7 @@ describe('TT-48 — the coverage factor, driven end to end through the real Plan
     expect(screen.getByText('Cannot be published')).toBeInTheDocument()
   })
 
-  it('after Auto-allocate on a room with spare seats, Fit rises above zero and every violation clears (48-A2, 47-A6)', async () => {
+  it('after Auto-allocate on a room with spare seats, Fit rises above zero and every violation clears (TT-47)', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 5, seatsEach: 8, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(10))
     const user = userEvent.setup()
@@ -100,7 +100,7 @@ describe('TT-48 — the coverage factor, driven end to end through the real Plan
     expect(screen.getByText('No violations.')).toBeInTheDocument()
   })
 
-  it('a configured room with no guests at all reads "Nothing to score", with no Fit toggle and no percentage (48-A7)', () => {
+  it('a configured room with no guests at all reads "Nothing to score", with no Fit toggle and no percentage', () => {
     useTopTableStore.getState().setRoom({ roundTables: 5, seatsEach: 8, topTableSeats: 2 })
     // Guests left at the first-visit default: a configured room, deliberately no guest list.
     renderPlanScreen()
@@ -110,7 +110,7 @@ describe('TT-48 — the coverage factor, driven end to end through the real Plan
     expect(screen.queryByText('0%')).not.toBeInTheDocument()
   })
 
-  it('the score breakdown on an unfinished plan lists everyone-seated as a Hard row with its missed count (48-A9)', async () => {
+  it('the score breakdown on an unfinished plan lists everyone-seated as a Hard row with its missed count', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 5, seatsEach: 8, topTableSeats: 2 })
     useTopTableStore.getState().setGuests(makeGuests(10))
     const user = userEvent.setup()
