@@ -1,7 +1,7 @@
 import type { Guest, Pin, ProtocolRole, RoomConfig } from './types'
 import { PROTOCOL_ROLES } from './types'
 import type { Seat, SeatingPlan, TableSlot } from './seating'
-import { TOP_TABLE_ID, resolveHonouredPins, tableFor, tablesInRoom, topTableRoleOrder } from './seating'
+import { TOP_TABLE_ID, resolveHonouredPins, tableFor, tablesInRoom, topTableSeatPlacement } from './seating'
 
 /**
  * The solver: seats the top table by protocol, then fills the room. In its own file,
@@ -75,23 +75,16 @@ function holdsProtocolRole(guest: Guest): boolean {
 /**
  * Phase 1: the top table. A product-owner ruling overrides KB-4's "no exceptions" for this one
  * case: a guest hand-pinned to the top table is seated there even without a protocol role, and
- * the roles fill whatever seats remain rather than the pin being silently dropped. The remaining
- * count is fed back into `topTableRoleOrder`, so the surviving roles are exactly the ones a table
- * built that size would have had — the same centred subsequence, not the full-size order shifted
- * into fewer slots.
+ * the roles fill whatever seats remain rather than the pin being silently dropped. The layout —
+ * which seats the pins claim, and where the reduced role order lands once they do — is
+ * `seating.ts`'s `topTableSeatPlacement`, the one definition shared with the top-table rule
+ * (TT-49): grading a plan against a layout this function did not produce is how a correct plan
+ * reads as a violation. Pins beyond capacity overflow rather than being dropped (KB-2:
+ * over-capacity is a hard violation and must stay representable).
  *
- * The pins claim the outermost seats first, split as evenly between the two ends as the count
- * allows. This codebase has one existing convention for breaking that kind of tie —
- * `topTableRoleOrder` keeps the lower-numbered (left) half of a pair and gives up the higher
- * (right) one when a pair can't be split evenly — so an odd pin out goes to the right here too,
- * for the same reason: nothing in KB-4 or KB-2 says which side, and picking the side the
- * codebase already picked is better than a second, unrelated convention. Pins beyond capacity
- * overflow rather than being dropped (KB-2: over-capacity is a hard violation and must stay
- * representable).
- *
- * Returns the roles actually seated, so `allocate` can tell a role bumped by a pin from one
- * bumped by the table's own shortfall — both get the same "seated together" treatment from
- * `seatProtocolOverflowBlock`.
+ * Returns the roles included in this table's reduced order, whether or not a holder was found to
+ * seat, so `allocate` can tell a role bumped by a pin from one bumped by the table's own
+ * shortfall — both get the same "seated together" treatment from `seatProtocolOverflowBlock`.
  */
 function seatTopTable(
   topTable: BuildingTable,
@@ -103,29 +96,30 @@ function seatTopTable(
     (guest) =>
       !seatedGuestIds.has(guest.id) && honoured.get(guest.id) === TOP_TABLE_ID && !holdsProtocolRole(guest),
   )
-  const seatedPinCount = Math.min(pinnedWithoutRole.length, topTable.capacity)
-  const outerLeft = Math.floor(seatedPinCount / 2)
-  const outerRight = seatedPinCount - outerLeft
+  const { pinSeatIndices, roleAt } = topTableSeatPlacement(topTable.capacity, pinnedWithoutRole.length)
 
   pinnedWithoutRole.forEach((guest, index) => {
-    if (index >= seatedPinCount) {
+    const seatIndex = pinSeatIndices[index]
+    if (seatIndex === undefined) {
       topTable.overflow.push({ guest, pinned: true })
     } else {
-      const seatIndex = index < outerLeft ? index : topTable.capacity - outerRight + (index - outerLeft)
       topTable.seats[seatIndex] = { guest, pinned: true }
     }
     seatedGuestIds.add(guest.id)
   })
 
-  const roles = topTableRoleOrder(topTable.capacity - seatedPinCount)
+  const roles: ProtocolRole[] = []
 
-  roles.forEach((role, index) => {
+  roleAt.forEach((role, seatIndex) => {
+    if (role === undefined) return
+    roles.push(role)
+
     const holder = guests.find(
       (guest) => guest.role === role && !seatedGuestIds.has(guest.id) && isFreeForTopTable(guest.id, honoured),
     )
     if (!holder) return
 
-    topTable.seats[outerLeft + index] = { guest: holder, pinned: honoured.get(holder.id) === TOP_TABLE_ID }
+    topTable.seats[seatIndex] = { guest: holder, pinned: honoured.get(holder.id) === TOP_TABLE_ID }
     seatedGuestIds.add(holder.id)
   })
 
