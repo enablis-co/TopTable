@@ -28,21 +28,34 @@ import { scorePlan } from './score'
  * TT-49 (KB-8): a top-table seat is an opportunity when either `topTableRoleOrder(capacity)`
  * names it a protocol role that somebody on the guest list — seated anywhere, in overflow, or in
  * `plan.unseated` — holds, OR the seat itself fires a finding under this rule (an unpinned
- * occupant who is not that seat's own role holder). Missed is the same seat under the same two
- * conditions: empty while its own role is held, or firing a finding. A finding therefore always
- * counts as both an opportunity and a miss, by construction, so `findings.length <= missed <=
- * opportunities` cannot fail the way it once did for an unpinned interloper sitting in a seat
- * whose own role nobody on the guest list held — that seat used to be a miss with no opportunity
- * to have earned it, because opportunities came from the guest list alone. Occupancy alone never
- * decides opportunities, and a table wider than eight seats can never carry more than eight,
- * because `topTableRoleOrder` never names a role past the eighth. `evaluate` takes the full
- * `RulePlan` (tables and `unseated`), not just `{ tables }`.
+ * occupant who is not that seat's own role holder). A seat is missed when it fires a finding, or
+ * when its own role is held and that role's holder is not seated *anywhere at the top table* —
+ * not only not in this particular seat. Position decides only the seat that actually fires a
+ * finding; every other seat judges presence.
+ *
+ * That distinction is TT-49's fourth defect, found after the pin-position fix above landed. A pin
+ * names a table, never a seat: `seatPins` drops a pinned guest into the first free seat in
+ * guest-list order, and `allocate`'s own phase assigns its own indices, so which seat a pinned
+ * role holder actually lands in is a builder artefact, not a fact about the plan. Checking a
+ * seat's occupant against that seat's own name made the artefact visible in the score: hand-pin a
+ * second, unrelated guest onto the same top table and the first guest's seat index could shift,
+ * flipping a miss to a hit — Fit moved between 0 and 1 with nothing about the plan's correctness
+ * changing, and reordering the guest list alone could move it the same way. Judging presence
+ * across the whole top table instead removes the seat index from the question.
+ *
+ * A finding therefore always counts as both an opportunity and a miss, by construction, so
+ * `findings.length <= missed <= opportunities` cannot fail the way it once did for an unpinned
+ * interloper sitting in a seat whose own role nobody on the guest list held — that seat used to be
+ * a miss with no opportunity to have earned it, because opportunities came from the guest list
+ * alone. Occupancy alone never decides opportunities, and a table wider than eight seats can never
+ * carry more than eight, because `topTableRoleOrder` never names a role past the eighth.
+ * `evaluate` takes the full `RulePlan` (tables and `unseated`), not just `{ tables }`.
  *
  * TT-14's pin exemption is about findings, not chances: a pinned seat never fires, whatever it
- * holds, but pinning does not manufacture a chance taken. A pinned seat whose own protocol role
- * is held by someone on the guest list is missed, quietly, unless the guest pinned into it is
- * that seat's own role holder — a plan that displaces a role holder and hand-pins someone else
- * into the empty seat must not score better than the same plan without the second pin.
+ * holds, but pinning does not manufacture a chance taken. A wrongly-seated occupant — pinned or
+ * not — still costs only the seat they are actually sitting in when that seat itself fires a
+ * finding; their own designated seat is not a second miss once they are present anywhere at this
+ * same top table, because presence, not placement, is what an otherwise-quiet seat judges.
  *
  * Written from TT-14's and TT-49's acceptance criteria and KB-8. Does not open topTable.rule.ts.
  */
@@ -496,6 +509,122 @@ describe('top table — TT-49: displacing a role holder and hand-pinning someone
   })
 })
 
+describe('top table — TT-49 (fourth defect): a pin names a table, never a seat, so the free seat a builder drops a pinned guest into cannot be allowed to decide this dimension (KB-4; KB-8)', () => {
+  it('seatPins: hand-pinning a second, role-free guest to the same top table must not raise the fit a lone bride pin already earns', () => {
+    const room: RoomConfig = { roundTables: 0, seatsEach: 0, topTableSeats: 2 }
+    const filler = makeGuest('fourth-defect-filler')
+    const bride = makeGuest('fourth-defect-bride', { role: BRIDE })
+    const guests = [filler, bride]
+
+    const brideOnly = topTableRule.evaluate(seatPins(room, guests, [{ guestId: bride.id, tableId: 'top' }]))
+    const brideAndFiller = topTableRule.evaluate(
+      seatPins(room, guests, [
+        { guestId: bride.id, tableId: 'top' },
+        { guestId: filler.id, tableId: 'top' },
+      ]),
+    )
+
+    // A1: opportunities come from who holds a role, never from who is pinned where.
+    expect(brideAndFiller.opportunities).toBe(brideOnly.opportunities)
+    expect(brideOnly.opportunities).toBeGreaterThan(0)
+    // The regression this closes: under a seat-position check, hand-pinning the filler could
+    // shuffle which free seat the bride lands in and flip a miss to a hit by accident of guest-list
+    // order, raising Fit with nothing about the plan genuinely improving. An ordering assertion,
+    // not a hard-coded figure — a fixed-number test would have passed before this fix too, for
+    // whichever pair of numbers this fixture happened to produce.
+    expect(brideAndFiller.missed).toBeGreaterThanOrEqual(brideOnly.missed)
+  })
+
+  it('allocate: hand-pinning a third, role-free guest to the same top table must not raise the fit the groom and a filler pin already earn', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 3 }
+    const secondFiller = makeGuest('fourth-defect-second-filler')
+    const filler = makeGuest('fourth-defect-allocate-filler')
+    const groom = makeGuest('fourth-defect-groom', { role: GROOM })
+    const guests = [secondFiller, filler, groom]
+
+    const groomAndFiller = topTableRule.evaluate(
+      allocate(room, guests, [
+        { guestId: filler.id, tableId: 'top' },
+        { guestId: groom.id, tableId: 'top' },
+      ]),
+    )
+    const allThreePinned = topTableRule.evaluate(
+      allocate(room, guests, [
+        { guestId: filler.id, tableId: 'top' },
+        { guestId: groom.id, tableId: 'top' },
+        { guestId: secondFiller.id, tableId: 'top' },
+      ]),
+    )
+
+    expect(allThreePinned.opportunities).toBe(groomAndFiller.opportunities)
+    expect(groomAndFiller.opportunities).toBeGreaterThan(0)
+    expect(allThreePinned.missed).toBeGreaterThanOrEqual(groomAndFiller.missed)
+  })
+})
+
+describe('top table — TT-49 (fourth defect): the order a guest list happens to be built in must not move this dimension (KB-8 — the property the fourth defect actually broke)', () => {
+  it('seatPins: the same room, guests and pins report the same opportunities, missed and findings whichever order the two guests are listed in', () => {
+    const room: RoomConfig = { roundTables: 0, seatsEach: 0, topTableSeats: 2 }
+    const filler = makeGuest('order-stable-filler')
+    const bride = makeGuest('order-stable-bride', { role: BRIDE })
+    const pins = [
+      { guestId: filler.id, tableId: 'top' },
+      { guestId: bride.id, tableId: 'top' },
+    ]
+
+    const fillerFirst = topTableRule.evaluate(seatPins(room, [filler, bride], pins))
+    const brideFirst = topTableRule.evaluate(seatPins(room, [bride, filler], pins))
+
+    expect(brideFirst.opportunities).toBe(fillerFirst.opportunities)
+    expect(brideFirst.missed).toBe(fillerFirst.missed)
+    expect(brideFirst.findings).toEqual(fillerFirst.findings)
+  })
+
+  it('allocate: the same room, guests and pins report the same opportunities, missed and findings whichever order the three guests are listed in', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 3 }
+    const secondFiller = makeGuest('order-stable-second-filler')
+    const filler = makeGuest('order-stable-allocate-filler')
+    const groom = makeGuest('order-stable-groom', { role: GROOM })
+    const pins = [
+      { guestId: filler.id, tableId: 'top' },
+      { guestId: groom.id, tableId: 'top' },
+      { guestId: secondFiller.id, tableId: 'top' },
+    ]
+
+    const listOrderA = topTableRule.evaluate(allocate(room, [secondFiller, filler, groom], pins))
+    const listOrderB = topTableRule.evaluate(allocate(room, [groom, secondFiller, filler], pins))
+
+    expect(listOrderB.opportunities).toBe(listOrderA.opportunities)
+    expect(listOrderB.missed).toBe(listOrderA.missed)
+    expect(listOrderB.findings).toEqual(listOrderA.findings)
+  })
+})
+
+describe('top table — TT-49: a genuinely unseated role holder and an unpinned civilian sitting in her seat is one opportunity and one miss, not two (KB-8)', () => {
+  it('a top table of two, the bride unseated and a role-free civilian unpinned in her own seat: opportunities 1, missed 1, findings 1 — the seat earns its opportunity once, from the OR of "role held" and "fires a finding", never from both at once', () => {
+    const roles = topTableRoleOrder(2)
+    const brideIndex = roles.indexOf(BRIDE)
+    const civilian = makeGuest('double-count-civilian')
+    const seats: (Seat | null)[] = new Array<Seat | null>(2).fill(null)
+    seats[brideIndex] = { guest: civilian, pinned: false }
+    const table: SeatedTable = { id: 'top', kind: 'top', number: null, label: 'Top table', capacity: 2, seats, overflow: [] }
+    const bride = makeGuest('double-count-bride', { role: BRIDE })
+    const plan: RulePlan = { tables: [table], unseated: [bride] }
+
+    const { findings, opportunities, missed } = topTableRule.evaluate(plan)
+
+    expect(findings).toHaveLength(1)
+    expect(opportunities).toBe(1)
+    expect(missed).toBe(1)
+    // Explicit, on top of the exact figures above: a naive OR-as-sum implementation (incrementing
+    // once for "role held" and again for "seat fires a finding") would still pass a bare inequality
+    // check here since findings/missed/opportunities would inflate together (1 <= 2 <= 2) — the
+    // exact figures above are what actually catches that, this is the invariant TT-49 leans on.
+    expect(findings.length).toBeLessThanOrEqual(missed)
+    expect(missed).toBeLessThanOrEqual(opportunities)
+  })
+})
+
 describe('top table — a role holder hand-pinned away to a round table leaves their protocol seat empty, and that empty seat is still a missed chance, with no finding to explain it (KB-4; KB-8)', () => {
   it("the bride pinned to a round table leaves the top table's bride seat as the plan's one missed chance, and raises no finding", () => {
     const room: RoomConfig = { roundTables: 1, seatsEach: 4, topTableSeats: 8 }
@@ -510,8 +639,8 @@ describe('top table — a role holder hand-pinned away to a round table leaves t
   })
 })
 
-describe("top table — a role holder wrongly seated can cost two chances at once: the seat they are wrongly sitting in, and their own seat left empty (TT-49)", () => {
-  it('two role holders unpinned in seats that are themselves genuine opportunities (each held by a third guest), one pinned civilian, and their own two seats left empty: two findings, four misses', () => {
+describe('top table — a role holder wrongly seated costs only the seat they are sitting in; their own seat is saved by their presence elsewhere at the same top table (TT-49, corrected)', () => {
+  it('two role holders unpinned in seats that are themselves genuine opportunities (each held by a third guest), one pinned civilian, and their own two seats left empty: two findings, two misses — not four, because each wanderer is seated somewhere at this top table', () => {
     // Seat order (topTableRoleOrder(8)): 0 chief bridesmaid, 1 father of the groom,
     // 2 mother of the bride, 3 groom, 4 bride, 5 father of the bride, 6 mother of the groom,
     // 7 best man.
@@ -536,8 +665,9 @@ describe("top table — a role holder wrongly seated can cost two chances at onc
         null, // seat 3 (groom) — nobody holds this role
         null, // seat 4 (bride) — nobody holds this role
         null, // seat 5 (father of the bride) — nobody holds this role
-        null, // seat 6 (mother of the groom) — his own seat, held, empty: a second miss for him
-        null, // seat 7 (best man) — his own seat, held, empty: a second miss for him
+        null, // seat 6 (mother of the groom) — her own seat, held, empty, but she is seated at seat 1 —
+        // present at this top table, just in the wrong chair — so this seat is not missed
+        null, // seat 7 (best man) — his own seat, held, empty, but he is seated at seat 0 for the same reason
       ],
       overflow: [],
     }
@@ -549,8 +679,12 @@ describe("top table — a role holder wrongly seated can cost two chances at onc
     expect([...findings.flatMap((finding) => finding.guestIds)].sort()).toEqual(
       ['wandering-best-man', 'wandering-mother-of-groom'].sort(),
     )
+    // Opportunities are unaffected (seats 0, 1, 6 and 7 are all genuine chances, same as before);
+    // missed drops from four to two, because seat 6 and seat 7 are saved by their own occupants
+    // being present elsewhere at this table rather than absent from it altogether — the case a
+    // seat-position check could not tell apart from a role holder pinned away to a round table.
     expect(opportunities).toBe(4)
-    expect(missed).toBe(4)
+    expect(missed).toBe(2)
   })
 })
 

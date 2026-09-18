@@ -45,6 +45,12 @@ import { NavigationContext } from '../../shell/navigation'
  * - everyone-seated: missed 0 -> fit 1.0. top-table: missed 0 -> fit 1.0 (opportunities still 1,
  *   unaffected by occupancy, TT-49 A1).
  * - mean = (3×1.0 + 3×1.0 + 3×1.0) / 9 = 1.0. coverage = 4/4 = 1.0. score = 100.
+ *
+ * Re-derived by hand against TT-49's fourth defect (a pin names a table, never a seat, so a
+ * builder's own free-seat index is an artefact — see topTable.rule.test.ts): unaffected here, and
+ * neither figure above moves. Exactly one guest is ever seated at this top table in either state —
+ * nobody else is pinned there to compete for a free seat — so there is no second occupant whose
+ * placement could shift the role holder's seat index and no scope for the artefact to appear.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -79,6 +85,10 @@ function renderPlanScreen() {
   )
 }
 
+function fitToggle(): HTMLElement {
+  return screen.getByRole('button', { name: /Fit/i })
+}
+
 beforeEach(() => {
   useTopTableStore.getState().reset()
   localStorage.clear()
@@ -100,13 +110,12 @@ describe('TT-49 — an unseated protocol-role holder costs the top table a chanc
     const user = userEvent.setup()
     renderPlanScreen()
 
-    const fitToggle = screen.getByRole('button', { name: /Fit/i })
-    expect(fitToggle).toHaveTextContent('44')
+    expect(fitToggle()).toHaveTextContent('44')
     expect(screen.getByText('Cannot be published')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
-    expect(fitToggle).toHaveTextContent('100')
+    expect(fitToggle()).toHaveTextContent('100')
     expect(screen.getByText('Can be published')).toBeInTheDocument()
   })
 })
