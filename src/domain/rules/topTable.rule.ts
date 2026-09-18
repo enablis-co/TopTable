@@ -38,30 +38,24 @@ function protocolRolesOnGuestList(plan: RulePlan): ReadonlySet<string> {
  * can never disagree.
  *
  * An empty seat is not a violation: `allocate`'s phase 1 leaves a role nobody holds `null`, and
- * KB-4 fixes the order, not that every seat is filled. `table.overflow` is not read here — an
- * over-capacity top table is the capacity rule's finding, so the panel does not say the same
- * thing twice.
+ * KB-4 fixes the order, not that every seat is filled. The per-seat loop below only reads
+ * `table.seats`; an over-capacity top table's overflow is the capacity rule's finding, so the
+ * panel does not say the same thing twice. `protocolRolesOnGuestList`, above, is a separate pass
+ * and does read every table's `overflow` — a role holder bumped there by capacity still counts as
+ * held.
  *
- * A pinned occupant is exempt, which diverges from KB-4's "no children, no partners of the
+ * A pinned occupant fires no finding, which diverges from KB-4's "no children, no partners of the
  * above, no exceptions". The seat is a human instruction that `allocate` honours rather than
  * overrides, so restoring the check to match that page would make every hand-pinned top table
  * seat a hard violation.
  *
  * `opportunities` (TT-49, KB-8) counts a top-table seat when `topTableRoleOrder` names it a
- * protocol role somebody on this guest list actually holds, **or** when the seat fires a finding
- * below (occupied, unpinned, by someone who should not be in it) — not the table's raw capacity.
- * A guest list holding none of KB-4's roles, on a plan with nothing wrongly seated, gives this
- * rule nothing to count, so it drops out of the mean rather than scoring a false 1.0, and a top
- * table wider than the roles in play never inflates the denominator with seats nobody could ever
- * fill. The second half of the "or" exists so that `findings.length <= missed <= opportunities`
- * (`contract.ts`) holds by construction: a wrong, unpinned occupant is always a miss, even in a
- * seat whose own role nobody on the list holds, and that miss must count as an opportunity or the
- * invariant breaks (a version of this rule that counted only role-held seats could report `missed
- * > opportunities` here — caught in review, not by a fixture, because the fixture had been shaped
- * to avoid the case rather than expose it). `missed` counts a seat as a chance lost exactly when
- * it is empty and its role is held, or when it fires a finding; every missed seat is therefore an
- * opportunity by construction. A pinned seat is never missed but stays an opportunity when its
- * role is held.
+ * protocol role somebody on this guest list holds, or when the seat fires a finding below — so
+ * `findings.length <= missed <= opportunities` (`contract.ts`) holds by construction, even for an
+ * unpinned interloper in a seat whose own role nobody holds. `missed` counts a seat as a chance
+ * lost when it is empty and its role is held, when it fires a finding, or when it is pinned to
+ * someone other than that seat's own role holder while the role is held — a pin never fires a
+ * finding, but a chance the guest list gave and the plan did not take is still a miss (KB-8).
  */
 export const rule = {
   id: 'top-table',
@@ -69,11 +63,12 @@ export const rule = {
   // `remedy: 'flag'` is forced, not chosen: `contract.ts` types a hard `remedy: 'seating'` rule's
   // `evaluate` against `GuardPlan` (tables only), and this rule needs the full guest list. That
   // drops it out of `seatGuardFrom`'s guardable set, which is inert twice over even setting that
-  // aside: phase 3 (`seatProtocolOverflowBlock`, `allocate.ts:282-287`) is the only other phase
-  // that calls `allowSeat`, and it only ever offers round-table candidates, while every finding
-  // this rule raises carries `tableIds: ['top']` — a value `seatGuardFrom`'s
-  // `finding.tableIds.includes(candidate.tableId)` can never match. A top table becoming a fill
-  // destination must re-examine this; allocateWithRules.test.ts is the suite that would catch it.
+  // aside: `seatProtocolOverflowBlock` (phase 3) and `seatIntoFirstAllowedSeat` (phase 4) are the
+  // only other callers of `allowSeat`, and — as `allocate`'s own doc comment says — both walk
+  // round slots only, while every finding this rule raises carries `tableIds: ['top']`, a value
+  // `seatGuardFrom`'s `finding.tableIds.includes(candidate.tableId)` can never match. A top table
+  // becoming a fill destination must re-examine this; allocateWithRules.test.ts is the suite that
+  // would catch it.
   remedy: 'flag',
   description: 'The top table contains only guests holding a protocol role, in the protocol order',
   evaluate: (plan) => {
@@ -100,9 +95,18 @@ export const rule = {
       }
 
       if (seat.pinned) {
-        // A pin is a deliberate placement, never a miss — but the seat is still an opportunity
-        // when its role is held, exactly as an empty or correctly-filled one would be.
-        if (roleHeld[index]) opportunities += 1
+        // A pin never fires a finding (TT-14): a human instruction, not a breach. But KB-8 scores
+        // a chance given and not taken as a miss regardless of why, so the pin only takes the
+        // chance when it seats this seat's own role holder — that guest is necessarily counted in
+        // `rolesOnGuestList`, so the role is held here too. Anyone else pinned into a seat whose
+        // role is held is quiet, but still a chance missed, exactly as an empty held seat would be.
+        const { guest } = seat
+        if (expectedRole !== undefined && guest.role === expectedRole) {
+          opportunities += 1
+        } else if (roleHeld[index]) {
+          opportunities += 1
+          missed += 1
+        }
         return
       }
 
@@ -130,8 +134,9 @@ export const rule = {
           message: `${guest.name} is in the wrong top table seat`,
           detail: `${seatLabel}, expected ${expectedRole}`,
         })
-      } else if (roleHeld[index]) {
-        // Correctly filled and the role is held: a chance this plan took.
+      } else {
+        // Correctly filled: the occupant holds this seat's own role, so that role is necessarily
+        // held on the guest list — a chance this plan took.
         opportunities += 1
       }
     })
