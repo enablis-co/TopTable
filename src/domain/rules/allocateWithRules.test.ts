@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { allocate } from '../allocate'
-import { registeredSeatGuard } from './registry'
+import { evaluateRegistered, registeredSeatGuard } from './registry'
+import { hardViolations } from './engine'
 import { PROTOCOL_ROLES } from '../types'
 import type { Guest, Pin, RoomConfig } from '../types'
 import type { ScenarioId } from '../scenarios'
@@ -77,5 +78,35 @@ describe('allocate with the registered rules wired in produces exactly the plan 
     const withoutRules = allocate(room, guests, pins)
 
     expect(withRules).toEqual(withoutRules)
+  })
+})
+
+/**
+ * TT-47, 47-A6: "Auto-allocate already seats everyone it can, so it should clear this rule
+ * wherever seats allow. Where seats ran out it reports that, as it does now, and the rule stays
+ * quiet." Written from TT-47's acceptance criteria. Does not open everyoneSeated.rule.ts.
+ */
+describe('everyone-seated, over the real registry and the real solver (TT-47, A6)', () => {
+  it('a room with spare seats: allocate seats everyone it can, and the everyone-seated rule stays quiet', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 5, topTableSeats: 0 }
+    const guests = Array.from({ length: 8 }, (_, i) => makeGuest(`filler-${i}`))
+
+    const plan = allocate(room, guests, [], { allowSeat: registeredSeatGuard() })
+
+    expect(plan.unseated).toEqual([])
+    const report = evaluateRegistered(plan)
+    expect(hardViolations(report).some((violation) => violation.ruleId === 'everyone-seated')).toBe(false)
+  })
+
+  it('a room short of seats: allocate seats what it can and leaves the rest in plan.unseated, and the rule stays quiet', () => {
+    const room: RoomConfig = { roundTables: 1, seatsEach: 3, topTableSeats: 0 }
+    const guests = Array.from({ length: 6 }, (_, i) => makeGuest(`filler-${i}`))
+
+    const plan = allocate(room, guests, [], { allowSeat: registeredSeatGuard() })
+
+    // The room only has 3 seats for 6 guests — 3 are genuinely left standing.
+    expect(plan.unseated).toHaveLength(3)
+    const report = evaluateRegistered(plan)
+    expect(hardViolations(report).some((violation) => violation.ruleId === 'everyone-seated')).toBe(false)
   })
 })
