@@ -242,8 +242,13 @@ describe('the registry is order-independent (docs/engineering-standards.md)', ()
 
   it('scorePlan gives the same score and the same dimensions for the registry in forward and reverse order (TT-16)', () => {
     const plan = buildViolatingPlan()
-    const forwardScore = scorePlan(evaluatePlan(plan, REGISTERED_RULES))
-    const reversedScore = scorePlan(evaluatePlan(plan, [...REGISTERED_RULES].reverse()))
+    // Hand-counted from buildViolatingPlan() itself (TT-47's own definition of the count,
+    // restated rather than read out of planOccupancy's source): 10 distinct guests across the
+    // plan (r1-a..d, r1-overflow, conflict-a/b, partner-a/b, interloper); 9 of them hold a real
+    // seat index — every one of those ten except r1-overflow, which is in round-1's `overflow`.
+    const coverage = { guests: 10, seated: 9 }
+    const forwardScore = scorePlan(evaluatePlan(plan, REGISTERED_RULES), coverage)
+    const reversedScore = scorePlan(evaluatePlan(plan, [...REGISTERED_RULES].reverse()), coverage)
 
     expect(reversedScore).toEqual(forwardScore)
   })
