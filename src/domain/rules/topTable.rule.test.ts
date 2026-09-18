@@ -4,12 +4,14 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { rule as topTableRule } from './topTable.rule'
 import { allocate } from '../allocate'
-import { seatPins, topTableRoleOrder } from '../seating'
+import { planOccupancy, seatPins, topTableRoleOrder } from '../seating'
 import type { Seat, SeatedTable } from '../seating'
 import { PROTOCOL_ROLES } from '../types'
 import type { Guest, RoomConfig } from '../types'
 import type { ScenarioId } from '../scenarios'
 import type { RulePlan } from './contract'
+import { evaluateRegistered } from './registry'
+import { scorePlan } from './score'
 
 /**
  * TT-14's top-table rule (KB-2 hard constraints; KB-4's protocol order). Checked against
@@ -31,10 +33,16 @@ import type { RulePlan } from './contract'
  * counts as both an opportunity and a miss, by construction, so `findings.length <= missed <=
  * opportunities` cannot fail the way it once did for an unpinned interloper sitting in a seat
  * whose own role nobody on the guest list held — that seat used to be a miss with no opportunity
- * to have earned it, because opportunities came from the guest list alone. Occupancy and pins
- * otherwise still never decide opportunities on their own, and a table wider than eight seats can
- * never carry more than eight, because `topTableRoleOrder` never names a role past the eighth.
- * `evaluate` takes the full `RulePlan` (tables and `unseated`), not just `{ tables }`.
+ * to have earned it, because opportunities came from the guest list alone. Occupancy alone never
+ * decides opportunities, and a table wider than eight seats can never carry more than eight,
+ * because `topTableRoleOrder` never names a role past the eighth. `evaluate` takes the full
+ * `RulePlan` (tables and `unseated`), not just `{ tables }`.
+ *
+ * TT-14's pin exemption is about findings, not chances: a pinned seat never fires, whatever it
+ * holds, but pinning does not manufacture a chance taken. A pinned seat whose own protocol role
+ * is held by someone on the guest list is missed, quietly, unless the guest pinned into it is
+ * that seat's own role holder — a plan that displaces a role holder and hand-pins someone else
+ * into the empty seat must not score better than the same plan without the second pin.
  *
  * Written from TT-14's and TT-49's acceptance criteria and KB-8. Does not open topTable.rule.ts.
  */
@@ -264,7 +272,7 @@ describe('top table — quiet when the room has no top table at all, and there i
   })
 })
 
-describe("top table — opportunities holds steady across occupancy and pins on the same table and the same guest list (TT-49)", () => {
+describe("top table — opportunities does not move when a held seat is filled, emptied or pinned (TT-49)", () => {
   it('a top table of eight, three seats held by their correct role holders and five empty, on a list holding all eight roles', () => {
     const holders = roleHolders(8, 'steady-holder')
     const table = seatFirstN(8, holders, 3)
@@ -409,8 +417,8 @@ describe('top table — opportunities never counts a seat past the eighth, howev
   })
 })
 
-describe('top table — a pinned seat is never missed, whatever it holds (TT-49, TT-14)', () => {
-  it('a top table of eight, every occupant pinned, reports the full capacity as opportunities and nothing missed', () => {
+describe('top table — a pinned seat is a missed chance only when it does not hold the guest list\'s actual role holder (TT-49, TT-14)', () => {
+  it('a top table of eight, every occupant pinned to their own correct protocol seat, reports the full capacity as opportunities and nothing missed', () => {
     const holders = roleHolders(8, 'all-pinned-holder')
     const table = withPinned(seatFirstN(8, holders, 8), [0, 1, 2, 3, 4, 5, 6, 7])
 
@@ -421,7 +429,7 @@ describe('top table — a pinned seat is never missed, whatever it holds (TT-49,
     expect(findings).toEqual([])
   })
 
-  it("a civilian hand-pinned into the chief bridesmaid's seat is quiet and not a miss, even though that seat is a genuine opportunity — the chief bridesmaid herself is on the guest list, just not seated", () => {
+  it("a civilian hand-pinned into the chief bridesmaid's seat costs the chance but stays quiet — the chief bridesmaid herself is on the guest list, just not seated, and the pin exempts the finding, not the miss", () => {
     const seated = topTableSeatedByProtocol(8)
     const chiefBridesmaidSeat = seated.seats[0]
     if (!chiefBridesmaidSeat) throw new Error('expected the chief bridesmaid seat to be filled')
@@ -435,9 +443,56 @@ describe('top table — a pinned seat is never missed, whatever it holds (TT-49,
 
     const { findings, opportunities, missed } = topTableRule.evaluate(plan)
 
+    // The seat is a genuine opportunity (the chief bridesmaid is on the guest list) and the
+    // civilian pinned into it is not her, so it is missed — but the pin still buys quiet: no
+    // finding, exactly as TT-14 decided. A plan that scored this seat as a chance taken would
+    // let displacing a role holder and hand-pinning someone else in score no worse than leaving
+    // the seat alone, which is the inversion TT-49 exists to close.
     expect(opportunities).toBe(8)
-    expect(missed).toBe(0)
+    expect(missed).toBe(1)
     expect(findings).toEqual([])
+  })
+})
+
+describe('top table — TT-49: displacing a role holder and hand-pinning someone else into the empty seat must not score the plan higher than leaving it displaced (KB-8, through the real allocate and registry)', () => {
+  it('room 3×8 + top 8, a guest list holding all eight protocol roles: plan C (the best man displaced, plus a civilian pinned into his empty seat) does not score above plan B (the best man simply displaced)', () => {
+    const room: RoomConfig = { roundTables: 3, seatsEach: 8, topTableSeats: 8 }
+    const roleHoldersList = PROTOCOL_ROLES.map((role, index) => makeGuest(`inversion-role-${index}`, { role }))
+    const bestMan = roleHoldersList.find((guest) => guest.role === PROTOCOL_ROLES[7])
+    if (!bestMan) throw new Error('expected a best man among the eight protocol role holders')
+    const civilian = makeGuest('inversion-civilian')
+    const guests = [...roleHoldersList, civilian]
+
+    // Plan A: nothing pinned — every role holder lands in their own top-table seat.
+    const planA = allocate(room, guests, [])
+    // Plan B: the best man hand-pinned away to a round table, leaving his top-table seat empty —
+    // a genuine miss, quiet, no finding.
+    const planB = allocate(room, guests, [{ guestId: bestMan.id, tableId: 'round-1' }])
+    // Plan C: plan B, plus a civilian hand-pinned into the best man's now-empty seat — still
+    // nobody the seat's role belongs to, and still quiet, but the score must not treat this as a
+    // chance taken.
+    const planC = allocate(room, guests, [
+      { guestId: bestMan.id, tableId: 'round-1' },
+      { guestId: civilian.id, tableId: 'top' },
+    ])
+
+    const scoreA = scorePlan(evaluateRegistered(planA), planOccupancy(planA)).score
+    const scoreB = scorePlan(evaluateRegistered(planB), planOccupancy(planB)).score
+    const scoreC = scorePlan(evaluateRegistered(planC), planOccupancy(planC)).score
+
+    if (scoreA === null || scoreB === null || scoreC === null) {
+      throw new Error('expected every plan here to have guests and at least one dimension to score')
+    }
+
+    // The inversion this ticket exists to close: plan C is plan B plus one more pin, and it must
+    // not score above plan B. A figures-only test asserting one exact number would have passed
+    // before the fix too, by coincidence of the numbers involved — this is an ordering property,
+    // and it is what actually holds it.
+    expect(scoreC).toBeLessThanOrEqual(scoreB)
+    // Both B and C genuinely have the best man out of his seat, so both must fall short of the
+    // fully-correct plan A.
+    expect(scoreB).toBeLessThan(scoreA)
+    expect(scoreC).toBeLessThan(scoreA)
   })
 })
 
@@ -636,9 +691,18 @@ describe('top table — quiet on the real top table allocate produces for each s
 
       const { findings, opportunities, missed } = topTableRule.evaluate(plan)
 
+      // Opportunities come from the guest list, not from capacity (TT-49, KB-8): the roles
+      // `topTableRoleOrder` names for this table's width, intersected with the roles this
+      // scenario's guest list actually holds — never `meta.tables.topTableSeats` on its own,
+      // which is the withdrawn capacity-flat denominator and would pass here only because every
+      // shipped scenario happens to hold all eight protocol roles.
+      const rolesAtThisTable = topTableRoleOrder(meta.tables.topTableSeats)
+      const rolesHeld = new Set(guests.map((guest) => guest.role))
+      const expectedOpportunities = rolesAtThisTable.filter((role) => rolesHeld.has(role)).length
+
       expect(findings).toEqual([])
       expect(missed).toBe(0)
-      expect(opportunities).toBe(meta.tables.topTableSeats)
+      expect(opportunities).toBe(expectedOpportunities)
     },
   )
 
