@@ -47,15 +47,21 @@ function protocolRolesOnGuestList(plan: RulePlan): ReadonlySet<string> {
  * overrides, so restoring the check to match that page would make every hand-pinned top table
  * seat a hard violation.
  *
- * `opportunities` (TT-49, KB-8) counts a top-table seat only when `topTableRoleOrder` names it a
- * protocol role and somebody on this guest list actually holds that role — not the table's raw
- * capacity. A guest list holding none of KB-4's roles gives this rule nothing to count, so it
- * drops out of the mean rather than scoring a false 1.0, and a top table wider than the roles in
- * play never inflates the denominator with seats nobody could ever fill. It still depends only
- * on the room and the guest list, never on who is seated or pinned, so an incomplete plan cannot
- * outscore a complete one. `missed` counts a seat as a chance lost exactly when it is such an
- * opportunity and does not hold that role's holder: empty, or occupied unpinned by someone else.
- * A pinned seat is never missed but stays an opportunity.
+ * `opportunities` (TT-49, KB-8) counts a top-table seat when `topTableRoleOrder` names it a
+ * protocol role somebody on this guest list actually holds, **or** when the seat fires a finding
+ * below (occupied, unpinned, by someone who should not be in it) — not the table's raw capacity.
+ * A guest list holding none of KB-4's roles, on a plan with nothing wrongly seated, gives this
+ * rule nothing to count, so it drops out of the mean rather than scoring a false 1.0, and a top
+ * table wider than the roles in play never inflates the denominator with seats nobody could ever
+ * fill. The second half of the "or" exists so that `findings.length <= missed <= opportunities`
+ * (`contract.ts`) holds by construction: a wrong, unpinned occupant is always a miss, even in a
+ * seat whose own role nobody on the list holds, and that miss must count as an opportunity or the
+ * invariant breaks (a version of this rule that counted only role-held seats could report `missed
+ * > opportunities` here — caught in review, not by a fixture, because the fixture had been shaped
+ * to avoid the case rather than expose it). `missed` counts a seat as a chance lost exactly when
+ * it is empty and its role is held, or when it fires a finding; every missed seat is therefore an
+ * opportunity by construction. A pinned seat is never missed but stays an opportunity when its
+ * role is held.
  */
 export const rule = {
   id: 'top-table',
@@ -76,24 +82,38 @@ export const rule = {
 
     const expected = topTableRoleOrder(table.capacity)
     const rolesOnGuestList = protocolRolesOnGuestList(plan)
-    const isOpportunity = expected.map((role) => rolesOnGuestList.has(role))
-    const opportunities = isOpportunity.filter(Boolean).length
+    const roleHeld = expected.map((role) => rolesOnGuestList.has(role))
     const findings: Finding[] = []
+    let opportunities = 0
     let missed = 0
 
     table.seats.forEach((seat, index) => {
       const expectedRole = expected[index]
 
       if (!seat) {
-        if (isOpportunity[index]) missed += 1
+        // Empty and held is a chance this list gave the table and the plan did not take.
+        if (roleHeld[index]) {
+          opportunities += 1
+          missed += 1
+        }
         return
       }
-      if (seat.pinned) return
+
+      if (seat.pinned) {
+        // A pin is a deliberate placement, never a miss — but the seat is still an opportunity
+        // when its role is held, exactly as an empty or correctly-filled one would be.
+        if (roleHeld[index]) opportunities += 1
+        return
+      }
 
       const { guest } = seat
       const seatLabel = `Seat ${index + 1}`
 
       if (expectedRole === undefined || !PROTOCOL_ROLE_IDS.has(guest.role)) {
+        // A finding is always a chance this rule had, whether or not the seat's own role is held
+        // by anyone on the list — otherwise a miss could be reported with no opportunity behind
+        // it (contract.ts's `missed <= opportunities`).
+        opportunities += 1
         missed += 1
         findings.push({
           tableIds: [table.id],
@@ -102,6 +122,7 @@ export const rule = {
           detail: seatLabel,
         })
       } else if (guest.role !== expectedRole) {
+        opportunities += 1
         missed += 1
         findings.push({
           tableIds: [table.id],
@@ -109,6 +130,9 @@ export const rule = {
           message: `${guest.name} is in the wrong top table seat`,
           detail: `${seatLabel}, expected ${expectedRole}`,
         })
+      } else if (roleHeld[index]) {
+        // Correctly filled and the role is held: a chance this plan took.
+        opportunities += 1
       }
     })
 
