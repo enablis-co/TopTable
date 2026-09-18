@@ -22,13 +22,19 @@ import { NavigationContext } from '../../shell/navigation'
  * TT-16's review: `opportunities` is now a property of the guest list, never of how much of the
  * plan is seated (the fix for the comparability defect the review found). One consequence,
  * checked below where it matters: an unallocated or just-cleared plan whose guest list still
- * carries partner data no longer reads "Nothing to score" — it scores honestly at 0. Null is now
- * reached only by a guest list with no partner data at all.
+ * carries partner data no longer reads "Nothing to score".
  *
  * Part two adds a fourth column state, the pinned-guests panel, behind a second header toggle.
  * `pinnedToggle()` matches the visible label "Pinned" with a case-sensitive pattern deliberately:
  * a table carrying a pin renders a lowercase ", pinned" in its own accessible name (PlanTable),
  * which a case-insensitive match would also catch.
+ *
+ * TT-46: every rule scores now, hard and soft alike, and capacity always has an opportunity once
+ * a room is configured (one per table, KB-8). That moves several of this file's own figures —
+ * recomputed by hand from KB-8's formula at each site below, not tuned to match a run — and it
+ * means null is now reached only when there are no tables at all (an unconfigured room), never
+ * merely by a guest list with no partner data: a fixture that used to read "Nothing to score" for
+ * that reason now scores honestly on capacity alone.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -339,7 +345,7 @@ describe('the score stays rendered in the header while a table detail is open', 
 })
 
 describe('placing a guest changes the score shown in the header with no further interaction', () => {
-  it('placing the second half of a partner pair moves a real, non-null score from 0 toward 100', async () => {
+  it('placing the second half of a partner pair moves a real, non-null score from 75 toward 100 (TT-46)', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 2, topTableSeats: 2 })
     const a = makeGuest('a', { name: 'Partner A', partnerOf: 'b' })
     const b = makeGuest('b', { name: 'Partner B', partnerOf: 'a' })
@@ -350,22 +356,25 @@ describe('placing a guest changes the score shown in the header with no further 
 
     // This pair is on the guest list, so it is one opportunity regardless of who is seated yet —
     // TT-16's fix for the comparability defect. With b unseated the pair is a missed chance, not
-    // a finding, so the score is a real 0: the toggle renders, and "Nothing to score" is absent.
+    // a finding: partners-adjacent scores fit 0.0 at its default weight of 1. Capacity also scores
+    // now (TT-46): two tables judged (round-1, top), neither over capacity, fit 1.0 at its default
+    // weight of 3. (3×1.0 + 1×0.0) / (3+1) = 0.75 → 75, hand-computed from KB-8's formula — the
+    // toggle renders, and "Nothing to score" is absent.
     expect(document.body.textContent).not.toContain('Nothing to score')
-    expect(scoreToggle()).toHaveTextContent('0')
+    expect(scoreToggle()).toHaveTextContent('75')
 
     await user.click(screen.getByRole('button', { name: 'Partner B' }))
     await user.click(screen.getByRole('button', { name: /^Place Partner B at Table 1/ }))
 
     // Table 1 has only 2 seats — with both partners now seated there, they are necessarily
-    // adjacent (a ring of two), so this pair is a clean fit: 1 opportunity, 0 missed, fit 1.0,
-    // and it is the only dimension, so the plan score is exactly 100.
+    // adjacent (a ring of two), so partners-adjacent is now a clean fit too: 1 opportunity, 0
+    // missed, fit 1.0. (3×1.0 + 1×1.0) / 4 = 1.0 → the plan score is exactly 100.
     expect(scoreToggle()).toHaveTextContent('100')
   })
 })
 
 describe('clearing the allocation does not null the score while the guest list still carries partner data', () => {
-  it('leaves the breakdown open, now showing an honest 0 rather than closing to violations', async () => {
+  it('leaves the breakdown open, now showing an honest 75 rather than closing to violations (TT-46)', async () => {
     setUpScorableRoom()
     const user = userEvent.setup()
     renderPlanScreen()
@@ -378,11 +387,13 @@ describe('clearing the allocation does not null the score while the guest list s
     await user.click(within(openPrompt()).getByRole('button', { name: 'Clear allocation and pins' }))
 
     // Clearing removes pins and seats, not guests: the same partner pair is still on the guest
-    // list, so opportunities is still 1 and the score is a real 0, never null. The breakdown's
-    // own guard only clears on a null score, so it is expected to stay open here.
+    // list, so partners-adjacent still has one opportunity, one missed (both partners now
+    // unseated), fit 0.0, weight 1. Capacity also has opportunities here (TT-46): two tables
+    // judged, neither over capacity, fit 1.0, weight 3. (3×1.0 + 1×0.0) / 4 = 0.75 → 75, never
+    // null. The breakdown's own guard only clears on a null score, so it is expected to stay open.
     expect(document.body.textContent).not.toContain('Nothing to score')
     expect(openColumnStates()).toEqual(['breakdown'])
-    expect(scoreToggle()).toHaveTextContent('0')
+    expect(scoreToggle()).toHaveTextContent('75')
   })
 })
 
@@ -558,8 +569,8 @@ describe('"Clear allocation and pins" while the pinned panel is open', () => {
   })
 })
 
-describe('the Pinned toggle still works when the score is null', () => {
-  it('a guest list with no partner data reads "Nothing to score", and the Pinned toggle still opens its panel', async () => {
+describe('the Pinned toggle works regardless of the score, which is no longer null here now that capacity always has an opportunity (TT-46)', () => {
+  it('a guest list with no partner data reads a real capacity-only score, not "Nothing to score", and the Pinned toggle still opens its panel', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 2, topTableSeats: 2 })
     const solo = makeGuest('solo', { name: 'Solo Guest' })
     useTopTableStore.getState().setGuests([solo])
@@ -567,8 +578,13 @@ describe('the Pinned toggle still works when the score is null', () => {
     const user = userEvent.setup()
     renderPlanScreen()
 
-    expect(document.body.textContent).toContain('Nothing to score')
-    expect(queryScoreToggle()).toBeNull()
+    // TT-16's soft-only score read null here — no partner pairs, so partners-adjacent had nothing
+    // to judge. TT-46 also scores capacity: two tables judged (round-1, top), neither over
+    // capacity, fit 1.0 at the hard default weight of 3 — the only contributing dimension, so the
+    // mean is exactly that dimension's own fit: 100.
+    expect(document.body.textContent).not.toContain('Nothing to score')
+    expect(queryScoreToggle()).not.toBeNull()
+    expect(scoreToggle()).toHaveTextContent('100')
 
     await user.click(pinnedToggle())
     expect(openColumnStates()).toEqual(['pinned'])
@@ -577,22 +593,20 @@ describe('the Pinned toggle still works when the score is null', () => {
 })
 
 /**
- * AC-C8: a score going null while the pinned panel is open changes nothing about the column or
- * focus — D6's correction is scoped to the breakdown, and the pinned panel does not read the
- * score at all, so this is a no-op precisely worth guarding against a future edit that widens
- * the correction to cover both panels.
+ * AC-C8 (TT-16): a score going null while the pinned panel is open was meant to change nothing
+ * about the column or focus — the pinned panel does not read the score at all, so it was a no-op
+ * precisely worth guarding against a future edit that widened the correction to cover both panels.
  *
- * Unlike the breakdown's analogous edge (documented above, left untested), this one does not
- * need a different tab to reach: nulling the score means editing the guest list, and pins are
- * untouched by that edit, so the Pinned toggle stays lit throughout and there is no second
- * correction (D5, pinned count reaching zero) to entangle this one with. `removeGuest` is called
- * directly on the mounted store rather than through a rendered control, because no control on
- * this screen edits guest data — the same reason the breakdown's edge was left untested — but
- * here the guest-list change leaves the pin, and so the panel and the column, untouched, which is
- * exactly the invariant this test exists to hold.
+ * TT-46 removes the premise this test was built on: with capacity also scoring, and a table
+ * configured, `removeGuest` dropping the guest list's last partner pair no longer nulls the score
+ * at all — capacity alone (fit 1.0, weight 3) keeps it real. Recomputed below rather than deleted,
+ * because the regression it actually guards — a guest-list edit leaving the pinned column and its
+ * focus untouched — still holds and is still worth keeping, whatever the score settles on.
+ * `removeGuest` is still called directly on the mounted store rather than through a rendered
+ * control, because no control on this screen edits guest data.
  */
-describe('a score going null while the pinned panel is open', () => {
-  it('leaves the column on the pinned panel and focus on the Pinned toggle', async () => {
+describe('removeGuest dropping the guest list\'s last partner pair no longer nulls the score (TT-46) — the pinned column and its focus are untouched either way', () => {
+  it('leaves the column on the pinned panel and focus on the Pinned toggle, with the score settling on a real, non-null figure', async () => {
     useTopTableStore.getState().setRoom({ roundTables: 1, seatsEach: 4, topTableSeats: 2 })
     const a = makeGuest('a', { name: 'Partner A', partnerOf: 'b' })
     const b = makeGuest('b', { name: 'Partner B', partnerOf: 'a' })
@@ -603,9 +617,11 @@ describe('a score going null while the pinned panel is open', () => {
     renderPlanScreen()
 
     // A real, non-null score before the panel even opens — same guarantee as setUpScorableRoom,
-    // from the guest list alone (F1), with nobody seated yet.
+    // from the guest list alone (F1), with nobody seated yet. Capacity (fit 1.0, weight 3) and
+    // partners-adjacent (a/b both unseated, fit 0.0, weight 1) give (3×1.0 + 1×0.0) / 4 = 0.75.
     expect(document.body.textContent).not.toContain('Nothing to score')
     expect(queryScoreToggle()).not.toBeNull()
+    expect(scoreToggle()).toHaveTextContent('75')
 
     await user.click(pinnedToggle())
     expect(openColumnStates()).toEqual(['pinned'])
@@ -615,7 +631,13 @@ describe('a score going null while the pinned panel is open', () => {
       useTopTableStore.getState().removeGuest('a')
     })
 
-    expect(document.body.textContent).toContain('Nothing to score')
+    // b's reciprocal partnerOf clears with a removed, so partners-adjacent has nothing left to
+    // judge (0 opportunities, excluded) — but capacity still does: two tables judged, neither over
+    // capacity, fit 1.0 at weight 3, the only contributing dimension. The mean is that dimension's
+    // own fit: 100, not null (TT-46) — this is the behaviour change the review comment above no
+    // longer holds for.
+    expect(document.body.textContent).not.toContain('Nothing to score')
+    expect(scoreToggle()).toHaveTextContent('100')
     expect(openColumnStates()).toEqual(['pinned'])
     expect(pinnedToggle()).toHaveFocus()
     expect(pinnedGuestNames().join(' ')).toContain('Guest C')

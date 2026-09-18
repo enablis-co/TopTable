@@ -8,9 +8,9 @@ import type { Finding, SeatingRule } from './contract'
  *
  * `opportunities` is every table judged (TT-16); `missed` equals `findings.length` here — every
  * table over capacity is one chance this rule did not take, one-to-one with the finding it
- * produces. Being hard, neither ever scores — both are declared honestly anyway, to satisfy the
- * `findings.length <= missed <= opportunities` invariant every rule holds. No `weight`: hard
- * rules do not carry one.
+ * produces. This rule scores like any other (TT-46, KB-8) — `opportunities: plan.tables.length`
+ * is exactly KB-8's "Capacity gets one per table". It declares no `weight`, so it takes the hard
+ * default of 3.
  */
 export const rule = {
   id: 'capacity',

@@ -23,8 +23,8 @@ const PROTOCOL_ROLE_IDS = new Set<string>(PROTOCOL_ROLES)
  * `opportunities` (TT-16) is the count of non-pinned occupied top-table seats — exactly the set
  * the `forEach` below judges, counted in that same pass. No top table, or a top table whose
  * every occupant is pinned, reports 0. `missed` equals `findings.length`: every judged seat
- * produces at most one finding, so the two count the same thing one-to-one. Being hard, neither
- * ever scores. No `weight`.
+ * produces at most one finding, so the two count the same thing one-to-one. This rule scores
+ * like any other (TT-46, KB-8). It declares no `weight`, so it takes the hard default of 3.
  */
 export const rule = {
   id: 'top-table',

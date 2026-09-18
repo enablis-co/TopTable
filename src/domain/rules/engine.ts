@@ -1,7 +1,7 @@
 import type { Guest } from '../types'
 import type { SeatCandidate, SeatGuard } from '../allocate'
 import type { GuardPlan, GuardableRule, RulePlan, SeatingRule, Severity, Violation } from './contract'
-import { DEFAULT_RULE_WEIGHT } from './contract'
+import { defaultWeightFor } from './contract'
 
 /**
  * Evaluation, the hard/soft split, and the guard `allocate.ts`'s fill can consult. Every
@@ -16,8 +16,8 @@ export type RuleOutcome = {
   /** The rule's own `description`, carried so the breakdown can label a dimension without any
    *  reader naming a rule (TT-16). */
   description: string
-  /** Already defaulted — `rule.weight ?? DEFAULT_RULE_WEIGHT`. Not yet coerced; score.ts owns
-   *  normalising a non-finite, zero or negative value. */
+  /** Already defaulted — `rule.weight ?? defaultWeightFor(rule.severity)`. Not yet coerced;
+   *  score.ts owns normalising a non-finite, zero or negative value. */
   weight: number
   /** Carried straight from `RuleAssessment.opportunities` (`contract.ts`) — a property of the
    *  guest list, not of how much of the plan is filled in. */
@@ -55,7 +55,7 @@ export function evaluatePlan(plan: RulePlan, rules: readonly SeatingRule[]): Rul
       ruleId: rule.id,
       severity: rule.severity,
       description: rule.description,
-      weight: rule.weight ?? DEFAULT_RULE_WEIGHT,
+      weight: rule.weight ?? defaultWeightFor(rule.severity),
       opportunities: assessment.opportunities,
       missed: assessment.missed,
     })
@@ -78,6 +78,16 @@ export function softViolations(report: RuleReport): readonly Violation[] {
 
 export function hardViolationCount(report: RuleReport): number {
   return hardViolations(report).length
+}
+
+/**
+ * A plan publishes when its hard violation count is zero, and for no other reason (KB-2
+ * "Publication"; KB-8 "The score is not permission"). Takes a `RuleReport` and nothing else, so
+ * it is structurally incapable of consulting a score — `PlanScore` has no `publishable` field and
+ * this function is the reason it does not need one.
+ */
+export function isPublishable(report: RuleReport): boolean {
+  return hardViolationCount(report) === 0
 }
 
 export function tablesWithHardViolation(report: RuleReport): ReadonlySet<string> {

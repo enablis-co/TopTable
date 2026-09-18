@@ -48,16 +48,29 @@ export type RuleAssessment = {
   /** What is wrong with the seating as it stands — the violations panel's input. */
   findings: readonly Finding[]
   /** How many chances this GUEST LIST gave the rule — never a function of how much of the plan
-   *  is filled in, or an incomplete plan could outscore a complete one (TT-16). A soft rule
-   *  reporting 0 here alongside real findings drops silently out of the score. */
+   *  is filled in, or an incomplete plan could outscore a complete one (TT-16). A rule reporting
+   *  0 here, hard or soft, is left out of the mean entirely rather than counted as perfect
+   *  (TT-46, KB-8). */
   opportunities: number
   /** How many of those chances this plan did not take — the score's numerator, never
    *  `findings.length`: an unseated partner pair is a chance missed, not a seating fault. */
   missed: number
 }
 
-/** The weight a rule carries in the plan score when it does not declare one (TT-16). */
-export const DEFAULT_RULE_WEIGHT = 1
+/** The weight a rule carries in the plan score when it does not declare one, keyed by severity
+ *  (TT-46, KB-8: "A hard rule defaults to 3 and a soft rule to 1"). Typed as `Record<Severity,
+ *  number>` deliberately: a third severity fails `npm run typecheck` here rather than silently
+ *  falling through to nothing. */
+export const DEFAULT_WEIGHT_BY_SEVERITY: Readonly<Record<Severity, number>> = {
+  hard: 3,
+  soft: 1,
+}
+
+/** `DEFAULT_WEIGHT_BY_SEVERITY[severity]`, as a function so callers do not each index the table
+ *  themselves. */
+export function defaultWeightFor(severity: Severity): number {
+  return DEFAULT_WEIGHT_BY_SEVERITY[severity]
+}
 
 type RuleFields = {
   id: string
@@ -66,12 +79,13 @@ type RuleFields = {
    *  screen, not only for a developer reading the folder. */
   description: string
   /**
-   * Read only for soft rules, as the weight this rule carries in the plan's weighted-mean score
-   * (TT-16). Declared here, in the rule's own file, so weighting never needs a shared table
-   * (AGENTS.md). Defaults to `DEFAULT_RULE_WEIGHT`. A non-finite, zero or negative value is
-   * treated as the default rather than throwing — this seam is a workshop surface several people
-   * add rules to at once, and a typo taking the whole Plan screen down mid-session is worse than
-   * a mis-weighted score.
+   * Read for every rule, hard or soft, as the weight this rule carries in the plan's weighted-mean
+   * score (TT-46, KB-8). Declared here, in the rule's own file, so weighting never needs a shared
+   * table (AGENTS.md). Defaults to 3 for a hard rule and 1 for a soft one
+   * (`DEFAULT_WEIGHT_BY_SEVERITY`). A non-finite, zero or negative value falls back to that
+   * severity's default rather than throwing — this seam is a workshop surface several people add
+   * rules to at once, and a typo taking the whole Plan screen down mid-session is worse than a
+   * mis-weighted score.
    */
   weight?: number
 }

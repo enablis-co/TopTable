@@ -3,6 +3,7 @@ import {
   evaluatePlan,
   hardViolationCount,
   hardViolations,
+  isPublishable,
   seatGuardFrom,
   softViolations,
   tablesWithHardViolation,
@@ -28,6 +29,13 @@ import type { Guest } from '../types'
  * count of what is actually wrong with the seating. Nothing in this file's own fixtures needs the
  * two to differ, so `assessment()` defaults `missed` to the same value as `opportunities` unless a
  * fixture asks for something else; the distinction itself belongs to score.ts's own suite.
+ *
+ * TT-46: an outcome's weight defaults from its own severity now (3 for hard, 1 for soft) rather
+ * than to a single flat default — the existing "declares no weight" test below is corrected for
+ * that, since `makeRule`'s own default severity is `'hard'`. `isPublishable(report)` is new,
+ * beside `hardViolationCount`, and is checked here both against `hardViolationCount(report) === 0`
+ * and — its structural half — without this file ever importing or calling `scorePlan`, so a report
+ * that would score 100 while carrying a hard finding still comes back not publishable.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -250,14 +258,16 @@ describe('evaluatePlan — outcomes: one per rule, in order, whether or not it f
     expect(softViolations(report)).toHaveLength(2)
   })
 
-  it("an outcome's weight is the rule's declared weight, or 1 where it declares none", () => {
-    const weighted = makeRule({ id: 'weighted', weight: 3 })
-    const unweighted = makeRule({ id: 'unweighted' })
+  it("an outcome's weight is the rule's declared weight, or its severity's own default where it declares none — 3 for hard, 1 for soft (TT-46)", () => {
+    const weighted = makeRule({ id: 'weighted', weight: 5 })
+    const unweightedHard = makeRule({ id: 'unweighted-hard', severity: 'hard' })
+    const unweightedSoft = makeRule({ id: 'unweighted-soft', severity: 'soft' })
 
-    const report = evaluatePlan(makePlan(), [weighted, unweighted])
+    const report = evaluatePlan(makePlan(), [weighted, unweightedHard, unweightedSoft])
 
-    expect(report.outcomes.find((outcome) => outcome.ruleId === 'weighted')?.weight).toBe(3)
-    expect(report.outcomes.find((outcome) => outcome.ruleId === 'unweighted')?.weight).toBe(1)
+    expect(report.outcomes.find((outcome) => outcome.ruleId === 'weighted')?.weight).toBe(5)
+    expect(report.outcomes.find((outcome) => outcome.ruleId === 'unweighted-hard')?.weight).toBe(3)
+    expect(report.outcomes.find((outcome) => outcome.ruleId === 'unweighted-soft')?.weight).toBe(1)
   })
 
   it('outcomes.length equals ruleCount for every report, firing or quiet, many rules or none', () => {
@@ -400,6 +410,105 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
     // g-1 is nowhere in makePlan(); a refusal here is only possible if the rule was asked about
     // withSeat's hypothetical, not the plan as handed to the guard.
     expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1') })).toBe(false)
+  })
+})
+
+describe('isPublishable — true exactly when the report carries no hard violation (A7, TT-46)', () => {
+  it('soft violations present and no hard violation makes a report publishable', () => {
+    const softRule = makeRule({
+      id: 'soft-rule',
+      severity: 'soft',
+      evaluate: () =>
+        assessment(
+          Array.from({ length: 12 }, (_, i) => ({ tableIds: ['round-1'], guestIds: [`g-${i}`], message: 'soft finding' })),
+        ),
+    })
+
+    const report = evaluatePlan(makePlan(), [softRule])
+
+    expect(hardViolationCount(report)).toBe(0)
+    expect(isPublishable(report)).toBe(true)
+  })
+
+  it('one hard violation among a dozen soft ones makes a report not publishable', () => {
+    const hardRule = makeRule({
+      id: 'hard-rule',
+      severity: 'hard',
+      evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'hard finding' }]),
+    })
+    const softRule = makeRule({
+      id: 'soft-rule',
+      severity: 'soft',
+      evaluate: () =>
+        assessment(
+          Array.from({ length: 12 }, (_, i) => ({ tableIds: ['round-2'], guestIds: [`s-${i}`], message: 'soft finding' })),
+        ),
+    })
+
+    const report = evaluatePlan(makePlan(), [hardRule, softRule])
+
+    expect(hardViolationCount(report)).toBeGreaterThan(0)
+    expect(isPublishable(report)).toBe(false)
+  })
+
+  it('a report with no findings at all is publishable', () => {
+    const report = evaluatePlan(makePlan(), [makeRule({ id: 'quiet' })])
+
+    expect(isPublishable(report)).toBe(true)
+  })
+
+  it('agrees with hardViolationCount(report) === 0 on every fixture above and a couple more', () => {
+    const fixtures = [
+      evaluatePlan(makePlan(), []),
+      evaluatePlan(makePlan(), [makeRule({ id: 'quiet' })]),
+      evaluatePlan(makePlan(), [
+        makeRule({
+          id: 'hard',
+          severity: 'hard',
+          evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }]),
+        }),
+      ]),
+      evaluatePlan(makePlan(), [
+        makeRule({
+          id: 'soft',
+          severity: 'soft',
+          evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'x' }]),
+        }),
+      ]),
+    ]
+
+    for (const report of fixtures) {
+      expect(isPublishable(report)).toBe(hardViolationCount(report) === 0)
+    }
+  })
+})
+
+describe('isPublishable — structurally independent of the score: it is called with a report alone, and this file never imports scorePlan (A7, TT-46)', () => {
+  it('a report that would score a plain 100 (a hard rule missing 1 of 200 chances — the same no-cap rounding score.test.ts exercises) is still not publishable, because it carries a hard finding', () => {
+    const almostPerfectHardRule = makeRule({
+      id: 'almost-perfect-hard',
+      severity: 'hard',
+      // 1 - 1/200 = 0.995, which rounds to a plain 100 — hand-computed, never actually scored here.
+      evaluate: () => assessment([{ tableIds: ['round-1'], guestIds: ['g-1'], message: 'one hard finding among 200 chances' }], 200, 1),
+    })
+
+    const report = evaluatePlan(makePlan(), [almostPerfectHardRule])
+
+    expect(hardViolationCount(report)).toBe(1)
+    expect(isPublishable(report)).toBe(false)
+  })
+
+  it('a report that would score low (a soft rule missing every chance, with nothing hard at all) is publishable', () => {
+    const failingSoftRule = makeRule({
+      id: 'failing-soft',
+      severity: 'soft',
+      evaluate: () => assessment([], 4, 4), // fit 0.0, a miss without a finding
+    })
+
+    const report = evaluatePlan(makePlan(), [failingSoftRule])
+
+    expect(hardViolationCount(report)).toBe(0)
+    expect(isPublishable(report)).toBe(true)
   })
 })
 

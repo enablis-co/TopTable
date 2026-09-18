@@ -31,6 +31,11 @@ import type { ScenarioState } from '../../store/store'
  * `guests`/`seating` exactly as it always was — so every render call below also gains
  * `pinned={pinnedFixture()}`. Its default `expanded: false` cannot interfere with any assertion
  * already in this file for the same reason the score default could not.
+ *
+ * TT-46: `PlanHeader` gains a required `publishable` prop, so every render call below also gains
+ * `publishable={true}` to satisfy the type. `true` cannot interfere with any assertion already in
+ * this file, since none of them read the publishability line's own words. New coverage is in its
+ * own block below (A8, A6).
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -121,6 +126,7 @@ describe('PlanHeader — the capacity headline (handoff "Canvas header": "78 sea
         unseatedCount={70}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -143,6 +149,7 @@ describe('PlanHeader — the capacity headline (handoff "Canvas header": "78 sea
         unseatedCount={0}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -165,6 +172,7 @@ describe('PlanHeader — the seat figure is normalised, agreeing with the grid (
         unseatedCount={0}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -184,6 +192,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         unseatedCount={70}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(container.textContent).toContain('8 spare')
@@ -200,6 +209,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         unseatedCount={78}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     const text = container.textContent ?? ''
@@ -219,6 +229,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         unseatedCount={80}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -237,6 +248,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         unseatedCount={70}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(container.querySelector('[data-state="slack"]')).not.toBeNull()
@@ -250,6 +262,7 @@ describe('PlanHeader — the qualifier line: three calm states, one of them a wa
         unseatedCount={78}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(container.querySelector('[data-state="exact"]')).not.toBeNull()
@@ -268,6 +281,7 @@ describe('PlanHeader — the composition, after the qualifier, separated by a mi
         unseatedCount={70}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     const text = container.textContent ?? ''
@@ -290,6 +304,7 @@ describe('PlanHeader — the composition, after the qualifier, separated by a mi
         unseatedCount={4}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(container.textContent).not.toContain('×')
@@ -306,6 +321,7 @@ describe('PlanHeader — the composition, after the qualifier, separated by a mi
         unseatedCount={8}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(container.textContent).not.toContain('top table')
@@ -322,6 +338,7 @@ describe('PlanHeader — the composition, after the qualifier, separated by a mi
         unseatedCount={0}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(container.textContent).not.toMatch(/·/)
@@ -346,6 +363,7 @@ describe('PlanHeader — the scenario segment', () => {
         unseatedCount={2}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(container.textContent).toContain(name)
@@ -361,6 +379,7 @@ describe('PlanHeader — the scenario segment', () => {
         unseatedCount={2}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(container.textContent).toContain('Custom')
@@ -376,6 +395,7 @@ describe('PlanHeader — the scenario segment', () => {
         unseatedCount={2}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     const text = container.textContent ?? ''
@@ -408,6 +428,7 @@ describe('PlanHeader — the stat pair: pinned, then unseated (handoff "Canvas h
         unseatedCount={68}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -433,6 +454,7 @@ describe('PlanHeader — every figure that can change is tabular (KB-5)', () => 
         unseatedCount={70}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -460,6 +482,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         unseatedCount={70}
         score={scoreFixture({ value: 82 })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -479,6 +502,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         unseatedCount={70}
         score={scoreFixture({ value: 82 })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -496,6 +520,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         unseatedCount={70}
         score={scoreFixture({ value: 82, expanded: false })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(screen.getByRole('button', { name: /82/ })).toHaveAttribute('aria-expanded', 'false')
@@ -509,6 +534,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         unseatedCount={70}
         score={scoreFixture({ value: 82, expanded: true })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(screen.getByRole('button', { name: /82/ })).toHaveAttribute('aria-expanded', 'true')
@@ -524,6 +550,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         unseatedCount={70}
         score={scoreFixture({ value: 82, expanded: false, panelId: 'the-breakdown-panel' })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(screen.getByRole('button', { name: /82/ })).not.toHaveAttribute('aria-controls')
@@ -537,6 +564,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         unseatedCount={70}
         score={scoreFixture({ value: 82, expanded: true, panelId: 'the-breakdown-panel' })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
     expect(screen.getByRole('button', { name: /82/ })).toHaveAttribute('aria-controls', 'the-breakdown-panel')
@@ -554,6 +582,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         unseatedCount={70}
         score={scoreFixture({ value: 82, onToggle })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -585,6 +614,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         unseatedCount={68}
         score={scoreFixture({ value: null })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -604,6 +634,7 @@ describe('PlanHeader — the score stat (TT-16)', () => {
         unseatedCount={70}
         score={scoreFixture({ value: 82 })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -636,6 +667,7 @@ describe('PlanHeader — the score as a percentage, with no caret (TT-16 part tw
         unseatedCount={70}
         score={scoreFixture({ value: 82 })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -659,6 +691,7 @@ describe('PlanHeader — the score as a percentage, with no caret (TT-16 part tw
         unseatedCount={70}
         score={scoreFixture({ value: 82 })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -675,6 +708,7 @@ describe('PlanHeader — the score as a percentage, with no caret (TT-16 part tw
         unseatedCount={70}
         score={scoreFixture({ value: 82 })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -697,6 +731,7 @@ describe('PlanHeader — the score as a percentage, with no caret (TT-16 part tw
         unseatedCount={70}
         score={scoreFixture({ value: null })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -736,6 +771,7 @@ describe('PlanHeader — the Pinned stat becomes a toggle too (TT-16 part two)',
         unseatedCount={68}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -753,6 +789,7 @@ describe('PlanHeader — the Pinned stat becomes a toggle too (TT-16 part two)',
         unseatedCount={68}
         score={scoreFixture()}
         pinned={pinnedFixture({ expanded: false, panelId: 'the-pinned-panel' })}
+        publishable={true}
       />,
     )
     const collapsed = screen.getByRole('button', { name: /Pinned/ })
@@ -768,6 +805,7 @@ describe('PlanHeader — the Pinned stat becomes a toggle too (TT-16 part two)',
         unseatedCount={68}
         score={scoreFixture()}
         pinned={pinnedFixture({ expanded: true, panelId: 'the-pinned-panel' })}
+        publishable={true}
       />,
     )
     const expanded = screen.getByRole('button', { name: /Pinned/ })
@@ -787,6 +825,7 @@ describe('PlanHeader — the Pinned stat becomes a toggle too (TT-16 part two)',
         unseatedCount={68}
         score={scoreFixture()}
         pinned={pinnedFixture({ onToggle })}
+        publishable={true}
       />,
     )
 
@@ -805,6 +844,7 @@ describe('PlanHeader — the Pinned stat becomes a toggle too (TT-16 part two)',
         unseatedCount={70}
         score={scoreFixture()}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
@@ -823,11 +863,88 @@ describe('PlanHeader — the Pinned stat becomes a toggle too (TT-16 part two)',
         unseatedCount={68}
         score={scoreFixture({ value: 82 })}
         pinned={pinnedFixture()}
+        publishable={true}
       />,
     )
 
     const scoreButton = screen.getByRole('button', { name: /Fit/i })
     const pinnedButton = screen.getByRole('button', { name: /Pinned/ })
     expect(scoreButton).not.toBe(pinnedButton)
+  })
+})
+
+/**
+ * TT-46. The publishability line beside the score (A8), rendered whether or not there is a score
+ * to accompany (A6), and never folded into the Fit toggle's own accessible name.
+ */
+describe('PlanHeader — the publishability line beside the score (A8, TT-46)', () => {
+  const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
+  const guests = makeGuests(70)
+
+  it('renders "Can be published" when publishable, and "Cannot be published" when not, with a real score', () => {
+    const { rerender, container } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+        publishable={true}
+      />,
+    )
+    expect(container.textContent).toContain('Can be published')
+    expect(container.textContent).not.toContain('Cannot be published')
+
+    rerender(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+        publishable={false}
+      />,
+    )
+    expect(container.textContent).toContain('Cannot be published')
+    expect(container.textContent).not.toContain('Can be published')
+  })
+
+  it('still renders the publishability line when the score is null and reads "Nothing to score" (A6)', () => {
+    const { container } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: null })}
+        pinned={pinnedFixture()}
+        publishable={false}
+      />,
+    )
+    expect(container.textContent).toContain('Nothing to score')
+    expect(container.textContent).toContain('Cannot be published')
+  })
+
+  it("the Fit toggle's accessible name is unaffected by publishability — the words are never folded into it", () => {
+    render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+        publishable={false}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /82%.*Fit/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /published/i })).not.toBeInTheDocument()
   })
 })
