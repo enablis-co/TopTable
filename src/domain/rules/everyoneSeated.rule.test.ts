@@ -66,7 +66,7 @@ function makeGuests(count: number, prefix = 'g'): Guest[] {
   return Array.from({ length: count }, (_, index) => makeGuest(`${prefix}-${index}`))
 }
 
-describe('everyone seated — fires when a guest has no seat and the room still has one free (KB-2, 47-A2)', () => {
+describe('everyone seated — fires when a guest has no seat and the room still has one free (KB-2)', () => {
   it('two of four guests unseated, with seats to spare, is exactly one finding', () => {
     const [a, b] = makeGuests(2)
     const table = makeTable('round-1', 4, { 0: a!, 1: b! })
@@ -95,7 +95,7 @@ describe('everyone seated — fires when a guest has no seat and the room still 
   })
 })
 
-describe('everyone seated — quiet when every guest holds a real seat (47-A2)', () => {
+describe('everyone seated — quiet when every guest holds a real seat', () => {
   it('every guest seated, with seats to spare, raises no finding and misses nothing', () => {
     const [a, b] = makeGuests(2)
     const table = makeTable('round-1', 4, { 0: a!, 1: b! })
@@ -108,7 +108,7 @@ describe('everyone seated — quiet when every guest holds a real seat (47-A2)',
   })
 })
 
-describe('everyone seated — a short room raises nothing, however many are left standing (KB-1, KB-2, 47-A3)', () => {
+describe('everyone seated — a short room stays quiet once every seat is filled, however many are left standing (KB-1, KB-2)', () => {
   it('fewer seats than guests, every seat filled, is quiet no matter how many stand', () => {
     const [a, b] = makeGuests(2)
     const table = makeTable('round-1', 2, { 0: a!, 1: b! })
@@ -121,8 +121,10 @@ describe('everyone seated — a short room raises nothing, however many are left
     expect(missed).toBe(0)
     expect(opportunities).toBe(2) // min(guests 5, totalSeats 2)
   })
+})
 
-  it('a short room only partly seated counts the free seats it actually has, never the standing guests', () => {
+describe('everyone seated — a short room still raises the violation while any seat, including a top-table seat, remains free (KB-2)', () => {
+  it('a short room only partly seated counts the free seats it actually has, never the standing guests, and names the true number left standing', () => {
     const [a, b] = makeGuests(2)
     const seatedTable = makeTable('round-1', 3, { 0: a!, 1: b! }) // 1 seat still free here
     const emptyTable = makeTable('round-2', 2, {}) // 2 seats free here
@@ -136,10 +138,15 @@ describe('everyone seated — a short room raises nothing, however many are left
     expect(opportunities).toBe(5) // min(guests 10, totalSeats 5)
     expect(missed).toBe(3)
     expect(findings).toHaveLength(1)
+
+    // The message reports the true number of unseated guests (8), not missed (3, capped by the
+    // free-seat count) — the detail reports the free seats, which is where missed's number lives.
+    expect(findings[0]?.message).toBe('8 guests have no seat')
+    expect(findings[0]?.detail).toBe('3 seats are still free')
   })
 })
 
-describe('everyone seated — a guest in a table\'s overflow is exactly as unseated as one on the unseated list (KB-2, 47-A10)', () => {
+describe('everyone seated — a guest in a table\'s overflow is exactly as unseated as one on the unseated list (KB-2)', () => {
   it('an overflowed guest, with a seat free at another table, is counted as having no seat', () => {
     const [a, b] = makeGuests(2)
     const fullTable = makeTable('round-1', 1, { 0: a! }, [b!]) // b overflows here
@@ -154,7 +161,7 @@ describe('everyone seated — a guest in a table\'s overflow is exactly as unsea
   })
 })
 
-describe('everyone seated — opportunities is a property of the guest list against the room, never of how seated the plan is (KB-8, 47-A8)', () => {
+describe('everyone seated — opportunities is a property of the guest list against the room, never of how seated the plan is (KB-8)', () => {
   it('the same guest list and room give identical opportunities whether the plan is empty or fully seated', () => {
     const guests = makeGuests(3)
     const emptyTable = makeTable('round-1', 5, {})
@@ -179,7 +186,7 @@ describe('everyone seated — opportunities is a property of the guest list agai
     expect(findings).toEqual([])
   })
 
-  it('a room with no seats configured reports zero opportunities, never the raw guest count, and stays quiet (47-A1)', () => {
+  it('a room with no seats configured reports zero opportunities, never the raw guest count, and stays quiet (KB-8)', () => {
     const standing = makeGuests(5)
     const plan: RulePlan = { tables: [], unseated: standing }
 
@@ -191,7 +198,7 @@ describe('everyone seated — opportunities is a property of the guest list agai
   })
 })
 
-describe('everyone seated — pure: deterministic and non-mutating (docs/engineering-standards.md, 47-A9)', () => {
+describe('everyone seated — pure: deterministic and non-mutating (docs/engineering-standards.md)', () => {
   it('evaluating the same plan twice gives an equal assessment', () => {
     const [a] = makeGuests(1)
     const table = makeTable('round-1', 3, { 0: a! })
@@ -212,7 +219,7 @@ describe('everyone seated — pure: deterministic and non-mutating (docs/enginee
   })
 })
 
-describe('everyone seated — through evaluateRegistered-style publishability (47-A5)', () => {
+describe('everyone seated — through evaluateRegistered-style publishability (TT-47, KB-2)', () => {
   it('anybody unseated with a seat free makes the plan unpublishable; fully seating them makes it publishable again', () => {
     const [a, b] = makeGuests(2)
     const shortOfSeated = makeTable('round-1', 3, { 0: a! }) // b has nowhere, one seat still free

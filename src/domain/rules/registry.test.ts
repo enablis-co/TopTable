@@ -154,6 +154,20 @@ function buildPlanWithUnseatedPartner(): RulePlan {
   return { tables: [roundOne], unseated }
 }
 
+/** TT-47's own definition of "seated" against a `RulePlan` (restated here, not imported from
+ *  `planOccupancy`, so this file never depends on reading that function's own source): every
+ *  guest holding a real seat index, plus every table's overflow, plus the plan's own `unseated`
+ *  list. An empty seat slot is not a guest. */
+function countCoverage(plan: RulePlan): { guests: number; seated: number } {
+  let seated = 0
+  let overflowCount = 0
+  for (const table of plan.tables) {
+    seated += table.seats.filter((seat) => seat !== null).length
+    overflowCount += table.overflow.length
+  }
+  return { guests: seated + overflowCount + plan.unseated.length, seated }
+}
+
 function deepFreeze<T>(value: T): T {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
     const record = value as Record<string, unknown>
@@ -242,11 +256,14 @@ describe('the registry is order-independent (docs/engineering-standards.md)', ()
 
   it('scorePlan gives the same score and the same dimensions for the registry in forward and reverse order (TT-16)', () => {
     const plan = buildViolatingPlan()
-    // Hand-counted from buildViolatingPlan() itself (TT-47's own definition of the count,
-    // restated rather than read out of planOccupancy's source): 10 distinct guests across the
-    // plan (r1-a..d, r1-overflow, conflict-a/b, partner-a/b, interloper); 9 of them hold a real
-    // seat index — every one of those ten except r1-overflow, which is in round-1's `overflow`.
-    const coverage = { guests: 10, seated: 9 }
+    // The same coverage value is handed to both the forward and reversed call below, so this
+    // does not check that the figure is the "right" one for buildViolatingPlan() — only that
+    // reversing rule order never moves scorePlan's output for a given coverage. Counting it from
+    // the plan itself, rather than a hand-typed number, at least means a future edit to
+    // buildViolatingPlan() cannot make this value silently wrong (TT-47's own definition of the
+    // count, restated rather than read out of planOccupancy's source: guests holding a real seat
+    // index, plus every table's overflow, plus the plan's own `unseated` list).
+    const coverage = countCoverage(plan)
     const forwardScore = scorePlan(evaluatePlan(plan, REGISTERED_RULES), coverage)
     const reversedScore = scorePlan(evaluatePlan(plan, [...REGISTERED_RULES].reverse()), coverage)
 

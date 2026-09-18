@@ -135,14 +135,14 @@ describe('TT-46 A7/A8 — publishability, driven end to end through the real Pla
     const releaseButton = screen.getByRole('button', { name: /^Release .+ from Table 1, over capacity$/ })
     await user.click(releaseButton)
 
-    // TT-47: releasing that ninth guest's pin clears the capacity violation, but the guest is now
-    // genuinely unseated with dozens of empty seats elsewhere in the room — the everyone-seated
-    // rule (47-A2) picks up exactly where capacity left off, so the plan is still not publishable
-    // from this one action alone.
+    // TT-47 (KB-2): releasing that ninth guest's pin clears the capacity violation, but the guest
+    // is now genuinely unseated with dozens of empty seats elsewhere in the room — the
+    // everyone-seated rule picks up exactly where capacity left off, so the plan is still not
+    // publishable from this one action alone.
     expect(screen.getAllByText('Cannot be published')).toHaveLength(1)
     expect(screen.queryByText('Can be published')).not.toBeInTheDocument()
 
-    // 47-A6: Auto-allocate seats the released guest into one of those free seats, clearing the
+    // TT-47: Auto-allocate seats the released guest into one of those free seats, clearing the
     // last hard violation without any further hand placement.
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
