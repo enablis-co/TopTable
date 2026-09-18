@@ -88,10 +88,8 @@ function pinnedWithoutRoleCount(table: SeatedTable): number {
  * Trap: counting per *seat* of the reduced layout instead erases a miss the moment an unrelated
  * pin lands — best man displaced to a round table, then a civilian hand-pinned into his empty
  * seat, must score the same as the first pin alone; a per-seat count drops best man's seat from
- * the layout and drops the miss with it. `topTableSeatPlacement`'s reduced layout still decides
- * `expectedRole` for the finding checks above, so a plan the solver built correctly is never
- * misread as a violation (TT-49's original defect) — but it decides `expectedRole` only, never
- * the count of chances.
+ * the layout and drops the miss with it. `topTableSeatPlacement`'s reduced layout decides
+ * `expectedRole` for the finding checks above only, never the count of chances.
  *
  * A pin names a table, never a seat index — `allocate` and `seatPins` drop a pinned guest into
  * whichever slot is free — so a pinned occupant's own seat is never judged; only whether that
