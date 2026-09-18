@@ -2,7 +2,7 @@
   "mcpServers": {
     "tickety": {
       "type": "http",
-      "url": "${TICKETY_MCP_URL:-http://localhost:3000/mcp}"
+      "url": "${TICKETY_MCP_URL:-https://tickety.enablis.tech/mcp}"
     }
   }
 }
