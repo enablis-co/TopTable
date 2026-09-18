@@ -131,7 +131,7 @@ export const rule = {
       const { guest } = seat
       const seatLabel = `Seat ${index + 1}`
 
-      if (expectedRole === undefined || !PROTOCOL_ROLE_IDS.has(guest.role)) {
+      if (!PROTOCOL_ROLE_IDS.has(guest.role)) {
         findings.push({
           tableIds: [table.id],
           guestIds: [guest.id],
@@ -139,7 +139,7 @@ export const rule = {
           detail: seatLabel,
         })
         findingSeats.add(index)
-      } else if (guest.role !== expectedRole) {
+      } else if (expectedRole === undefined || guest.role !== expectedRole) {
         findings.push({
           tableIds: [table.id],
           guestIds: [guest.id],
