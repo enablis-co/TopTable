@@ -141,9 +141,12 @@ export type TopTableSeatPlacement = {
   /**
    * Seat indices reserved for a pinned, roleless occupant, one per such occupant in arrival
    * order — outermost first, split as evenly as possible between the two ends, the odd one out
-   * to the right (TT-13's own convention: see `topTableRoleOrder`'s pair-splitting comment).
-   * Shorter than the pinned-without-role count when that count exceeds `capacity`; the remainder
-   * has no seat here and is the caller's overflow to handle.
+   * to the right. That is this function's own choice, not `topTableRoleOrder`'s pair-splitting
+   * reused: nothing in KB-4 says which side an uneven split favours, and the two are mirror
+   * images rather than one convention — `topTableRoleOrder` keeps the lower, left half of a pair
+   * and gives up the right, where here the extra seat goes right. Shorter than the
+   * pinned-without-role count when that count exceeds `capacity`; the remainder has no seat here
+   * and is the caller's overflow to handle.
    */
   pinSeatIndices: readonly number[]
   /**
