@@ -17,29 +17,24 @@ import { NavigationContext } from '../../shell/navigation'
  * The room is 5 round tables of 8 seats plus a 2-seat top table (42 seats), with 10 guests, none
  * of them holding a protocol role and none of them partnered — so partners-adjacent reports 0
  * opportunities throughout (no partner pair to judge) and drops out of the mean. Top-table (TT-49)
- * does not drop out: its opportunities are the table's own capacity, flat, so it always
- * contributes — this guest list holds no protocol role, so its empty seats are never a missed
- * chance, and it scores a clean fit 1.0 throughout. Capacity, everyone-seated and top-table are
- * the three dimensions in the mean below.
+ * drops out too, throughout: a seat is only an opportunity when somebody on the guest list holds
+ * its protocol role (KB-8), and this guest list holds none, whether or not the top table's own two
+ * seats are occupied. Capacity and everyone-seated are the only two dimensions in the mean below.
  *
  * Before allocation (no pins at all), every guest is unseated:
  * - capacity: 6 tables (5 round + 1 top) judged, none over capacity -> fit 1.0, weight 3.
  * - everyone-seated: opportunities = min(guests 10, totalSeats 42) = 10; missed = min(unseated
  *   effective 10, free seats 42) = 10 -> fit 0.0, weight 3.
- * - top-table: capacity 2, empty, list holds no protocol role -> opportunities 2, missed 0,
- *   fit 1.0, weight 3.
- * - mean = (3×1.0 + 3×0.0 + 3×1.0) / 9 = 6/9 = 0.666666...  Coverage factor = 0 seated / 10
- *   guests = 0.
- * - score = round(0.666666... × 0 × 100) = 0 — unchanged by TT-49, the coverage factor of 0
- *   dominates regardless of the mean. Hard violation count = 1 (everyone-seated) -> unpublishable.
+ * - mean = (3×1.0 + 3×0.0) / 6 = 0.5. Coverage factor = 0 seated / 10 guests = 0.
+ * - score = round(0.5 × 0 × 100) = 0 — unchanged by TT-49, the coverage factor of 0 dominates
+ *   regardless of the mean. Hard violation count = 1 (everyone-seated) -> unpublishable.
  *
  * After Auto-allocate, capacity still can't be breached and there are more than enough round-table
  * seats for all 10 guests, and none of them qualify for the reserved top table, so all 10 land on
- * round tables and the top table stays empty:
- * - capacity: fit 1.0. everyone-seated: 10 seated, 0 missed -> fit 1.0. top-table: capacity 2,
- *   still empty, still no protocol role on the list -> fit 1.0.
- * - mean = (3×1.0 + 3×1.0 + 3×1.0) / 9 = 1.0 — unchanged by TT-49, every dimension was already
- *   1.0. Coverage factor = 10/10 = 1. score = round(1.0 × 1 × 100) = 100.
+ * round tables and the top table stays empty, still with nobody on the list to hold its roles:
+ * - capacity: fit 1.0. everyone-seated: 10 seated, 0 missed -> fit 1.0.
+ * - mean = (3×1.0 + 3×1.0) / 6 = 1.0 — unchanged by TT-49, top-table has no opportunities either
+ *   side of Auto-allocate. Coverage factor = 10/10 = 1. score = round(1.0 × 1 × 100) = 100.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {

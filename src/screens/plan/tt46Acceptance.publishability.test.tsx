@@ -38,12 +38,12 @@ import { NavigationContext } from '../../shell/navigation'
  * - everyone-seated: guests 9 (8 seated + 1 overflow), totalSeats 74 (9×8 + 2), seated 8, free
  *   seats 66, so opportunities = min(9, 74) = 9 and missed = min(9-8, 66) = 1 -> fit 1 - 1/9 =
  *   8/9, weight 3.
- * - top-table (TT-49): opportunities is the table's own capacity, flat, not a function of who is
- *   seated — capacity 2, empty throughout, and this guest list holds no protocol role, so nothing
- *   was ever a chance missed -> opportunities 2, missed 0, fit 1.0, weight 3.
- * - mean = (3×0.9 + 3×(8/9) + 3×1.0) / 9 = 251/270 = 0.929629...
+ * - top-table (TT-49): a seat is only an opportunity when somebody on the guest list holds its
+ *   protocol role (KB-8). Nobody in this guest list holds one, so the empty top table gives this
+ *   rule nothing to judge -> opportunities 0, left out of the mean entirely, same as before TT-49.
+ * - mean = (3×0.9 + 3×(8/9)) / 6 = 161/180 = 0.894444...
  * - TT-48's coverage factor is real `planOccupancy`, not a fixture: 8 of the 9 guests are seated,
- *   so the factor is 8/9. score = round(0.929629... × 8/9 × 100) = round(82.6337...) = 83.
+ *   so the factor is 8/9. score = round(0.894444... × 8/9 × 100) = round(79.5061...) = 80.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -121,7 +121,7 @@ describe('TT-46 A7/A8 — publishability, driven end to end through the real Pla
     renderPlanScreen()
 
     const fitToggle = screen.getByRole('button', { name: /Fit/i })
-    expect(fitToggle).toHaveTextContent('83')
+    expect(fitToggle).toHaveTextContent('80')
     expect(screen.getAllByText('Cannot be published')).toHaveLength(1)
     expect(screen.queryByText('Can be published')).not.toBeInTheDocument()
 
