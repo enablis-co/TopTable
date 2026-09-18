@@ -1,5 +1,6 @@
 import { PROTOCOL_ROLES } from '../types'
 import { topTableRoleOrder } from '../seating'
+import type { SeatedTable } from '../seating'
 import type { Finding, RulePlan, SeatingRule } from './contract'
 
 /** Every role KB-4 gives a top table seat, for an O(1) "does this guest hold one" check. */
@@ -33,6 +34,22 @@ function protocolRolesOnGuestList(plan: RulePlan): ReadonlySet<string> {
 }
 
 /**
+ * Protocol roles held by someone actually occupying a top table seat — pinned or not, right seat
+ * or wrong. Reads `table.seats` only: `overflow` holds no seat index, so a role holder bumped
+ * there is not "at the top table" for this purpose, only for `protocolRolesOnGuestList`'s wider
+ * "held somewhere" check above.
+ */
+function protocolRolesSeatedAtTopTable(table: SeatedTable): ReadonlySet<string> {
+  const roles = new Set<string>()
+  for (const seat of table.seats) {
+    if (seat && PROTOCOL_ROLE_IDS.has(seat.guest.role)) {
+      roles.add(seat.guest.role)
+    }
+  }
+  return roles
+}
+
+/**
  * KB-2, hard: the top table holds only guests with a protocol role, in KB-4's order. Reads
  * `topTableRoleOrder` — TT-13's own definition of that order — so the placement and this check
  * can never disagree.
@@ -49,13 +66,12 @@ function protocolRolesOnGuestList(plan: RulePlan): ReadonlySet<string> {
  * overrides, so restoring the check to match that page would make every hand-pinned top table
  * seat a hard violation.
  *
- * `opportunities` (TT-49, KB-8) counts a top-table seat when `topTableRoleOrder` names it a
- * protocol role somebody on this guest list holds, or when the seat fires a finding below — so
- * `findings.length <= missed <= opportunities` (`contract.ts`) holds by construction, even for an
- * unpinned interloper in a seat whose own role nobody holds. `missed` counts a seat as a chance
- * lost when it is empty and its role is held, when it fires a finding, or when it is pinned to
- * someone other than that seat's own role holder while the role is held — a pin never fires a
- * finding, but a chance the guest list gave and the plan did not take is still a miss (KB-8).
+ * `opportunities`/`missed` (TT-49, KB-8) score presence, not position. A seat is a chance only
+ * when `topTableRoleOrder` names a role somebody on the guest list holds, or when the seat fires
+ * a finding above. A pin names a table, never a seat index — `allocate` and `seatPins` drop a
+ * pinned guest into whichever slot is free — so a pinned occupant's own seat is never judged;
+ * only whether that role's holder sits *somewhere* at the top table is. `findings.length <=
+ * missed <= opportunities` (`contract.ts`) holds because each fact is read once, never summed twice.
  */
 export const rule = {
   id: 'top-table',
@@ -78,66 +94,51 @@ export const rule = {
     const expected = topTableRoleOrder(table.capacity)
     const rolesOnGuestList = protocolRolesOnGuestList(plan)
     const roleHeld = expected.map((role) => rolesOnGuestList.has(role))
+    const seatedAtTopTable = protocolRolesSeatedAtTopTable(table)
     const findings: Finding[] = []
     let opportunities = 0
     let missed = 0
 
     table.seats.forEach((seat, index) => {
       const expectedRole = expected[index]
+      let firesFinding = false
 
-      if (!seat) {
-        // Empty and held is a chance this list gave the table and the plan did not take.
-        if (roleHeld[index]) {
-          opportunities += 1
-          missed += 1
-        }
-        return
-      }
-
-      if (seat.pinned) {
-        // A pin never fires a finding (TT-14): a human instruction, not a breach. But KB-8 scores
-        // a chance given and not taken as a miss regardless of why, so the pin only takes the
-        // chance when it seats this seat's own role holder — that guest is necessarily counted in
-        // `rolesOnGuestList`, so the role is held here too. Anyone else pinned into a seat whose
-        // role is held is quiet, but still a chance missed, exactly as an empty held seat would be.
+      // A pin fires no finding (TT-14): a human instruction, not a breach. An empty seat fires
+      // none either — there is no occupant to complain about. Only an unpinned occupant can.
+      if (seat && !seat.pinned) {
         const { guest } = seat
-        if (expectedRole !== undefined && guest.role === expectedRole) {
-          opportunities += 1
-        } else if (roleHeld[index]) {
-          opportunities += 1
-          missed += 1
+        const seatLabel = `Seat ${index + 1}`
+
+        if (expectedRole === undefined || !PROTOCOL_ROLE_IDS.has(guest.role)) {
+          firesFinding = true
+          findings.push({
+            tableIds: [table.id],
+            guestIds: [guest.id],
+            message: `${guest.name} is not a top table role`,
+            detail: seatLabel,
+          })
+        } else if (guest.role !== expectedRole) {
+          firesFinding = true
+          findings.push({
+            tableIds: [table.id],
+            guestIds: [guest.id],
+            message: `${guest.name} is in the wrong top table seat`,
+            detail: `${seatLabel}, expected ${expectedRole}`,
+          })
         }
-        return
       }
 
-      const { guest } = seat
-      const seatLabel = `Seat ${index + 1}`
+      // A seat is a chance only when its own role is held by someone on the list, or when it
+      // fires a finding above — a pinned occupant's seat index was never a decision, so it is
+      // judged by presence at the top table, not by where the solver happened to leave it.
+      const isOpportunity = (expectedRole !== undefined && roleHeld[index]) || firesFinding
+      if (!isOpportunity) return
 
-      if (expectedRole === undefined || !PROTOCOL_ROLE_IDS.has(guest.role)) {
-        // A finding is always a chance this rule had, whether or not the seat's own role is held
-        // by anyone on the list — otherwise a miss could be reported with no opportunity behind
-        // it (contract.ts's `missed <= opportunities`).
-        opportunities += 1
+      opportunities += 1
+
+      const holderAbsent = expectedRole !== undefined && roleHeld[index] && !seatedAtTopTable.has(expectedRole)
+      if (firesFinding || holderAbsent) {
         missed += 1
-        findings.push({
-          tableIds: [table.id],
-          guestIds: [guest.id],
-          message: `${guest.name} is not a top table role`,
-          detail: seatLabel,
-        })
-      } else if (guest.role !== expectedRole) {
-        opportunities += 1
-        missed += 1
-        findings.push({
-          tableIds: [table.id],
-          guestIds: [guest.id],
-          message: `${guest.name} is in the wrong top table seat`,
-          detail: `${seatLabel}, expected ${expectedRole}`,
-        })
-      } else {
-        // Correctly filled: the occupant holds this seat's own role, so that role is necessarily
-        // held on the guest list — a chance this plan took.
-        opportunities += 1
       }
     })
 
