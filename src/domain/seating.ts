@@ -137,6 +137,50 @@ export function topTableRoleOrder(topTableSeats: number): readonly ProtocolRole[
   return positions.sort((a, b) => a - b).map(roleAtPosition)
 }
 
+export type TopTableSeatPlacement = {
+  /**
+   * Seat indices reserved for a pinned, roleless occupant, one per such occupant in arrival
+   * order — outermost first, split as evenly as possible between the two ends, the odd one out
+   * to the right (TT-13's own convention: see `topTableRoleOrder`'s pair-splitting comment).
+   * Shorter than the pinned-without-role count when that count exceeds `capacity`; the remainder
+   * has no seat here and is the caller's overflow to handle.
+   */
+  pinSeatIndices: readonly number[]
+  /**
+   * Seat index -> the protocol role KB-4 gives it once `pinSeatIndices` claim their seats,
+   * `undefined` where no role applies — a pin seat, or a seat beyond `topTableRoleOrder`'s reach.
+   * Always exactly `capacity` entries, index 0 is seat 1.
+   */
+  roleAt: readonly (ProtocolRole | undefined)[]
+}
+
+/**
+ * The single definition of where a pinned, roleless occupant sits and where KB-4's roles land
+ * once that many seats are taken — used by both `allocate.ts`'s solver and the top-table rule
+ * (TT-49), so a plan is graded against the layout the solver actually produces rather than the
+ * full-size order shifted into fewer slots. `pinnedWithoutRoleCount` is capped at `capacity`
+ * before anything is placed; a caller with more pinned-without-role guests than that decides for
+ * itself what happens to the rest (`allocate.ts` overflows them).
+ */
+export function topTableSeatPlacement(capacity: number, pinnedWithoutRoleCount: number): TopTableSeatPlacement {
+  const seats = normaliseCount(capacity)
+  const seatedPinCount = Math.min(normaliseCount(pinnedWithoutRoleCount), seats)
+  const outerLeft = Math.floor(seatedPinCount / 2)
+  const outerRight = seatedPinCount - outerLeft
+
+  const pinSeatIndices: number[] = []
+  for (let index = 0; index < seatedPinCount; index++) {
+    pinSeatIndices.push(index < outerLeft ? index : seats - outerRight + (index - outerLeft))
+  }
+
+  const roleAt = new Array<ProtocolRole | undefined>(seats).fill(undefined)
+  topTableRoleOrder(seats - seatedPinCount).forEach((role, index) => {
+    roleAt[outerLeft + index] = role
+  })
+
+  return { pinSeatIndices, roleAt }
+}
+
 /** The seat indices next to `seatIndex`. Round tables are a ring, the top table a line. */
 export function adjacentSeats(table: SeatedTable, seatIndex: number): number[] {
   const { capacity, kind } = table
