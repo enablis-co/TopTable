@@ -1344,13 +1344,21 @@ describe('PlanScreen — the violations panel is the third column, beside the ra
     expect(screen.getByRole('heading', { name: 'Violations' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Unseated' })).toBeInTheDocument()
     expect(tables().length).toBeGreaterThan(0)
-    // Capacity, top table and partners adjacent.
-    expect(document.body.textContent).toContain('3 rules registered')
+    // Capacity, everyone-seated (TT-47), partners adjacent and top table.
+    expect(document.body.textContent).toContain('4 rules registered')
   })
 
-  it('renders no violation entries and reads its clean-plan sentence in words, with nothing seated yet', () => {
+  // TT-47 (KB-2, "A guest with no seat is a violation wherever the room still has an empty seat"):
+  // three guests, nobody seated, in a room with plenty of spare capacity is no longer a clean
+  // reading on its own — that is exactly the state everyone-seated exists to flag. Pinning every
+  // guest to a table with room to spare is what gives this smoke test a genuinely clean plan to
+  // read wiring against post-TT-47.
+  it('renders no violation entries and reads its clean-plan sentence in words, once the guest list is fully seated', () => {
     useTopTableStore.getState().setRoom({ roundTables: 2, seatsEach: 4, topTableSeats: 4 })
     useTopTableStore.getState().setGuests(makeGuests(3))
+    useTopTableStore.getState().pinGuest('g-0', 'round-1')
+    useTopTableStore.getState().pinGuest('g-1', 'round-1')
+    useTopTableStore.getState().pinGuest('g-2', 'round-1')
     renderPlanScreen()
 
     expect(violationEntries()).toHaveLength(0)

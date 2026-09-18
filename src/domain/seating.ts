@@ -255,3 +255,40 @@ export function seatPins(room: RoomConfig, guests: Guest[], pins: Pin[]): Seatin
 
   return { tables: slots.map((slot) => tableFor(tables, slot.id)), unseated }
 }
+
+export type PlanOccupancy = {
+  /** Every guest the plan knows about: seated + overflow + unseated. */
+  guests: number
+  /** Guests holding a real seat index. A guest in a table's `overflow` does not count — pinned
+   *  to a table with no room left is not a seat. */
+  seated: number
+  /** Sum of every table's capacity. */
+  totalSeats: number
+  /** `totalSeats - seated`. */
+  freeSeats: number
+}
+
+/**
+ * The one definition of "seated" (TT-47, TT-48), shared by `everyoneSeated.rule.ts` and
+ * `score.ts` so the rule that flags an unseated guest and the factor that scales the score for
+ * one can never disagree about who counts. Typed against a structural `Pick`, not `RulePlan`
+ * from `./rules/contract` — that file imports from here, and importing back would be a cycle.
+ */
+export function planOccupancy(plan: Pick<SeatingPlan, 'tables' | 'unseated'>): PlanOccupancy {
+  let seated = 0
+  let overflow = 0
+  let totalSeats = 0
+
+  for (const table of plan.tables) {
+    totalSeats += table.capacity
+    seated += table.seats.filter((seat) => seat !== null).length
+    overflow += table.overflow.length
+  }
+
+  return {
+    guests: seated + overflow + plan.unseated.length,
+    seated,
+    totalSeats,
+    freeSeats: totalSeats - seated,
+  }
+}
