@@ -1,9 +1,36 @@
 import { PROTOCOL_ROLES } from '../types'
 import { topTableRoleOrder } from '../seating'
-import type { Finding, SeatingRule } from './contract'
+import type { Finding, RulePlan, SeatingRule } from './contract'
 
 /** Every role KB-4 gives a top table seat, for an O(1) "does this guest hold one" check. */
 const PROTOCOL_ROLE_IDS = new Set<string>(PROTOCOL_ROLES)
+
+/**
+ * Every protocol role somebody on this guest list actually holds — walked from every table's
+ * seats and overflow, plus the unseated, so a role nobody holds is never counted as a chance
+ * (A4). Private to this file, on `partnersAdjacent.rule.ts`'s `knownGuestsById`: a rule stays
+ * self-contained rather than sharing a helper across two files.
+ */
+function protocolRolesOnGuestList(plan: RulePlan): ReadonlySet<string> {
+  const roles = new Set<string>()
+  const record = (role: string) => {
+    if (PROTOCOL_ROLE_IDS.has(role)) roles.add(role)
+  }
+
+  for (const table of plan.tables) {
+    for (const seat of table.seats) {
+      if (seat) record(seat.guest.role)
+    }
+    for (const seat of table.overflow) {
+      record(seat.guest.role)
+    }
+  }
+  for (const guest of plan.unseated) {
+    record(guest.role)
+  }
+
+  return roles
+}
 
 /**
  * KB-2, hard: the top table holds only guests with a protocol role, in KB-4's order. Reads
@@ -20,34 +47,44 @@ const PROTOCOL_ROLE_IDS = new Set<string>(PROTOCOL_ROLES)
  * overrides, so restoring the check to match that page would make every hand-pinned top table
  * seat a hard violation.
  *
- * `opportunities` (TT-16) is the count of non-pinned occupied top-table seats — exactly the set
- * the `forEach` below judges, counted in that same pass. No top table, or a top table whose
- * every occupant is pinned, reports 0. `missed` equals `findings.length`: every judged seat
- * produces at most one finding, so the two count the same thing one-to-one. This rule scores
- * like any other (TT-46, KB-8). It declares no `weight`, so it takes the hard default of 3.
+ * `opportunities` (TT-49, KB-8) is the top table's capacity, flat — never a function of who is
+ * seated or pinned, so an incomplete plan cannot outscore a complete one. `missed` counts a seat
+ * as a chance lost only when the guest list holds that seat's protocol role: an occupied,
+ * unpinned seat that fires a finding, or an empty seat whose role somebody on the list holds. A
+ * role nobody holds costs nothing while its seat sits empty.
  */
 export const rule = {
   id: 'top-table',
   severity: 'hard',
-  remedy: 'seating',
+  // No longer in seatGuardFrom's set — inert only because allocate.ts's phase 4 (the only phase
+  // that calls allowSeat) is round tables only. A top table becoming a fill destination must
+  // re-examine this; allocateWithRules.test.ts is the suite that would catch it.
+  remedy: 'flag',
   description: 'The top table contains only guests holding a protocol role, in the protocol order',
   evaluate: (plan) => {
     const table = plan.tables.find((candidate) => candidate.kind === 'top')
     if (!table) return { findings: [], opportunities: 0, missed: 0 }
 
     const expected = topTableRoleOrder(table.capacity)
+    const rolesOnGuestList = protocolRolesOnGuestList(plan)
+    const opportunities = table.capacity
     const findings: Finding[] = []
-    let opportunities = 0
+    let missed = 0
 
     table.seats.forEach((seat, index) => {
-      if (!seat || seat.pinned) return
-      opportunities += 1
+      const expectedRole = expected[index]
+
+      if (!seat) {
+        if (expectedRole !== undefined && rolesOnGuestList.has(expectedRole)) missed += 1
+        return
+      }
+      if (seat.pinned) return
 
       const { guest } = seat
-      const expectedRole = expected[index]
       const seatLabel = `Seat ${index + 1}`
 
       if (expectedRole === undefined || !PROTOCOL_ROLE_IDS.has(guest.role)) {
+        missed += 1
         findings.push({
           tableIds: [table.id],
           guestIds: [guest.id],
@@ -55,6 +92,7 @@ export const rule = {
           detail: seatLabel,
         })
       } else if (guest.role !== expectedRole) {
+        missed += 1
         findings.push({
           tableIds: [table.id],
           guestIds: [guest.id],
@@ -64,6 +102,6 @@ export const rule = {
       }
     })
 
-    return { findings, opportunities, missed: findings.length }
+    return { findings, opportunities, missed }
   },
 } satisfies SeatingRule
