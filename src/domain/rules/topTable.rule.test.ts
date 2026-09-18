@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { rule as topTableRule } from './topTable.rule'
 import { allocate } from '../allocate'
-import { planOccupancy, seatPins, topTableRoleOrder } from '../seating'
+import { planOccupancy, seatPins, topTableRoleOrder, topTableSeatPlacement } from '../seating'
 import type { Seat, SeatedTable } from '../seating'
 import { PROTOCOL_ROLES } from '../types'
 import type { Guest, RoomConfig } from '../types'
@@ -57,7 +57,20 @@ import { scorePlan } from './score'
  * finding; their own designated seat is not a second miss once they are present anywhere at this
  * same top table, because presence, not placement, is what an otherwise-quiet seat judges.
  *
- * Written from TT-14's and TT-49's acceptance criteria and KB-8. Does not open topTable.rule.ts.
+ * TT-49's fifth defect (found after presence-not-position landed): a pinned, roleless occupant
+ * does not merely take a spare seat — `topTableSeatPlacement(capacity, pinnedWithoutRoleCount)`
+ * (`seating.ts`) reserves outer seats for such pins and re-centres `topTableRoleOrder` into
+ * whatever seats remain, dropping the outermost role(s) from the *physical layout* entirely at
+ * some capacities. The rule does not grade against that reduced layout, though: opportunities are
+ * still counted over the *full* `topTableRoleOrder(capacity)`, so a role the reduction drops from
+ * the seats is still a chance the guest list gets, and still a miss if nobody holding it is seated
+ * anywhere at the top table. The reduced layout is used only to tell a wrongly-seated occupant from
+ * a correctly-seated one. Fixtures below that involve a roleless pin are built by calling
+ * `topTableSeatPlacement` directly, rather than guessing which seats it reserves, because a hand-
+ * guessed layout is a state `allocate` and `seatPins` cannot actually produce.
+ *
+ * Written from TT-14's and TT-49's acceptance criteria and KB-8. Does not open topTable.rule.ts,
+ * allocate.ts's seatTopTable, or topTableSeatPlacement's body (its signature and doc comment only).
  */
 
 const [, , , GROOM, BRIDE] = PROTOCOL_ROLES
@@ -132,6 +145,21 @@ function emptyTopTable(capacity: number): SeatedTable {
  *  Capped at eight guests, whatever `capacity` is, because `topTableRoleOrder` never names more. */
 function roleHolders(capacity: number, idPrefix: string): Guest[] {
   return topTableRoleOrder(capacity).map((role, index) => makeGuest(`${idPrefix}-${index}-${role}`, { role }))
+}
+
+/** A top table built exactly to `topTableSeatPlacement`'s own layout: each seat it reserves for a
+ *  pin holds a pinned, roleless guest, and every other seat holds the correct holder of the role
+ *  `topTableSeatPlacement` gives it there — the only shape a table with this many roleless pins
+ *  and a full guest list can actually be in, whichever of `allocate` or `seatPins` built it. */
+function seatByPlacement(capacity: number, pinnedWithoutRoleCount: number, pinIdPrefix: string): SeatedTable {
+  const placement = topTableSeatPlacement(capacity, pinnedWithoutRoleCount)
+  const pinSeats = new Set(placement.pinSeatIndices)
+  const seats: (Seat | null)[] = placement.roleAt.map((role, index) => {
+    if (pinSeats.has(index)) return { guest: makeGuest(`${pinIdPrefix}-${index}`), pinned: true }
+    if (role) return { guest: makeGuest(`holder-of-${role}`, { role }), pinned: false }
+    return null
+  })
+  return { id: 'top', kind: 'top', number: null, label: 'Top table', capacity, seats, overflow: [] }
 }
 
 /** The first `n` of `holders` seated at seats 0..n-1 (their correct seats, by construction —
@@ -410,17 +438,11 @@ describe('top table — opportunities never counts a seat past the eighth, howev
     expect(findings).toEqual([])
   })
 
-  it('the same ten-seat table fully occupied — eight correct role holders and two guests hand-pinned into the seats past the eighth — still reports eight opportunities, not ten', () => {
-    const holders = roleHolders(10, 'wide-full')
-    const base = seatFirstN(10, holders, 8)
-    const table: SeatedTable = {
-      ...base,
-      seats: base.seats.map((seat, index) => {
-        if (index === 8) return { guest: makeGuest('wide-extra-a'), pinned: true }
-        if (index === 9) return { guest: makeGuest('wide-extra-b'), pinned: true }
-        return seat
-      }),
-    }
+  it('the same ten-seat table fully occupied — eight correct role holders in the seats topTableSeatPlacement gives their roles, and two guests hand-pinned into the outer seats it reserves for them — still reports eight opportunities, not ten', () => {
+    // topTableSeatPlacement(10, 2), not a hand-built guess: a lone pin at seat 9 and another at
+    // seat 10 (the shape the two failing tests this replaces assumed) is not a layout `allocate`
+    // or `seatPins` can produce — the reservation is outermost-first, split across both ends.
+    const table = seatByPlacement(10, 2, 'wide-extra')
 
     const { findings, opportunities, missed } = topTableRule.evaluate({ tables: [table], unseated: [] })
 
@@ -442,25 +464,28 @@ describe('top table — a pinned seat is a missed chance only when it does not h
     expect(findings).toEqual([])
   })
 
-  it("a civilian hand-pinned into the chief bridesmaid's seat costs the chance but stays quiet — the chief bridesmaid herself is on the guest list, just not seated, and the pin exempts the finding, not the miss", () => {
-    const seated = topTableSeatedByProtocol(8)
-    const chiefBridesmaidSeat = seated.seats[0]
-    if (!chiefBridesmaidSeat) throw new Error('expected the chief bridesmaid seat to be filled')
-    const chiefBridesmaid = chiefBridesmaidSeat.guest
-    const civilian = makeGuest('pinned-into-wrong-seat')
-    const table: SeatedTable = {
-      ...seated,
-      seats: seated.seats.map((seat, index) => (index === 0 ? { guest: civilian, pinned: true } : seat)),
-    }
-    const plan: RulePlan = { tables: [table], unseated: [chiefBridesmaid] }
+  it("a civilian hand-pinned into the one seat topTableSeatPlacement reserves for a roleless pin — the last seat, not the chief bridesmaid's — costs the chance for whichever role the reduction drops from the layout, but stays quiet: that role's holder is on the guest list, just not seated, and the pin exempts the finding, not the miss", () => {
+    // A lone roleless pin at capacity 8 is not seated in an arbitrary protocol seat with that
+    // seat's rightful holder simply displaced (the shape the failing test this replaces assumed);
+    // topTableSeatPlacement(8, 1) reserves one specific seat for it and re-centres the other seven
+    // roles into what remains, which drops exactly one role from the physical layout. Which role
+    // that is comes from the placement itself, not a hard-coded assumption.
+    const table = seatByPlacement(8, 1, 'pinned-into-reserved-seat')
+    const seatedRoles = new Set(
+      table.seats.flatMap((seat) => (seat && !seat.pinned && seat.guest.role !== 'guest' ? [seat.guest.role] : [])),
+    )
+    const droppedRole = topTableRoleOrder(8).find((role) => !seatedRoles.has(role))
+    if (!droppedRole) throw new Error('expected the pin reservation to drop exactly one protocol role at capacity 8')
+    const droppedRoleHolder = makeGuest(`holder-of-${droppedRole}`, { role: droppedRole })
+    const plan: RulePlan = { tables: [table], unseated: [droppedRoleHolder] }
 
     const { findings, opportunities, missed } = topTableRule.evaluate(plan)
 
-    // The seat is a genuine opportunity (the chief bridesmaid is on the guest list) and the
-    // civilian pinned into it is not her, so it is missed — but the pin still buys quiet: no
-    // finding, exactly as TT-14 decided. A plan that scored this seat as a chance taken would
-    // let displacing a role holder and hand-pinning someone else in score no worse than leaving
-    // the seat alone, which is the inversion TT-49 exists to close.
+    // The dropped role is still a genuine opportunity — its holder is on the guest list — and she
+    // is not seated anywhere at this top table, so it is missed; the pin on the reserved seat is
+    // unrelated to her and stays quiet regardless, exactly as TT-14 decided. A plan that scored the
+    // reserved seat as a chance taken, or that lost the dropped role's miss because the layout no
+    // longer names it a seat, would let a pin-reduced table read cleaner than it is.
     expect(opportunities).toBe(8)
     expect(missed).toBe(1)
     expect(findings).toEqual([])
@@ -855,4 +880,117 @@ describe('top table — quiet on the real top table allocate produces for each s
     expect(findings).toEqual([])
     expect(missed).toBe(0)
   })
+})
+
+describe('top table — the solver and the rule agree: allocate with no pins touching the top table never produces a top-table finding, for every KB-4 capacity (TT-49; the property that would have caught the root cause in round one)', () => {
+  const CAPACITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
+
+  it.each(CAPACITIES)(
+    'capacity %i: every role topTableRoleOrder names is on the guest list, unpinned, alongside two civilians on round tables — no findings',
+    (capacity) => {
+      const room: RoomConfig = { roundTables: 2, seatsEach: 6, topTableSeats: capacity }
+      const holders = roleHolders(capacity, `agree-full-${capacity}`)
+      const civilians = [makeGuest(`agree-full-${capacity}-civilian-a`), makeGuest(`agree-full-${capacity}-civilian-b`)]
+
+      const plan = allocate(room, [...holders, ...civilians], [])
+
+      expect(topTableRule.evaluate(plan).findings).toEqual([])
+    },
+  )
+
+  it.each(CAPACITIES)(
+    'capacity %i: only half of the roles topTableRoleOrder names are on the guest list at all — the rest of the table sits genuinely empty, still no findings',
+    (capacity) => {
+      const room: RoomConfig = { roundTables: 2, seatsEach: 6, topTableSeats: capacity }
+      const fullOrder = roleHolders(capacity, `agree-half-${capacity}`)
+      const holders = fullOrder.slice(0, Math.ceil(fullOrder.length / 2))
+      const civilians = [makeGuest(`agree-half-${capacity}-civilian-a`), makeGuest(`agree-half-${capacity}-civilian-b`)]
+
+      const plan = allocate(room, [...holders, ...civilians], [])
+
+      expect(topTableRule.evaluate(plan).findings).toEqual([])
+    },
+  )
+})
+
+describe('top table — inversion sweep: removing a role holder from the top table, or hand-pinning an extra guest onto it, never raises the fit, for every KB-4 capacity through both builders (TT-49; the property that broke five times)', () => {
+  const CAPACITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
+
+  /** Fit as KB-8 defines it for this rule: 1 minus the miss rate, or null when the guest list gave
+   *  this dimension no chance at all — the same "left out of the mean" case TT-46 and TT-49 both
+   *  turn on, so a fixture with zero opportunities is a fixture-building mistake here, not a state
+   *  either sweep is meant to exercise. */
+  function requireFit(plan: RulePlan): number {
+    const { opportunities, missed } = topTableRule.evaluate(plan)
+    if (opportunities === 0) throw new Error('expected this fixture to give the top-table rule at least one opportunity')
+    return 1 - missed / opportunities
+  }
+
+  it.each(CAPACITIES)(
+    'capacity %i, through allocate: pinning a role holder away to a round table never raises the fit',
+    (capacity) => {
+      const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: capacity }
+      const holders = roleHolders(capacity, `sweep-allocate-remove-${capacity}`)
+      const [holder] = holders
+      if (!holder) throw new Error('expected at least one protocol role at every KB-4 capacity from 1 to 10')
+
+      const baseline = requireFit(allocate(room, holders, []))
+      const displaced = requireFit(allocate(room, holders, [{ guestId: holder.id, tableId: 'round-1' }]))
+
+      expect(displaced).toBeLessThanOrEqual(baseline)
+    },
+  )
+
+  it.each(CAPACITIES)(
+    'capacity %i, through allocate: hand-pinning an extra role-free guest onto the top table never raises the fit',
+    (capacity) => {
+      const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: capacity }
+      const holders = roleHolders(capacity, `sweep-allocate-addpin-${capacity}`)
+      const civilian = makeGuest(`sweep-allocate-addpin-${capacity}-civilian`)
+      const guests = [...holders, civilian]
+
+      const baseline = requireFit(allocate(room, guests, []))
+      const withExtraPin = requireFit(allocate(room, guests, [{ guestId: civilian.id, tableId: 'top' }]))
+
+      expect(withExtraPin).toBeLessThanOrEqual(baseline)
+    },
+  )
+
+  it.each(CAPACITIES)(
+    'capacity %i, through seatPins: unpinning a role holder from the top table never raises the fit',
+    (capacity) => {
+      const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: capacity }
+      const holders = roleHolders(capacity, `sweep-seatpins-remove-${capacity}`)
+      const [holder] = holders
+      if (!holder) throw new Error('expected at least one protocol role at every KB-4 capacity from 1 to 10')
+      const allPinnedToTop = holders.map((guest) => ({ guestId: guest.id, tableId: 'top' }))
+      const oneMovedToRound = [
+        { guestId: holder.id, tableId: 'round-1' },
+        ...allPinnedToTop.filter((pin) => pin.guestId !== holder.id),
+      ]
+
+      const baseline = requireFit(seatPins(room, holders, allPinnedToTop))
+      const displaced = requireFit(seatPins(room, holders, oneMovedToRound))
+
+      expect(displaced).toBeLessThanOrEqual(baseline)
+    },
+  )
+
+  it.each(CAPACITIES)(
+    'capacity %i, through seatPins: hand-pinning an extra role-free guest onto the top table never raises the fit',
+    (capacity) => {
+      const room: RoomConfig = { roundTables: 1, seatsEach: 8, topTableSeats: capacity }
+      const holders = roleHolders(capacity, `sweep-seatpins-addpin-${capacity}`)
+      const civilian = makeGuest(`sweep-seatpins-addpin-${capacity}-civilian`)
+      const allPinnedToTop = holders.map((guest) => ({ guestId: guest.id, tableId: 'top' }))
+      const guests = [...holders, civilian]
+
+      const baseline = requireFit(seatPins(room, guests, allPinnedToTop))
+      const withExtraPin = requireFit(
+        seatPins(room, guests, [...allPinnedToTop, { guestId: civilian.id, tableId: 'top' }]),
+      )
+
+      expect(withExtraPin).toBeLessThanOrEqual(baseline)
+    },
+  )
 })
