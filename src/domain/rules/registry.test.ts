@@ -62,20 +62,10 @@ function seatOccupant(guest: Guest): Seat {
 
 /**
  * Deliberately breaks every hard/seating rule TT-14 registers — an over-capacity round table and
- * two protocol-role holders swapped into each other's top-table seats — plus a conflicting pair
- * sharing a table, for whichever future rule reads `conflictsWith` (KB-2). Also carries a seated
- * partner pair, apart, so partners-adjacent (TT-16's one scoring soft rule today) has something
- * real to judge. So the conformance checks below have something real to check, for today's rules
- * and tomorrow's.
- *
- * The top table carries a swap, not a single occupant holding no protocol role at all (TT-49;
- * KB-8): this rule's opportunities come from the guest list, and an unpinned occupant who is not
- * their seat's role holder is a miss regardless of whether that seat's own role is held, so a
- * lone interloper leaves her own seat as a miss with no matching opportunity — a state `allocate`
- * and a hand pin can never actually produce, since a hand pin exempts the seat entirely and
- * `allocate` only ever seats a role holder in their own seat. A two-person swap keeps every
- * wrongly-occupied seat's own role held by the other guest in the pair, which is the shape this
- * rule's `findings.length <= missed <= opportunities` invariant holds for below.
+ * a non-protocol occupant at the top table — plus a conflicting pair sharing a table, for
+ * whichever future rule reads `conflictsWith` (KB-2). Also carries a seated partner pair, apart,
+ * so partners-adjacent (TT-16's one scoring soft rule today) has something real to judge. So the
+ * conformance checks below have something real to check, for today's rules and tomorrow's.
  */
 function buildViolatingPlan(): RulePlan {
   const roundOne: SeatedTable = {
@@ -119,19 +109,7 @@ function buildViolatingPlan(): RulePlan {
     number: null,
     label: 'Top table',
     capacity: 8,
-    // Seat 0 is the chief bridesmaid's, seat 4 the bride's (topTableRoleOrder(8)). Swapped, both
-    // unpinned: each fires in the seat they are wrongly sitting in, and each one's own seat's role
-    // is held by the other, so no seat here is a miss without also being a counted opportunity.
-    seats: [
-      seatOccupant(makeGuest('swapped-bride', { role: 'bride' })),
-      null,
-      null,
-      null,
-      seatOccupant(makeGuest('swapped-chief-bridesmaid', { role: 'chief bridesmaid' })),
-      null,
-      null,
-      null,
-    ],
+    seats: [seatOccupant(makeGuest('interloper')), null, null, null, null, null, null, null],
     overflow: [],
   }
 

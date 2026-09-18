@@ -23,22 +23,18 @@ import type { RulePlan } from './contract'
  * exceptions" — this is a recorded divergence from that wording, not a misreading of it. Every
  * test below that turns on pinned-vs-not is named TT-14 for that reason.
  *
- * TT-49 (KB-8): a top-table seat is an opportunity when `topTableRoleOrder(capacity)` names it a
- * protocol role and somebody on the guest list — seated anywhere, in overflow, or in
- * `plan.unseated` — holds that role. Occupancy and pins never decide it, and a table wider than
- * eight seats can never carry more than eight opportunities, because `topTableRoleOrder` never
- * names a role past the eighth.
- *
- * Missed is counted seat by seat, not gated behind that seat being an opportunity: an empty seat
- * is missed only when it is one (KB-8's "given the guest list"), but an occupied, unpinned seat
- * holding someone who is not that seat's own role holder is a miss and a finding regardless of
- * whether that seat's own role is held by anyone (findings are untouched by this ticket). So a
- * plan can report more misses than opportunities where an unpinned occupant sits in a seat whose
- * own role nobody holds — a state neither `allocate` nor a hand pin can ever produce (a hand pin
- * exempts the seat entirely, and `allocate` only ever seats a role holder in their own seat), which
- * is why every fixture below that puts an unpinned wrong occupant in a seat also gives that seat's
- * own role a holder somewhere else on the list. `evaluate` now takes the full `RulePlan` (tables
- * and `unseated`), not just `{ tables }`.
+ * TT-49 (KB-8): a top-table seat is an opportunity when either `topTableRoleOrder(capacity)`
+ * names it a protocol role that somebody on the guest list — seated anywhere, in overflow, or in
+ * `plan.unseated` — holds, OR the seat itself fires a finding under this rule (an unpinned
+ * occupant who is not that seat's own role holder). Missed is the same seat under the same two
+ * conditions: empty while its own role is held, or firing a finding. A finding therefore always
+ * counts as both an opportunity and a miss, by construction, so `findings.length <= missed <=
+ * opportunities` cannot fail the way it once did for an unpinned interloper sitting in a seat
+ * whose own role nobody on the guest list held — that seat used to be a miss with no opportunity
+ * to have earned it, because opportunities came from the guest list alone. Occupancy and pins
+ * otherwise still never decide opportunities on their own, and a table wider than eight seats can
+ * never carry more than eight, because `topTableRoleOrder` never names a role past the eighth.
+ * `evaluate` takes the full `RulePlan` (tables and `unseated`), not just `{ tables }`.
  *
  * Written from TT-14's and TT-49's acceptance criteria and KB-8. Does not open topTable.rule.ts.
  */
@@ -500,6 +496,33 @@ describe("top table — a role holder wrongly seated can cost two chances at onc
     )
     expect(opportunities).toBe(4)
     expect(missed).toBe(4)
+  })
+})
+
+describe("top table — an unpinned interloper in a seat whose own role nobody holds is still an opportunity, not only a miss (TT-49: the case that broke the invariant twice)", () => {
+  it("a top table of six: an unpinned non-protocol occupant sits in a seat whose own protocol role nobody on the guest list holds, while the one role the list does hold — the bride's — is genuinely unseated. The interloper's own seat is an opportunity because it fires a finding, not because its role is held, so findings.length <= missed <= opportunities still holds", () => {
+    const roles6 = topTableRoleOrder(6)
+    const brideIndex = roles6.indexOf(BRIDE)
+    const interloperIndex = brideIndex === 0 ? 1 : 0
+    const bride = makeGuest('invariant-bride', { role: BRIDE })
+    const interloper = makeGuest('invariant-interloper')
+    const seats: (Seat | null)[] = new Array<Seat | null>(6).fill(null)
+    seats[interloperIndex] = { guest: interloper, pinned: false }
+    const table: SeatedTable = { id: 'top', kind: 'top', number: null, label: 'Top table', capacity: 6, seats, overflow: [] }
+    const plan: RulePlan = { tables: [table], unseated: [bride] }
+
+    const { findings, opportunities, missed } = topTableRule.evaluate(plan)
+
+    expect(findings).toHaveLength(1)
+    expect(findings[0]?.guestIds).toEqual(['invariant-interloper'])
+    // The interloper's own seat's role is held by nobody on this guest list, so it earns its
+    // opportunity only by firing a finding — the case that broke the invariant before this fix,
+    // and the bride's seat is the one genuinely held opportunity/miss the old, correct half of
+    // the rule already counted.
+    expect(opportunities).toBe(2)
+    expect(missed).toBe(2)
+    expect(findings.length).toBeLessThanOrEqual(missed)
+    expect(missed).toBeLessThanOrEqual(opportunities)
   })
 })
 
