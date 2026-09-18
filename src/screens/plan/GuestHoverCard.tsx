@@ -1,7 +1,8 @@
-import type { CSSProperties } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Tag } from '../../ui'
 import type { Guest } from '../../domain/types'
 import type { SummaryField } from './guestSummary'
+import { hoverCardPosition } from './hoverCardPosition'
 import styles from './GuestHoverCard.module.css'
 
 type GuestHoverCardProps = {
@@ -9,55 +10,6 @@ type GuestHoverCardProps = {
   guest: Guest
   fields: SummaryField[]
   anchor: DOMRect | null
-}
-
-const GAP = 8
-const EDGE_MARGIN = 16
-
-/**
- * TT-36. Positioned `fixed` from `anchor`, flipping so the card never covers the seat or row it
- * describes — the one criterion this file cannot prove on its own (jsdom does no layout,
- * `docs/engineering-standards.md`); this is the geometry a browser pass measures against.
- *
- * The card is placed entirely beside `anchor` — to whichever side has more room — never above or
- * below it, so it can never overlap the anchor horizontally regardless of the card's own
- * rendered size (text wrapping, the guest's own field count). `maxWidth` is the room actually
- * measured on the chosen side, floored at zero and never at some preferred minimum: a floor
- * above the true measurement would let the card claim width the viewport doesn't have, rendering
- * part of it off-screen — the never-overlap property is worth keeping even at the cost of a
- * narrow card on a narrow viewport, never the other way round.
- *
- * Vertically it anchors from whichever edge of the viewport has more room, `top` or `bottom`,
- * rather than a fixed height. There is deliberately no `max-height`/`overflow-y` pairing here any
- * more: this card only ever opens on hover or focus and closes the moment the pointer or focus
- * leaves its anchor, before either could ever reach the card itself to scroll it — a scrollbar
- * neither gesture can trigger is a false affordance, not a safety net. Letting the card take
- * whatever height its own content needs is the honest version of "handle a guest with a lot to
- * show".
- */
-function positionStyle(anchor: DOMRect | null): CSSProperties {
-  if (!anchor) return { display: 'none' }
-
-  const viewportWidth = window.innerWidth
-  const viewportHeight = window.innerHeight
-
-  const roomRight = viewportWidth - anchor.right - GAP - EDGE_MARGIN
-  const roomLeft = anchor.left - GAP - EDGE_MARGIN
-  const placeRight = roomRight >= roomLeft
-
-  const horizontal: CSSProperties = placeRight
-    ? { left: anchor.right + GAP, maxWidth: Math.max(roomRight, 0) }
-    : { right: viewportWidth - anchor.left + GAP, maxWidth: Math.max(roomLeft, 0) }
-
-  const roomBelow = viewportHeight - anchor.top - EDGE_MARGIN
-  const roomAbove = anchor.bottom - EDGE_MARGIN
-  const placeBelow = roomBelow >= roomAbove
-
-  const vertical: CSSProperties = placeBelow
-    ? { top: Math.max(EDGE_MARGIN, anchor.top) }
-    : { bottom: Math.max(EDGE_MARGIN, viewportHeight - anchor.bottom) }
-
-  return { position: 'fixed', ...horizontal, ...vertical }
 }
 
 /**
@@ -76,10 +28,44 @@ function positionStyle(anchor: DOMRect | null): CSSProperties {
  *
  * Canvas zone: `--surface` against `--rule`, no shadow — depth is the border and the colour step
  * against `--paper`, never a drop shadow (KB-5).
+ *
+ * Positioned `fixed` by `hoverCardPosition`, clamped against the card's own measured height so
+ * it is always fully on screen when it can be, and never covers the seat or row it describes —
+ * the one criterion this file cannot prove on its own (jsdom does no layout,
+ * `docs/engineering-standards.md`), so a browser pass measures it.
+ *
+ * The height is not known at first render, so it is measured in a `useLayoutEffect`: before
+ * paint, so no wrong position is ever painted, and off `getBoundingClientRect` for the border
+ * box, since the content box omits the padding and border.
+ *
+ * **The trap:** the measured height must never be allowed to depend on the position computed
+ * from it, or this effect feeds itself. `top` alone cannot resize a `position: fixed` element,
+ * so it holds today; a `max-height` derived from the position would break it. `hoverCardStyles.test.ts`
+ * is what keeps that out.
+ *
+ * There is no `max-height`/`overflow-y` pairing here: the card opens on hover or focus and closes
+ * the moment either leaves the anchor, so neither can ever reach the card to scroll it. A
+ * scrollbar nothing can trigger is a false affordance, so a card too tall for the window keeps
+ * its name and clips its tail instead.
  */
 export function GuestHoverCard({ id, guest, fields, anchor }: GuestHoverCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [cardHeight, setCardHeight] = useState(0)
+
+  // Measures every commit on purpose. The rule's suggested `[]` would measure once and never
+  // again, so a taller guest would be placed against the previous one's height. What bounds the
+  // chain is that the height cannot depend on the position (see above); the equality guard below
+  // only saves a render React would otherwise bail out of itself.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate; see above
+  useLayoutEffect(() => {
+    const measured = cardRef.current?.getBoundingClientRect().height ?? 0
+    setCardHeight((previous) => (previous === measured ? previous : measured))
+  })
+
+  const style = hoverCardPosition(anchor, cardHeight, { width: window.innerWidth, height: window.innerHeight })
+
   return (
-    <div id={id} role="group" aria-label={`Summary for ${guest.name}`} className={styles.card} style={positionStyle(anchor)}>
+    <div id={id} role="group" aria-label={`Summary for ${guest.name}`} className={styles.card} style={style} ref={cardRef}>
       <p className={styles.name}>{guest.name}</p>
       <dl className={styles.fields}>
         {fields.map((field) =>
