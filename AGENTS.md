@@ -66,7 +66,6 @@ Read the failure rather than working around it:
 
 | Error | Meaning |
 |---|---|
-| `ENOTFOUND tickety.enablis.co` | A stale override, from before the host was deployed. It is `tickety.enablis.tech` now; drop the override rather than correcting it |
 | `ECONNREFUSED 127.0.0.1:3000` | An override points at a local Tickety, and it is not running, or not on port 3000 |
 | A 4xx or 5xx from `tickety.enablis.tech` | The deployed host is up but unhappy. Not something this repo can fix; say so rather than falling back to a local one |
 | Tools absent entirely | The server failed at startup, or the project's MCP servers are unapproved |
@@ -97,16 +96,8 @@ link. `TT-24` names `KB-4` in a comment and links nothing.
 ## Ground rules
 
 - **A thin ticket is thin on purpose.** `TT-24` and `TT-25` have a title and nothing else because
-  someone else writes that specification. Never fill one in, and never invent an acceptance
-  criterion to have something to build.
-- **Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP: drag and
-  drop, undo, catering output, export, print, sharing and accounts. Those are on the board under
-  `TT-23`, `TT-25` and `TT-31` to `TT-34`, which is exactly the child set of the `TT-30`
-  Enhancements epic — so ask the board for TT-30's children rather than trusting that range here.
-  **Every rule on KB-2 is in the MVP**, at the severity KB-2 gives it: `TT-14` builds the engine
-  and the first three, `TT-17` to `TT-22` add the remaining six, and `TT-16` scores a plan rather
-  than being a rule. All of those are `TT-10`'s children, so a seating rule is never "ahead of the
-  board" — it is someone else's ticket. This line is a summary, and it has gone stale twice.
+  someone else writes that specification. Propose the criteria rather than assuming them: draft
+  them, say the ticket did not carry them, and get the user's approval before anything is built.
 - **The allocation engine is pure domain logic.** No rendering, no React, no store. Rules do not
   mutate the plan, do not depend on the order they run in, and produce the same result twice.
 - **Adding a rule must not require editing a shared file.** Several people add rules at once.
@@ -202,22 +193,3 @@ This file is the entry point and stays short enough to be read. The standards be
 
 Nothing in `docs/` restates a requirement. Requirements live in Tickety, and a copy is a copy that
 goes stale.
-
-## Where this is incomplete
-
-`src/ui/` (tokens, base styles, the shared components) and `src/shell/` (the header and the tab
-frame) exist now; TT-7 built them. The setup screen is TT-3 and has landed; TT-4 has added the
-scenario cards to it. Guests is TT-5 and TT-6 and has landed. The Plan screen's floorplan is TT-11
-and has landed; placing is TT-12 and has landed too. The seating model is TT-13 and has landed,
-in `src/domain/seating.ts` (the model and the table address) and `src/domain/allocate.ts` (the
-solver and the rule seam); the rules engine (TT-14) and the table detail (TT-15) have not.
-
-The store's write surface is `setEventName`, `setRoom`, `setGuests`, `importScenario`, `reset`,
-`addGuest`, `updateGuest`, `removeGuest`, `pinGuest`, `unpinGuest` and `clearPins`. `addGuest`,
-`updateGuest` and `removeGuest` are thin delegates onto `src/domain/guests.ts`, which owns
-reciprocal `partnerOf` and `conflictsWith` and is the only place that logic lives; `pinGuest` and
-`unpinGuest` are the same onto `src/domain/pins.ts`; `clearPins` (TT-37) is not, because emptying
-a list owns no behaviour worth a domain function. See [docs/state.md](docs/state.md).
-
-The hosting stack is TT-41 and has landed, in `infra/hosting.yaml`, with the first-apply ordering
-in `infra/README.md`. Publishing `main` is TT-42 and previews are TT-43, and neither has.

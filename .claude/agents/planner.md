@@ -57,11 +57,9 @@ returns summaries only. Read any hit properly with `getJiraIssue`.
 ## Rules that constrain every plan
 
 - **A thin ticket is thin on purpose.** `TT-24` and `TT-25` have a title and nothing else because
-  someone else writes that specification. Never fill one in. Never invent an acceptance criterion
-  to have something to build.
-- **Never plan ahead of the board.** What is out of the MVP, and which tickets own it, is in
-  `docs/engineering-standards.md` under Scope. If your plan needs one of them, say so and stop; do
-  not fold it in.
+  someone else writes that specification. The criteria are yours to draft, not yours to assume:
+  propose them, say plainly that the ticket did not carry them, and stop there for approval. Do
+  not hand on a plan that reads as though the ticket supplied them.
 - **Say which ticket owns each boundary.** When a criterion tempts you past the ticket's edge,
   name the ticket that owns it instead.
 - **Verify any claim you use to forbid a change, or to reuse something that already exists.**
