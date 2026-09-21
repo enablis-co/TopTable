@@ -35,6 +35,14 @@ import { NavigationContext } from '../../shell/navigation'
  * means null is now reached only when there are no tables at all (an unconfigured room), never
  * merely by a guest list with no partner data: a fixture that used to read "Nothing to score" for
  * that reason now scores honestly on capacity alone.
+ *
+ * TT-49: a top-table seat is only ever an opportunity when somebody on the guest list holds its
+ * protocol role (KB-8) — never a function of the table's capacity alone, and never of who is
+ * seated or pinned there. Every fixture in this file carries a 2-seat top table on a guest list
+ * holding no protocol role at all, so top-table reports 0 opportunities at every site below,
+ * whatever is seated on it, and drops out of the mean exactly as it did before TT-49 existed.
+ * None of this file's figures move for that reason — each is re-checked below against KB-8's
+ * formula rather than assumed unchanged.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -360,9 +368,12 @@ describe('placing a guest changes the score shown in the header with no further 
     // (TT-46): two tables judged (round-1, top), neither over capacity, fit 1.0, weight 3.
     // TT-47's everyone-seated also scores: 2 guests, 1 seated (a), 4 total seats, 3 free — a is
     // seated and b is not, so opportunities = min(2, 4) = 2, missed = min(1, 3) = 1, fit 0.5,
-    // weight 3. Mean = (3×1.0 + 3×0.5 + 1×0.0) / (3+3+1) = 4.5/7 = 0.642857...
+    // weight 3. TT-49's top-table does not score here: neither partner holds a protocol role, so
+    // nobody on the guest list holds either of the top table's two roles, and it has 0
+    // opportunities — left out of the mean, same as before TT-49.
+    // Mean = (3×1.0 + 3×0.5 + 1×0.0) / (3+3+1) = 4.5/7 = 0.642857...
     // TT-48 scales that by coverage: 1 of 2 guests seated -> factor 0.5.
-    // score = round(0.642857... × 0.5 × 100) = round(32.142...) = 32 — the toggle renders, and
+    // score = round(0.642857... × 0.5 × 100) = round(32.1428...) = 32 — the toggle renders, and
     // "Nothing to score" is absent.
     expect(document.body.textContent).not.toContain('Nothing to score')
     expect(scoreToggle()).toHaveTextContent('32')
@@ -372,8 +383,10 @@ describe('placing a guest changes the score shown in the header with no further 
 
     // Table 1 has only 2 seats — with both partners now seated there, they are necessarily
     // adjacent (a ring of two), so partners-adjacent is now a clean fit too: 1 opportunity, 0
-    // missed, fit 1.0. Everyone-seated is also clean now: both guests seated, fit 1.0. Mean =
-    // (3×1.0 + 3×1.0 + 1×1.0) / 7 = 1.0, coverage factor 2/2 = 1 -> the plan score is exactly 100.
+    // missed, fit 1.0. Everyone-seated is also clean now: both guests seated, fit 1.0. Top-table
+    // (TT-49) still has nothing to judge — placing Partner B doesn't give either of them a
+    // protocol role. Mean = (3×1.0 + 3×1.0 + 1×1.0) / (3+3+1) = 1.0, coverage factor 2/2 = 1 ->
+    // the plan score is exactly 100.
     expect(scoreToggle()).toHaveTextContent('100')
   })
 })
@@ -398,10 +411,13 @@ describe('clearing the allocation does not null the score while the guest list s
     // TT-47's everyone-seated scores too: with the pins cleared, both guests are genuinely
     // unseated in a 6-seat room (1×4 round + 2 top) — opportunities = min(2, 6) = 2, missed =
     // min(2, 6) = 2, fit 0.0, weight 3.
+    // TT-49's top-table still has nothing to judge: neither guest holds a protocol role, so it
+    // has 0 opportunities and is left out of the mean, same as before TT-49.
     // Mean = (3×1.0 + 3×0.0 + 1×0.0) / (3+3+1) = 3/7 = 0.428571...
     // TT-48's coverage factor is 0 seated / 2 guests = 0, so the final figure is
-    // round(0.428571... × 0 × 100) = 0 — never null, since real dimensions still exist. The
-    // breakdown's own guard only clears on a null score, so it is expected to stay open.
+    // round(0.428571... × 0 × 100) = 0 — the coverage factor of 0 dominates whatever the mean is.
+    // Never null, since real dimensions still exist. The breakdown's own guard only clears on a
+    // null score, so it is expected to stay open.
     expect(document.body.textContent).not.toContain('Nothing to score')
     expect(openColumnStates()).toEqual(['breakdown'])
     expect(scoreToggle()).toHaveTextContent('0')
@@ -591,8 +607,9 @@ describe('the Pinned toggle works regardless of the score, which is no longer nu
 
     // TT-16's soft-only score read null here — no partner pairs, so partners-adjacent had nothing
     // to judge. TT-46 also scores capacity: two tables judged (round-1, top), neither over
-    // capacity, fit 1.0 at the hard default weight of 3 — the only contributing dimension, so the
-    // mean is exactly that dimension's own fit: 100.
+    // capacity, fit 1.0 at the hard default weight of 3. TT-49's top-table has nothing to judge
+    // either — the solo guest holds no protocol role, so it has 0 opportunities and drops out of
+    // the mean, leaving capacity as the mean's only dimension: 1.0, so 100.
     expect(document.body.textContent).not.toContain('Nothing to score')
     expect(queryScoreToggle()).not.toBeNull()
     expect(scoreToggle()).toHaveTextContent('100')
@@ -633,6 +650,8 @@ describe('removeGuest dropping the guest list\'s last partner pair no longer nul
     // Partners-adjacent: a/b both unseated, fit 0.0, weight 1.
     // TT-47's everyone-seated: 3 guests, 1 seated (c), 6 total seats, 5 free -> opportunities =
     // min(3, 6) = 3, missed = min(2, 5) = 2, fit 1 - 2/3 = 0.333333..., weight 3.
+    // TT-49's top-table has nothing to judge: none of a, b or c holds a protocol role, so it has
+    // 0 opportunities and is left out of the mean.
     // Mean = (3×1.0 + 3×0.333333... + 1×0.0) / (3+3+1) = 4/7 = 0.571428...
     // TT-48's coverage factor: 1 of 3 guests seated -> 0.333333...
     // score = round(0.571428... × 0.333333... × 100) = round(19.0476...) = 19.
@@ -653,6 +672,8 @@ describe('removeGuest dropping the guest list\'s last partner pair no longer nul
     // TT-47's everyone-seated still scores too, now over 2 guests: 1 seated (c), b still
     // genuinely unseated, 6 total seats, 5 free -> opportunities = min(2, 6) = 2,
     // missed = min(1, 5) = 1, fit 0.5, weight 3.
+    // TT-49's top-table still has nothing to judge — removing a touches no protocol role, and
+    // nobody left on the list holds one either.
     // Mean = (3×1.0 + 3×0.5) / (3+3) = 4.5/6 = 0.75.
     // TT-48's coverage factor: 1 of 2 guests seated -> 0.5.
     // score = round(0.75 × 0.5 × 100) = round(37.5) = 38 — never null (TT-46) — this is the

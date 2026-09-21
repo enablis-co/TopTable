@@ -8,6 +8,7 @@ import {
   seatPins,
   tablesInRoom,
   topTableRoleOrder,
+  topTableSeatPlacement,
 } from './seating'
 import type { SeatedTable, TableKind } from './seating'
 import { PROTOCOL_ROLES } from './types'
@@ -461,7 +462,7 @@ describe('seatPins — the plan a hand pin alone describes (TT-12, relocated)', 
  * than typed out again, so a typo in that one source would surface as a mismatched seat here
  * rather than vanishing into a silently empty one.
  */
-const [CHIEF_BRIDESMAID, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM] =
+const [CHIEF_BRIDESMAID, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM, BEST_MAN] =
   PROTOCOL_ROLES
 
 function isSubsequenceOfProtocolRoles(roles: readonly ProtocolRole[]): boolean {
@@ -563,6 +564,198 @@ describe('topTableRoleOrder — the order is not negotiable, checked structurall
       expect(isSubsequenceOfProtocolRoles(order)).toBe(true)
     },
   )
+})
+
+/**
+ * `topTableSeatPlacement` is the single definition both `allocate.ts`'s solver and the top-table
+ * rule (TT-49) read for where a pinned, roleless occupant sits and where KB-4's roles land in
+ * whatever seats remain. Every row below is transcribed by hand from its doc comment — the
+ * reserved seats are the outermost ones, split as evenly as possible between the two ends with
+ * the odd one out to the right, reported here in ascending seat order; the remaining roles come
+ * from `topTableRoleOrder` for however many seats are left over, placed left to right into
+ * whichever seats the reservation did not claim — not read back from the function itself, so a
+ * circular fixture can't hide a placement defect from these cases.
+ */
+describe('topTableSeatPlacement — pinSeatIndices and roleAt, hand-pinned for every capacity 1 to 10 against 0 to 3 roleless pins', () => {
+  it.each([
+    // [capacity, pinnedWithoutRoleCount, pinSeatIndices, roleAt]
+    [1, 0, [], [GROOM]],
+    [1, 1, [0], [undefined]],
+    [1, 2, [0], [undefined]],
+    [1, 3, [0], [undefined]],
+
+    [2, 0, [], [GROOM, BRIDE]],
+    [2, 1, [1], [GROOM, undefined]],
+    [2, 2, [0, 1], [undefined, undefined]],
+    [2, 3, [0, 1], [undefined, undefined]],
+
+    [3, 0, [], [MOTHER_OF_BRIDE, GROOM, BRIDE]],
+    [3, 1, [2], [GROOM, BRIDE, undefined]],
+    [3, 2, [0, 2], [undefined, GROOM, undefined]],
+    [3, 3, [0, 1, 2], [undefined, undefined, undefined]],
+
+    [4, 0, [], [MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE]],
+    [4, 1, [3], [MOTHER_OF_BRIDE, GROOM, BRIDE, undefined]],
+    [4, 2, [0, 3], [undefined, GROOM, BRIDE, undefined]],
+    [4, 3, [0, 2, 3], [undefined, GROOM, undefined, undefined]],
+
+    [5, 0, [], [FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE]],
+    [5, 1, [4], [MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, undefined]],
+    [5, 2, [0, 4], [undefined, MOTHER_OF_BRIDE, GROOM, BRIDE, undefined]],
+    [5, 3, [0, 3, 4], [undefined, GROOM, BRIDE, undefined, undefined]],
+
+    [6, 0, [], [FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM]],
+    [6, 1, [5], [FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, undefined]],
+    [6, 2, [0, 5], [undefined, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, undefined]],
+    [6, 3, [0, 4, 5], [undefined, MOTHER_OF_BRIDE, GROOM, BRIDE, undefined, undefined]],
+
+    [7, 0, [], [CHIEF_BRIDESMAID, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM]],
+    [7, 1, [6], [FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM, undefined]],
+    [7, 2, [0, 6], [undefined, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, undefined]],
+    [7, 3, [0, 5, 6], [undefined, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, undefined, undefined]],
+
+    [
+      8,
+      0,
+      [],
+      [CHIEF_BRIDESMAID, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM, BEST_MAN],
+    ],
+    [
+      8,
+      1,
+      [7],
+      [CHIEF_BRIDESMAID, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM, undefined],
+    ],
+    [8, 2, [0, 7], [undefined, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM, undefined]],
+    [8, 3, [0, 6, 7], [undefined, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, undefined, undefined]],
+
+    [
+      9,
+      0,
+      [],
+      [
+        CHIEF_BRIDESMAID,
+        FATHER_OF_GROOM,
+        MOTHER_OF_BRIDE,
+        GROOM,
+        BRIDE,
+        FATHER_OF_BRIDE,
+        MOTHER_OF_GROOM,
+        BEST_MAN,
+        undefined,
+      ],
+    ],
+    [
+      9,
+      1,
+      [8],
+      [
+        CHIEF_BRIDESMAID,
+        FATHER_OF_GROOM,
+        MOTHER_OF_BRIDE,
+        GROOM,
+        BRIDE,
+        FATHER_OF_BRIDE,
+        MOTHER_OF_GROOM,
+        BEST_MAN,
+        undefined,
+      ],
+    ],
+    [
+      9,
+      2,
+      [0, 8],
+      [undefined, CHIEF_BRIDESMAID, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM, undefined],
+    ],
+    [
+      9,
+      3,
+      [0, 7, 8],
+      [undefined, FATHER_OF_GROOM, MOTHER_OF_BRIDE, GROOM, BRIDE, FATHER_OF_BRIDE, MOTHER_OF_GROOM, undefined, undefined],
+    ],
+
+    [
+      10,
+      0,
+      [],
+      [
+        CHIEF_BRIDESMAID,
+        FATHER_OF_GROOM,
+        MOTHER_OF_BRIDE,
+        GROOM,
+        BRIDE,
+        FATHER_OF_BRIDE,
+        MOTHER_OF_GROOM,
+        BEST_MAN,
+        undefined,
+        undefined,
+      ],
+    ],
+    [
+      10,
+      1,
+      [9],
+      [
+        CHIEF_BRIDESMAID,
+        FATHER_OF_GROOM,
+        MOTHER_OF_BRIDE,
+        GROOM,
+        BRIDE,
+        FATHER_OF_BRIDE,
+        MOTHER_OF_GROOM,
+        BEST_MAN,
+        undefined,
+        undefined,
+      ],
+    ],
+    [
+      10,
+      2,
+      [0, 9],
+      [
+        undefined,
+        CHIEF_BRIDESMAID,
+        FATHER_OF_GROOM,
+        MOTHER_OF_BRIDE,
+        GROOM,
+        BRIDE,
+        FATHER_OF_BRIDE,
+        MOTHER_OF_GROOM,
+        BEST_MAN,
+        undefined,
+      ],
+    ],
+    [
+      10,
+      3,
+      [0, 8, 9],
+      [
+        undefined,
+        CHIEF_BRIDESMAID,
+        FATHER_OF_GROOM,
+        MOTHER_OF_BRIDE,
+        GROOM,
+        BRIDE,
+        FATHER_OF_BRIDE,
+        MOTHER_OF_GROOM,
+        undefined,
+        undefined,
+      ],
+    ],
+  ] as const)('capacity %i, %i roleless pins', (capacity, pinnedWithoutRoleCount, pinSeatIndices, roleAt) => {
+    expect(topTableSeatPlacement(capacity, pinnedWithoutRoleCount)).toEqual({ pinSeatIndices, roleAt })
+  })
+
+  it('pinnedWithoutRoleCount exceeding capacity still returns exactly capacity roleAt entries, and pinSeatIndices no longer than capacity', () => {
+    const placement = topTableSeatPlacement(3, 9)
+
+    expect(placement.roleAt).toHaveLength(3)
+    expect(placement.pinSeatIndices.length).toBeLessThanOrEqual(3)
+  })
+
+  it('is deterministic: the same capacity and count produce a deeply equal result twice', () => {
+    expect(topTableSeatPlacement(8, 2)).toEqual(topTableSeatPlacement(8, 2))
+  })
 })
 
 /** A minimal table fixture for adjacentSeats — only kind and capacity affect its geometry. */

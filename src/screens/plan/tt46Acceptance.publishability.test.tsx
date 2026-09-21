@@ -38,6 +38,9 @@ import { NavigationContext } from '../../shell/navigation'
  * - everyone-seated: guests 9 (8 seated + 1 overflow), totalSeats 74 (9×8 + 2), seated 8, free
  *   seats 66, so opportunities = min(9, 74) = 9 and missed = min(9-8, 66) = 1 -> fit 1 - 1/9 =
  *   8/9, weight 3.
+ * - top-table (TT-49): a seat is only an opportunity when somebody on the guest list holds its
+ *   protocol role (KB-8). Nobody in this guest list holds one, so the empty top table gives this
+ *   rule nothing to judge -> opportunities 0, left out of the mean entirely, same as before TT-49.
  * - mean = (3×0.9 + 3×(8/9)) / 6 = 161/180 = 0.894444...
  * - TT-48's coverage factor is real `planOccupancy`, not a fixture: 8 of the 9 guests are seated,
  *   so the factor is 8/9. score = round(0.894444... × 8/9 × 100) = round(79.5061...) = 80.
