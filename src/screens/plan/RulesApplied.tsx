@@ -37,8 +37,9 @@ function rulesBySeverity(): Map<Severity, SeatingRule[]> {
  * CSS Modules does not scope, so reusing that attribute would paint an unviolated rule with the
  * violation left-bar and wash. Severity is carried by the group heading word alone (KB-5).
  *
- * `role="list"` is explicit because `.items` is `list-style: none`, which WebKit takes as licence
- * to strip list semantics — and here each group's accessible name is doing real work.
+ * The groups keep their markers (`list-style: disc`), so no explicit `role="list"` is needed —
+ * that workaround exists for the `list-style: none` lists elsewhere in this folder, which WebKit
+ * takes as licence to strip list semantics.
  */
 export function RulesApplied() {
   const groups = rulesBySeverity()
@@ -59,7 +60,7 @@ export function RulesApplied() {
             <h4 id={groupHeadingId} className={styles.groupHeading}>
               {SEVERITY_LABEL[severity]}
             </h4>
-            <ul role="list" aria-labelledby={groupHeadingId} className={styles.items}>
+            <ul aria-labelledby={groupHeadingId} className={styles.items}>
               {rules.map((rule) => (
                 <li key={rule.id} className={styles.item}>
                   {rule.description}

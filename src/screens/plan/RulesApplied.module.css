@@ -27,17 +27,25 @@
   color: var(--ink);
 }
 
+/* The only list in the app with markers — every other one is list-style: none. Deliberate: a
+   rule here is a sentence, several of them wrap to two lines, and the bullet is what tells one
+   rule's second line from the next rule's first.
+
+   Not display: flex, unlike the other lists in this folder. A flex container blockifies its
+   children, which drops `display: list-item` and takes the ::marker with it, so the spacing
+   below is done with a margin instead of a gap. The marker inherits --ink-muted from .item. */
 .items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-1);
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding: 0 0 0 var(--s-4);
+  list-style: disc;
 }
 
 .item {
   margin: 0;
   font: var(--t-caption);
   color: var(--ink-muted);
+}
+
+.item + .item {
+  margin-top: var(--s-1);
 }
