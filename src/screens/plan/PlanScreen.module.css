@@ -76,9 +76,17 @@
   padding: var(--s-5) var(--s-6);
 }
 
+/* overflow-y/min-height are the same fix `.canvas` above carries, on the column that did not
+   need it until TT-53's rule list gave this one ~240px of height on every plan, clean or not.
+   Measured at 1280x800 with ten rules registered and four violations listed: content 874px
+   against a 746px `.layout`, escaping to AppShell's <main> and scrolling the floorplan out of
+   view with it. min-height: 0 is what lets this box be shorter than its content; overflow-y is
+   what makes the excess its own scroll region rather than the page's. */
 .violations {
   flex: none;
   width: 300px;
+  min-height: 0;
+  overflow-y: auto;
   background: var(--surface);
   border-left: 1px solid var(--rule);
 }
@@ -111,6 +119,9 @@
 
   .violations {
     width: auto;
+    /* Stacked, the page scrolls and this column takes its own content height — an internal
+       scroll region here would be a second scrollbar inside the first. */
+    overflow-y: visible;
     border-left: none;
     border-top: 1px solid var(--rule);
   }

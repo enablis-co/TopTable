@@ -4,6 +4,7 @@ import { ViolationsPanel } from './ViolationsPanel'
 import { tabularClass } from '../../ui'
 import type { RuleReport } from '../../domain/rules/engine'
 import type { Violation } from '../../domain/rules/contract'
+import { REGISTERED_RULES } from '../../domain/rules/registry'
 
 /**
  * TT-14, the violations panel — KB-6's third Plan-screen column ("Unseated rail, floorplan,
@@ -138,18 +139,28 @@ describe('ViolationsPanel — hard violations are listed before soft ones (KB-6 
 })
 
 describe('ViolationsPanel — a clean plan renders a sentence, not a list (TT-14 "reads as deliberate, not as broken")', () => {
-  it('renders no list and no data-severity entries when there are no violations', () => {
+  it('renders no violations list and no data-severity entries when there are no violations', () => {
     const { container } = render(<ViolationsPanel report={makeReport([], 3)} />)
 
-    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    // The violations list is the unnamed one: "Rules applied" renders a list per severity, each
+    // named by its own heading via aria-labelledby, and both are present on a clean plan by
+    // design. Filtering on that attribute rather than on the rules region keeps this test failing
+    // only for reasons to do with violations.
+    const violationLists = screen.queryAllByRole('list').filter((list) => !list.hasAttribute('aria-labelledby'))
+
+    expect(violationLists).toHaveLength(0)
     expect(container.querySelectorAll('[data-severity]')).toHaveLength(0)
   })
 
   it('still says something concrete about the clean state, beyond the heading and the rule count', () => {
     const { container } = render(<ViolationsPanel report={makeReport([], 3)} />)
+    // The "Rules applied" text is stripped too, or this passes on that alone and stops saying
+    // anything about the clean-state sentence it exists to guard.
+    const rulesApplied = screen.getByRole('region', { name: 'Rules applied' })
     const remainder = (container.textContent ?? '')
       .replace('Violations', '')
       .replace('3 rules registered', '')
+      .replace(rulesApplied.textContent ?? '', '')
       .trim()
 
     expect(remainder.length).toBeGreaterThan(0)
@@ -250,5 +261,48 @@ describe('ViolationsPanel — the footer states what is true, and never implies 
       expect(text).not.toContain('publishing')
       unmount()
     }
+  })
+})
+
+describe('ViolationsPanel — "Rules applied" (TT-53), after the footer', () => {
+  it('renders a "Rules applied" heading after the footer, regardless of the report', () => {
+    const { container } = render(<ViolationsPanel report={makeReport([], 3)} />)
+
+    expect(screen.getByRole('heading', { name: 'Rules applied' })).toBeInTheDocument()
+    const text = container.textContent ?? ''
+    expect(text.indexOf('No violations.')).toBeLessThan(text.indexOf('Rules applied'))
+  })
+
+  it('still follows the footer when the plan has violations', () => {
+    const violation = makeViolation({ severity: 'hard' })
+    const { container } = render(<ViolationsPanel report={makeReport([violation], 1)} />)
+
+    const text = container.textContent ?? ''
+    expect(text.indexOf('One hard violation needs fixing.')).toBeLessThan(text.indexOf('Rules applied'))
+  })
+
+  it("lists every registered rule's own description, grouped Hard then Soft", () => {
+    const { container } = render(<ViolationsPanel report={makeReport([], 3)} />)
+    const text = container.textContent ?? ''
+
+    for (const rule of REGISTERED_RULES) {
+      expect(text).toContain(rule.description)
+    }
+    // Both groups present before comparing positions: indexOf returns -1 for a missing needle,
+    // which is less than any real index, so the bare comparison passed even if the Hard heading
+    // vanished entirely.
+    expect(text).toContain('Hard')
+    expect(text).toContain('Soft')
+    expect(text.indexOf('Hard')).toBeLessThan(text.indexOf('Soft'))
+  })
+
+  it('carries no data-severity attribute of its own — only violation entries do', () => {
+    const violation = makeViolation({ severity: 'hard' })
+    const { container } = render(<ViolationsPanel report={makeReport([violation], 1)} />)
+
+    // One violation entry above, and nothing from "Rules applied" adds to this count (KB-5:
+    // colour never carries meaning alone — severity here is the group heading word, not the
+    // attribute the violation list's left-bar styling keys off).
+    expect(container.querySelectorAll('[data-severity]')).toHaveLength(1)
   })
 })
