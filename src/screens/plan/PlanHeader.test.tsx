@@ -950,10 +950,10 @@ describe('PlanHeader — the publishability line beside the score (A8, TT-46)', 
 })
 
 /**
- * TT-53. The Fit figure gains a line naming how much of KB-2 has been built. The literal "4"
+ * TT-53. The Fit figure gains a line naming how much of KB-2 has been built. The literal "5"
  * pins today's registry size (src/domain/rules/registry.ts); it will move, one edit at a time, as
- * TT-17 to TT-22 register their rules — that is the intended prompt to look at this line again,
- * not a regression.
+ * TT-18, TT-20 to TT-22 register their rules — that is the intended prompt to look at this line
+ * again, not a regression.
  */
 describe('PlanHeader — the coverage line beside the score (TT-53)', () => {
   const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
@@ -972,7 +972,7 @@ describe('PlanHeader — the coverage line beside the score (TT-53)', () => {
         publishable={true}
       />,
     )
-    expect(container.textContent).toContain('4 of 10 rules built')
+    expect(container.textContent).toContain('5 of 10 rules built')
   })
 
   it('reads the coverage line after the stat row and before the publishability line', () => {
@@ -992,8 +992,8 @@ describe('PlanHeader — the coverage line beside the score (TT-53)', () => {
     // above the stat row — where TT-53 does not want it — and this test would stay green.
     const text = container.textContent ?? ''
     expect(text).toContain('Can be published')
-    expect(text.indexOf('Unseated')).toBeLessThan(text.indexOf('4 of 10 rules built'))
-    expect(text.indexOf('4 of 10 rules built')).toBeLessThan(text.indexOf('Can be published'))
+    expect(text.indexOf('Unseated')).toBeLessThan(text.indexOf('5 of 10 rules built'))
+    expect(text.indexOf('5 of 10 rules built')).toBeLessThan(text.indexOf('Can be published'))
   })
 
   it('with "Nothing to score" there is no coverage line', () => {

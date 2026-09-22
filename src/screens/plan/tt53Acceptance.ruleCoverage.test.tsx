@@ -28,13 +28,13 @@ import { NavigationContext } from '../../shell/navigation'
  * direct text would not see it — this repo's accessible-name notes describe the identical trap
  * for computing a name from content. Checking the whole document's text also exercises the
  * explicit spacing the words and numbers need: collapse it and the substring below becomes
- * "4of10rules built" and the assertion fails.
+ * "5of10rules built" and the assertion fails.
  *
- * **Test 1 pins the registry's count today, 4** (capacity, top-table, partners-adjacent,
- * everyone-seated — TT-47) **against the declared 10.** It is expected to fail, honestly, the
- * moment TT-17 registers a fifth rule, and again as each of TT-18 to TT-22 lands — a one-line
- * edit to the literal number here each time, not a regression, and exactly the prompt to look at
- * the coverage line as the registry grows toward the declared count.
+ * **Test 1 pins the registry's count today, 5** (capacity, top-table, partners-adjacent,
+ * everyone-seated — TT-47; household-together — TT-19) **against the declared 10.** It is
+ * expected to fail, honestly, the moment each of TT-18, TT-20 to TT-22 lands — a one-line edit to
+ * the literal number here each time, not a regression, and exactly the prompt to look at the
+ * coverage line as the registry grows toward the declared count.
  */
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
@@ -80,11 +80,11 @@ beforeEach(() => {
 
 describe('TT-53 — the rule-coverage line, driven end to end through the real PlanScreen', () => {
   it(
-    'a scored, publishable plan shows "4 of 10 rules built" beside the Fit figure; the ' +
-      'violations panel still reads exactly "4 rules registered", carrying no denominator of ' +
+    'a scored, publishable plan shows "5 of 10 rules built" beside the Fit figure; the ' +
+      'violations panel still reads exactly "5 rules registered", carrying no denominator of ' +
       'its own; and the publishability line still accompanies the figure (pins today\'s ' +
-      'registered count of 4 — expected to need a one-line bump, not a fix, as each of TT-17 to ' +
-      'TT-22 raises it toward the declared 10)',
+      'registered count of 5 — expected to need a one-line bump, not a fix, as each of TT-18, ' +
+      'TT-20 to TT-22 raises it toward the declared 10)',
     async () => {
       useTopTableStore.getState().setRoom({ roundTables: 5, seatsEach: 8, topTableSeats: 2 })
       useTopTableStore.getState().setGuests(makeGuests(10))
@@ -94,7 +94,7 @@ describe('TT-53 — the rule-coverage line, driven end to end through the real P
       await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
       // The real coverage, exactly as it reads today.
-      expect(document.body.textContent).toContain('4 of 10 rules built')
+      expect(document.body.textContent).toContain('5 of 10 rules built')
 
       // The violations panel's own "N rules registered" line, untouched by this ticket, reads
       // exactly what it always has. Matched on the paragraph's whole textContent rather than by
@@ -102,7 +102,7 @@ describe('TT-53 — the rule-coverage line, driven end to end through the real P
       // elements — and matched exactly rather than as a substring, which is what makes this the
       // guard that the panel gained no denominator of its own: any suffix fails it.
       const registeredLine = screen.getByText(
-        (_content, element) => element?.tagName === 'P' && element.textContent === '4 rules registered',
+        (_content, element) => element?.tagName === 'P' && element.textContent === '5 rules registered',
       )
       expect(registeredLine).toBeInTheDocument()
 
