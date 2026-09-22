@@ -11,9 +11,11 @@ Four steps. The whole thing takes about two minutes.
 
 1. **Look at what you are building.** It is live at
    **[toptable.enablis.tech](https://toptable.enablis.tech)**. Load a scenario and place a guest.
-2. **Run it locally.**
+2. **Get it running.**
 
    ```bash
+   git clone https://github.com/enablis-co/TopTable.git
+   cd TopTable
    nvm use          # Node is pinned in .nvmrc
    npm ci
    npm run dev      # http://localhost:5173
@@ -63,8 +65,49 @@ what the pipeline is. Nobody should have to say so.
 `.claude/plans/TT-17.md`, and every agent after the planner reads that rather than re-deriving it
 from Tickety. It is gitignored: a plan belongs to one ticket, not to the repo.
 
-The hooks refuse a branch or a commit without the key: `feat/TT-17-conflict-rule`, then
+The hooks refuse a branch or a commit without the key: `feat/TT-17-conflicts`, then
 `TT-17: keep conflicting guests apart`.
+
+## Working through several tickets
+
+Build them one at a time and stop in between. You want to read each plan before it becomes code,
+and a chain left running unattended is a chain nobody reviewed.
+
+Each ticket gets its own branch, cut from `main`:
+
+```bash
+npm run verify
+git switch -c feat/TT-17-conflicts
+git commit -m "TT-17: keep conflicting guests apart"
+```
+
+Rules rarely collide, which is what makes several in a day realistic: a new rule is one new file,
+and the registry finds it by its presence. Frontend tickets touch existing screens and can
+conflict.
+
+At the end, put them together on a branch of your own — your initials and a key:
+
+```bash
+git switch -c demo-sr-TT-17 main
+git merge --no-ff feat/TT-17-conflicts
+git merge --no-ff feat/TT-19-households
+npm run verify
+```
+
+The key in `demo-sr-TT-17` is not decoration. A merge that hits a conflict ends in a commit, and
+the hook wants a key in the branch name by then — `demo-sr` alone gets refused mid-merge, which is
+the worst moment to find out.
+
+Or hand the merge over:
+
+```
+Merge my finished ticket branches into demo-sr-TT-17 and run the gate on the result.
+```
+
+Verify *after* merging, not only on each branch. The merged commit is one that no branch tested on
+its own, and there is no CI down here to catch it.
+
+A clone gives you read access and nothing more, so all of this stays on your machine.
 
 ## The requirements are not in this repo
 
