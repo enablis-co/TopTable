@@ -1,11 +1,13 @@
 import type { ReactNode, Ref } from 'react'
 import { scenarioById } from '../../domain/scenarios'
 import { capacityFor } from '../../domain/capacity'
+import { ruleCoverage } from '../../domain/rules/ruleCoverage'
 import type { Guest, RoomConfig } from '../../domain/types'
 import type { ScenarioState } from '../../store/store'
 import { Button, tabularClass } from '../../ui'
 import { normaliseRoom } from '../../domain/seating'
 import { planTotals, type SeatingView } from './floorplan'
+import { RuleCoverageLine } from './RuleCoverageLine'
 import styles from './PlanHeader.module.css'
 
 /** TT-16. What every interactive header stat needs to wire its own toggle — bundled so a stat's
@@ -248,6 +250,7 @@ export function PlanHeader({
             <p className={styles.statLabel}>Unseated</p>
           </div>
         </div>
+        <RuleCoverageLine coverage={ruleCoverage()} scored={score.value !== null} />
         {/* TT-46. A sibling of the stats row, never a child of the element StatToggle renders —
             that element is a button, which admits phrasing content only, and folding these words
             into it would change the Fit toggle's accessible name (this file's own StatToggle

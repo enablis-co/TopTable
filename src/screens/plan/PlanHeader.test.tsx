@@ -948,3 +948,86 @@ describe('PlanHeader — the publishability line beside the score (A8, TT-46)', 
     expect(screen.queryByRole('button', { name: /published/i })).not.toBeInTheDocument()
   })
 })
+
+/**
+ * TT-53. The Fit figure gains a line naming how much of KB-2 has been built. The literal "4"
+ * pins today's registry size (src/domain/rules/registry.ts); it will move, one edit at a time, as
+ * TT-17 to TT-22 register their rules — that is the intended prompt to look at this line again,
+ * not a regression.
+ */
+describe('PlanHeader — the coverage line beside the score (TT-53)', () => {
+  const room: RoomConfig = { roundTables: 9, seatsEach: 8, topTableSeats: 6 }
+  const guests = makeGuests(70)
+
+  it('a scored plan shows how much of the specification is built', () => {
+    const { container } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+        publishable={true}
+      />,
+    )
+    expect(container.textContent).toContain('4 of 10 rules built')
+  })
+
+  it('reads the coverage line after the stat row and before the publishability line', () => {
+    const { container } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+        publishable={true}
+      />,
+    )
+    // Both boundaries, not just the lower one: without the Unseated check the line could move
+    // above the stat row — where TT-53 does not want it — and this test would stay green.
+    const text = container.textContent ?? ''
+    expect(text).toContain('Can be published')
+    expect(text.indexOf('Unseated')).toBeLessThan(text.indexOf('4 of 10 rules built'))
+    expect(text.indexOf('4 of 10 rules built')).toBeLessThan(text.indexOf('Can be published'))
+  })
+
+  it('with "Nothing to score" there is no coverage line', () => {
+    const { container } = render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: null })}
+        pinned={pinnedFixture()}
+        publishable={false}
+      />,
+    )
+    expect(container.textContent).toContain('Nothing to score')
+    expect(container.textContent).not.toContain('rules built')
+  })
+
+  it("the Fit toggle's accessible name carries no coverage text", () => {
+    render(
+      <PlanHeader
+        scenario={null}
+        room={room}
+        guests={guests}
+        seating={NOTHING_SEATED}
+        unseatedCount={70}
+        score={scoreFixture({ value: 82 })}
+        pinned={pinnedFixture()}
+        publishable={true}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /82%.*Fit/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /rules built/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /of 10/ })).not.toBeInTheDocument()
+  })
+})
