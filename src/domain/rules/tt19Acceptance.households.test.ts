@@ -125,14 +125,21 @@ describe('household-together fires on "Small and cosy" arranged to break it, and
     expect(hardViolations(report)).toEqual([])
   })
 
-  it('gathered at one table: no household-together entry anywhere in the report', () => {
+  it('gathered at one table: no household-together entry naming h-3, the household this pins', () => {
     const { meta, guests } = readScenario('small-and-cosy')
     const plan = allocate(meta.tables, guests, gatheredPins())
 
     const report = evaluateRegistered(plan)
-    const householdFindings = report.violations.filter((violation) => violation.ruleId === 'household-together')
+    // Not "no household-together entry anywhere in the report": two other 3+-member households
+    // on this scenario (h-2, h-10) are left to Auto-allocate rather than pinned, so whether they
+    // happen to land spread across tables is the solver's own behaviour today, not something
+    // this fixture pins or is about. Only h-3 — the household these pins gather — is this test's
+    // claim.
+    const h3Findings = report.violations.filter(
+      (violation) => violation.ruleId === 'household-together' && violation.guestIds.includes('g-016'),
+    )
 
-    expect(householdFindings).toEqual([])
+    expect(h3Findings).toEqual([])
   })
 
   it('is publishable is unchanged by the presence of a household-together violation on an otherwise clean plan (criterion 14)', () => {

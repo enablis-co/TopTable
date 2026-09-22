@@ -5,12 +5,12 @@ import type { Finding, RulePlan, SeatingRule } from './contract'
 /**
  * KB-2, soft: "A household should not be spread across more than two tables".
  *
- * `opportunities` counts only households of three or more members (A1): a household of one or
- * two can never occupy more than two tables, so it is not a chance this rule could have missed,
- * and counting it anyway would inflate the score for free. A household with any member lacking a
- * real seat — unseated, or in a table's overflow, the same fact (A4) — is `missed` but raises no
- * `Finding` (A2): a chance this plan did not take, not a fault in the seating it did make, the
- * same convention as `partnersAdjacent.rule.ts`.
+ * `opportunities` counts only households of three or more members: a household of one or two can
+ * never occupy more than two tables, so it is not a chance this rule could have missed, and
+ * counting it anyway would inflate the score for free. A household with any member lacking a real
+ * seat — unseated, or in a table's overflow, the same fact — is `missed` but raises no `Finding`:
+ * a chance this plan did not take, not a fault in the seating it did make, the same convention as
+ * `partnersAdjacent.rule.ts`.
  */
 
 type Location = { table: SeatedTable; seatIndex: number | null }
@@ -18,7 +18,7 @@ type Location = { table: SeatedTable; seatIndex: number | null }
 type SeatedLocation = { table: SeatedTable; seatIndex: number }
 
 /** Seated and overflow guests, keyed by id. Overflow is recorded with `seatIndex: null` — present
- *  on this plan, but not given a real seat (A4). */
+ *  on this plan, but not given a real seat. */
 function locationsByGuestId(tables: readonly SeatedTable[]): Map<string, Location> {
   const locations = new Map<string, Location>()
 
@@ -62,10 +62,10 @@ function knownGuestsById(plan: RulePlan): Map<string, Guest> {
   return guests
 }
 
-/** Guests grouped by their exact `household` string (A5: no trimming, no case folding — an
- *  identity KB-3 leaves as plain text, and inventing a normalisation here would be a second,
- *  undocumented definition of who arrived together). A null household is not a household (A3
- *  of TT-19's criteria — criterion 3 here). */
+/** Guests grouped by their exact `household` string: no trimming, no case folding — an identity
+ *  KB-3 leaves as plain text, and inventing a normalisation here would be a second, undocumented
+ *  definition of who arrived together. A null `household` means the guest belongs to no household
+ *  at all (KB-3), so it is excluded from grouping rather than treated as a household of its own. */
 function householdsByName(guests: Iterable<Guest>): Map<string, Guest[]> {
   const households = new Map<string, Guest[]>()
 
@@ -80,14 +80,22 @@ function householdsByName(guests: Iterable<Guest>): Map<string, Guest[]> {
   return households
 }
 
-function findingFor(household: string, seatedMembers: readonly Guest[], seatedTables: readonly SeatedTable[]): Finding {
+/** A household's `household` field (per KB-3, a plain id like `h-3`) is never shown to the user.
+ *  The finding names the person instead: the alphabetically-first member by id, so the choice is
+ *  deterministic rather than dependent on table or seat iteration order. */
+function householdLabel(seatedMembers: readonly Guest[]): string {
+  const lead = [...seatedMembers].sort((a, b) => a.id.localeCompare(b.id))[0]!
+  return `${lead.name}'s household`
+}
+
+function findingFor(seatedMembers: readonly Guest[], seatedTables: readonly SeatedTable[]): Finding {
   const tableIds = seatedTables.map((table) => table.id).sort()
   const tableLabels = seatedTables.map((table) => table.label).sort()
 
   return {
     tableIds,
     guestIds: seatedMembers.map((member) => member.id),
-    message: `${household} is spread across ${tableIds.length} tables`,
+    message: `${householdLabel(seatedMembers)} is spread across ${tableIds.length} tables`,
     detail: tableLabels.join(', '),
   }
 }
@@ -109,7 +117,7 @@ export const rule = {
     // (docs/engineering-standards.md).
     for (const household of [...households.keys()].sort()) {
       const members = households.get(household)!
-      if (members.length < 3) continue // A1: not a chance this rule could have missed
+      if (members.length < 3) continue // a household this small can never span three tables
 
       opportunities += 1
 
@@ -132,7 +140,7 @@ export const rule = {
         missed += 1
       }
       if (spread) {
-        findings.push(findingFor(household, seatedMembers, [...seatedTablesById.values()]))
+        findings.push(findingFor(seatedMembers, [...seatedTablesById.values()]))
       }
     }
 
