@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>enablis. From prompt to production</title>
+<style>
+  :root{
+    --font:"Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --bg:#0A0710;
+    --bg-glow:
+      radial-gradient(ellipse 58% 75% at 12% 6%, rgba(78,60,150,.42), transparent 60%),
+      radial-gradient(ellipse 66% 85% at 93% 2%, rgba(176,48,60,.40), transparent 58%);
+    --ink:#F4F1F6;
+    --muted:#9C95AB;
+    --faint:#615A72;
+    --line:rgba(255,255,255,.10);
+    --panel:rgba(255,255,255,.025);
+    --grad:linear-gradient(90deg,#F26FA6 0%,#A682D6 36%,#6E8DEF 66%,#4FD1C5 100%);
+    --red:#D14842;
+
+    --tscale:1;
+    --type-hero:calc(148px * var(--tscale));
+    --type-display:calc(88px * var(--tscale));
+    --type-title:calc(64px * var(--tscale));
+    --type-subtitle:calc(40px * var(--tscale));
+    --type-body:calc(30px * var(--tscale));
+    --type-small:calc(25px * var(--tscale));
+    --type-label:calc(24px * var(--tscale));
+    --type-stat:calc(108px * var(--tscale));
+
+    --pad-x:120px;
+    --pad-top:92px;
+    --pad-bottom:84px;
+    --gap:26px;
+  }
+
+  *{box-sizing:border-box;}
+
+  .slide{
+    box-sizing:border-box;
+    padding:var(--pad-top) var(--pad-x) var(--pad-bottom);
+    display:flex; flex-direction:column;
+    font-family:var(--font);
+    color:var(--ink);
+    background:var(--bg-glow), var(--bg);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .label{
+    font-size:var(--type-label); font-weight:600;
+    text-transform:uppercase; letter-spacing:.2em; color:var(--faint);
+    display:flex; align-items:center; gap:16px;
+  }
+  .label .tick{ width:42px; height:3px; border-radius:2px; background:var(--grad); }
+
+  .title{ font-size:var(--type-title); font-weight:800; line-height:1.02; letter-spacing:-.022em; margin:0; }
+  .display{ font-size:var(--type-display); font-weight:800; line-height:1.04; letter-spacing:-.03em; margin:0; }
+  .subtitle{ font-size:var(--type-subtitle); font-weight:600; line-height:1.12; letter-spacing:-.01em; margin:0; }
+  .body{ font-size:var(--type-body); line-height:1.45; color:var(--muted); margin:0; max-width:30ch; }
+  .small{ font-size:var(--type-small); line-height:1.4; color:var(--muted); margin:0; }
+
+  .grad{ background:var(--grad); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
+  .red{ color:var(--red); }
+
+  .spacer{ flex:1 1 auto; }
+  .row{ display:flex; }
+  .between{ justify-content:space-between; align-items:flex-end; }
+
+  .logo{ font-weight:800; font-size:32px; letter-spacing:-.02em; }
+  .logo .dot{ color:var(--red); }
+
+  .stats{ display:grid; gap:48px; }
+  .stat .num{ font-size:var(--type-stat); font-weight:800; line-height:.86; letter-spacing:-.035em; }
+  .stat .num.sm{ font-size:84px; }
+  .stat .lab{ margin-top:18px; font-size:var(--type-label); text-transform:uppercase; letter-spacing:.14em; color:var(--muted); }
+
+  .card{ border:1px solid var(--line); border-radius:18px; background:var(--panel); padding:38px 38px 40px; display:flex; flex-direction:column; }
+  .card .rule{ height:3px; border-radius:2px; background:var(--grad); margin-bottom:26px; }
+  .card .idx{ font-size:46px; font-weight:800; color:var(--faint); line-height:1; letter-spacing:-.02em; }
+
+  .pill{ display:inline-flex; align-items:center; gap:10px; padding:13px 20px; border-radius:999px; border:1px solid var(--line); font-size:var(--type-small); color:var(--ink); background:rgba(255,255,255,.02); }
+  .pill.muted{ color:var(--muted); }
+  .pill.grad-b{ border:1px solid transparent; background:
+      linear-gradient(var(--bg),var(--bg)) padding-box,
+      var(--grad) border-box; }
+
+  .cta{ display:inline-flex; align-items:center; gap:14px; background:var(--red); color:#fff; font-weight:700; font-size:var(--type-body); padding:22px 36px; border-radius:6px 18px 6px 18px; letter-spacing:-.01em; }
+
+  .arrow{ color:var(--faint); font-size:26px; }
+
+  /* deck-specific: code panels. Composed from existing tokens. */
+  .code{ font-family:var(--mono); font-size:23px; line-height:1.55; color:var(--ink);
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:24px 28px; white-space:pre; overflow:hidden; }
+  .code .c{ color:var(--faint); }
+  .code .k{ color:#A682D6; }
+  .code .t{ color:#4FD1C5; }
+
+  @media (prefers-reduced-motion:no-preference){
+    [data-deck-active] .anim{ animation:rise .5s cubic-bezier(.2,.7,.2,1) both; }
+    [data-deck-active] .anim[data-d="1"]{ animation-delay:.04s; }
+    [data-deck-active] .anim[data-d="2"]{ animation-delay:.10s; }
+    [data-deck-active] .anim[data-d="3"]{ animation-delay:.16s; }
+    [data-deck-active] .anim[data-d="4"]{ animation-delay:.22s; }
+    [data-deck-active] .anim[data-d="5"]{ animation-delay:.28s; }
+    [data-deck-active] .anim[data-d="6"]{ animation-delay:.34s; }
+  }
+  @keyframes rise{ from{opacity:0; transform:translateY(18px);} to{opacity:1; transform:none;} }
+
+  html,body{ margin:0; height:100%; background:#000; }
+  body{ overflow:hidden; }
+  .deck{ position:fixed; top:50%; left:50%; width:1920px; height:1080px; transform-origin:center center; }
+  .deck .slide{ position:absolute; inset:0; width:1920px; height:1080px; display:none; }
+  .deck .slide[data-deck-active]{ display:flex; }
+
+  .rail{ position:fixed; top:0; left:0; bottom:0; width:232px; z-index:30; overflow-y:auto;
+    background:#08060c; border-right:1px solid var(--line); padding:16px 0; }
+  .rail.hidden{ display:none; }
+  .rail .thumb{ position:relative; width:200px; height:112px; margin:0 auto 12px; cursor:pointer;
+    border-radius:8px; overflow:hidden; border:1px solid var(--line); background:var(--bg); }
+  .rail .thumb.active{ border-color:#A682D6; box-shadow:0 0 0 2px rgba(166,130,214,.35); }
+  .rail .thumb .scaler{ position:absolute; top:0; left:0; transform-origin:top left; pointer-events:none; }
+  .rail .thumb .scaler .slide{ width:1920px; height:1080px; }
+  .rail .thumb .num{ position:absolute; top:5px; left:7px; z-index:2;
+    font:600 11px var(--font); color:var(--faint); letter-spacing:.06em; }
+
+  .deck-nav{ position:fixed; bottom:16px; left:50%; transform:translateX(-50%); z-index:40;
+    display:flex; align-items:center; gap:12px; font-family:var(--font); color:var(--faint); font-size:13px; }
+  .deck-nav button{ appearance:none; cursor:pointer; color:var(--ink); font-size:13px;
+    border:1px solid var(--line); background:rgba(255,255,255,.05); border-radius:8px; padding:6px 12px; }
+  .deck-nav button:hover{ background:rgba(255,255,255,.10); }
+  .deck-nav .count{ min-width:54px; text-align:center; letter-spacing:.08em; }
+
+  @media print{
+    body{ overflow:visible; }
+    .deck{ position:static; transform:none !important; left:auto !important; top:auto !important; width:auto; height:auto; }
+    .deck .slide{ position:relative; inset:auto; display:flex !important; page-break-after:always; }
+    .rail, .deck-nav{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="rail" id="rail"></nav>
+
+<div class="deck" id="deck">
+
+  <!-- 1 TITLE -->
+  <section class="slide" data-label="Title">
+    <div class="row between anim" data-d="1">
+      <span class="logo">enablis<span class="dot">.</span></span>
+      <span class="label" style="color:var(--muted)">Leeds Digital Festival 2026&nbsp;&nbsp;·&nbsp;&nbsp;Enablis and Fruition</span>
+    </div>
+    <div class="spacer"></div>
+    <p class="label anim" data-d="2" style="margin-bottom:28px">Hands on, 2 hours</p>
+    <h1 class="anim" data-d="3" style="font-size:var(--type-hero); font-weight:800; line-height:.94; letter-spacing:-.04em; margin:0;">
+      From prompt to<br><span class="grad">production.</span>
+    </h1>
+    <p class="body anim" data-d="4" style="max-width:54ch; margin-top:38px; font-size:var(--type-subtitle); color:var(--muted); font-weight:500; line-height:1.3;">
+      Building an agentic pipeline. Less talking, more building.
+    </p>
+    <div class="spacer"></div>
+    <div class="row between anim" data-d="5">
+      <span class="small" style="color:var(--faint)">Eight steps, then you build</span>
+      <span class="small" style="color:var(--faint)">22 and 29 September 2026</span>
+    </div>
+  </section>
+
+  <!-- 2 AGENDA -->
+  <section class="slide" data-label="The next two hours">
+    <p class="label anim" data-d="1"><span class="tick"></span>The next two hours</p>
+    <h2 class="title anim" data-d="1" style="margin-top:30px; max-width:24ch;">25 minutes of me, <span class="grad">50 of you</span>.</h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:28px;">
+      <div class="card anim" data-d="2"><div class="rule"></div>
+        <div class="subtitle" style="font-size:34px;">25 min</div>
+        <p class="small" style="margin-top:16px;">Eight steps. How we run AI engineering on client work.</p>
+      </div>
+      <div class="card anim" data-d="3"><div class="rule"></div>
+        <div class="subtitle" style="font-size:34px;">50 min</div>
+        <p class="small" style="margin-top:16px;">You build. Five agents, one repo, one deployed URL.</p>
+      </div>
+      <div class="card anim" data-d="4"><div class="rule"></div>
+        <div class="subtitle" style="font-size:34px;">15 min</div>
+        <p class="small" style="margin-top:16px;">The sealed guest list, and the prize.</p>
+      </div>
+    </div>
+    <p class="small anim" data-d="5" style="margin-top:38px; color:var(--faint);">Clock is on the wall. If I overrun, heckle me.</p>
+  </section>
+
+  <!-- 4 THREE WAYS IT GOES WRONG -->
+  <section class="slide" data-label="Three failure modes">
+    <p class="label anim" data-d="1"><span class="tick"></span>Why you need a process</p>
+    <h2 class="title anim" data-d="1" style="margin-top:24px; max-width:24ch;">Three ways it <span class="grad">goes wrong</span>.</h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:28px;">
+      <div class="card anim" data-d="2"><div class="rule"></div>
+        <div class="idx">01</div>
+        <div class="subtitle" style="font-size:30px; margin-top:14px;">Plausible but wrong</div>
+        <p class="small" style="margin-top:14px;">The spec was ambiguous. It did not ask. It chose.</p>
+      </div>
+      <div class="card anim" data-d="3"><div class="rule"></div>
+        <div class="idx">02</div>
+        <div class="subtitle" style="font-size:30px; margin-top:14px;">Green and empty</div>
+        <p class="small" style="margin-top:14px;">The test runs, passes, and asserts nothing.</p>
+      </div>
+      <div class="card anim" data-d="4"><div class="rule"></div>
+        <div class="idx">03</div>
+        <div class="subtitle" style="font-size:30px; margin-top:14px;">Silent scope creep</div>
+        <p class="small" style="margin-top:14px;">A refactor you did not ask for, inside the diff you did.</p>
+      </div>
+    </div>
+    <p class="small anim" data-d="5" style="margin-top:36px; color:var(--faint);">A crash you will catch. A confident, tidy, well commented wrong answer you will merge.</p>
+  </section>
+
+  <!-- 5 EIGHT STEPS -->
+  <section class="slide" data-label="Eight steps">
+    <p class="label anim" data-d="1"><span class="tick"></span>The method</p>
+    <h2 class="title anim" data-d="1" style="margin-top:24px; max-width:26ch;">Eight steps to <span class="grad">modern AI engineering</span>.</h2>
+    <div class="spacer"></div>
+    <div class="anim" data-d="2" style="display:flex; justify-content:center;">
+      <svg viewBox="0 0 1680 330" width="1680" height="330" role="img" aria-label="Eight steps arranged as a loop, with step eight feeding back into step one">
+        <defs>
+          <linearGradient id="g3" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#F26FA6"/><stop offset="36%" stop-color="#A682D6"/>
+            <stop offset="66%" stop-color="#6E8DEF"/><stop offset="100%" stop-color="#4FD1C5"/>
+          </linearGradient>
+          <linearGradient id="g4" x1="1" y1="0" x2="0" y2="0">
+            <stop offset="0%" stop-color="#4FD1C5"/><stop offset="100%" stop-color="#F26FA6"/>
+          </linearGradient>
+        </defs>
+        <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+          <g font-size="25" fill="#F4F1F6" text-anchor="middle">
+            <text x="70" y="62">Ground it</text>
+            <text x="290" y="62">Frame it</text>
+            <text x="510" y="32">Choose the</text><text x="510" y="62">model</text>
+            <text x="730" y="62">Split it</text>
+            <text x="950" y="62">Delegate it</text>
+            <text x="1170" y="62">Agent review</text>
+            <text x="1390" y="62">Human review</text>
+            <text x="1610" y="62">Audit it</text>
+          </g>
+
+          <line x1="70" y1="130" x2="1610" y2="130" stroke="url(#g3)" stroke-width="2"/>
+
+          <circle cx="70"   cy="130" r="34" fill="#0A0710" stroke="#F26FA6" stroke-width="2"/>
+          <circle cx="290"  cy="130" r="34" fill="#0A0710" stroke="#C878C2" stroke-width="2"/>
+          <circle cx="510"  cy="130" r="34" fill="#0A0710" stroke="#A682D6" stroke-width="2"/>
+          <circle cx="730"  cy="130" r="34" fill="#0A0710" stroke="#8A87E0" stroke-width="2"/>
+          <circle cx="950"  cy="130" r="34" fill="#0A0710" stroke="#6E8DEF" stroke-width="2"/>
+          <circle cx="1170" cy="130" r="34" fill="#0A0710" stroke="#5FAEDC" stroke-width="2"/>
+          <circle cx="1390" cy="130" r="34" fill="#0A0710" stroke="#55C0D0" stroke-width="2"/>
+          <circle cx="1610" cy="130" r="34" fill="#0A0710" stroke="#4FD1C5" stroke-width="2"/>
+
+          <g font-size="26" font-weight="800" fill="#F4F1F6" text-anchor="middle">
+            <text x="70" y="140">01</text><text x="290" y="140">02</text>
+            <text x="510" y="140">03</text><text x="730" y="140">04</text>
+            <text x="950" y="140">05</text><text x="1170" y="140">06</text>
+            <text x="1390" y="140">07</text><text x="1610" y="140">08</text>
+          </g>
+
+          <path d="M1610 164 L1610 250 L70 250 L70 170" fill="none" stroke="url(#g4)" stroke-width="2.5"/>
+          <path d="M70 164 L61 180 L79 180 Z" fill="#F26FA6"/>
+          <text x="840" y="296" font-size="26" fill="#9C95AB" text-anchor="middle">the summary goes back on the ticket, and the next one is less thin</text>
+        </g>
+      </svg>
+    </div>
+    <div class="spacer"></div>
+    <div class="row between">
+      <p class="subtitle anim" data-d="3" style="font-weight:700; max-width:30ch; font-size:40px;">
+        A loop, <span class="grad">not a line</span>.
+      </p>
+      <p class="small anim" data-d="4" style="color:var(--faint); align-self:flex-end;">All eight are in the repo you are about to clone.</p>
+    </div>
+  </section>
+
+  <!-- 6 STEP 1 GROUND IT -->
+  <section class="slide" data-label="01 Ground it">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 01&nbsp;·&nbsp;Ground it</p>
+    <h2 class="title anim" data-d="1" style="margin-top:24px;">Your truth lives in <span class="grad">two places</span>.</h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:34px; align-items:stretch;">
+      <div class="card anim" data-d="2" style="border:1px solid transparent; background:linear-gradient(var(--bg),var(--bg)) padding-box, var(--grad) border-box;">
+        <div class="subtitle" style="font-size:32px;"><span class="grad">How we build here</span></div>
+        <div class="row" style="gap:12px; flex-wrap:wrap; margin-top:28px;">
+          <span class="pill">The repo, /docs</span><span class="pill">Engineering</span><span class="pill">Changes by PR</span>
+        </div>
+        <p class="small" style="margin-top:auto; padding-top:30px; color:var(--ink);">The agent reads it whether you ask or not.</p>
+      </div>
+      <div class="card anim" data-d="3" style="border:1px solid transparent; background:linear-gradient(var(--bg),var(--bg)) padding-box, var(--grad) border-box;">
+        <div class="subtitle" style="font-size:32px;"><span class="grad">What we are building, and why</span></div>
+        <div class="row" style="gap:12px; flex-wrap:wrap; margin-top:28px;">
+          <span class="pill">Jira and Confluence</span><span class="pill">PO, BA, architect</span><span class="pill">Changes with the business</span>
+        </div>
+        <p class="small" style="margin-top:auto; padding-top:30px; color:var(--ink);">The agent reaches it by MCP, or not at all.</p>
+      </div>
+    </div>
+    <p class="small anim" data-d="4" style="margin-top:34px; color:var(--faint);">The half that changes most often, owned by the people furthest from the code, is the half your agent never sees.</p>
+  </section>
+
+  <!-- 7 STEP 1 THE WIRING -->
+  <section class="slide" data-label="01 The wiring">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 01&nbsp;·&nbsp;Ground it</p>
+    <h2 class="title anim" data-d="1" style="margin-top:24px;">Three lines of <span class="grad">briefing</span>.</h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:34px; align-items:start;">
+      <div class="anim" data-d="2">
+        <p class="small" style="margin-bottom:16px; color:var(--faint);">CLAUDE.md</p>
+        <div class="code"><span class="c">## Where the truth lives</span>
+Engineering standards: <span class="t">./docs</span>
+Functional requirements: <span class="t">Jira</span>, via MCP
+Never infer severity or business
+rules from the code.</div>
+      </div>
+      <div class="anim" data-d="3">
+        <p class="small" style="margin-bottom:16px; color:var(--faint);">.mcp.json, committed</p>
+        <div class="code">{ <span class="k">"mcpServers"</span>: {
+    <span class="k">"atlassian"</span>: {
+      <span class="k">"type"</span>: <span class="t">"http"</span>,
+      <span class="k">"url"</span>: <span class="t">"https://mcp.atlassian..."</span>
+    } } }</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <p class="subtitle anim" data-d="4" style="font-weight:700; max-width:40ch; font-size:40px;">
+      Connecting the server is not the work. <span class="grad">Telling the agent to go and look is.</span>
+    </p>
+  </section>
+
+  <!-- 8 STEP 2 FRAME IT -->
+  <section class="slide" data-label="02 Frame it">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 02&nbsp;·&nbsp;Frame it</p>
+    <h2 class="title anim" data-d="1" style="margin-top:22px;">Thin ticket in, <span class="grad">assumptions out</span>.</h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1.05fr 1fr; gap:44px; align-items:start;">
+      <div class="anim" data-d="2">
+        <div class="code" style="font-size:20px;">---
+name: elaborator
+model: opus
+tools: Read, Grep, Glob, atlassian
+---
+Pull the ticket. Follow the epic and every
+linked page before writing anything.
+
+<span class="k">1.</span> Review the acceptance criteria on the
+   ticket. Say where they are thin, wrong,
+   or contradict a linked page.
+<span class="k">2.</span> Elaborate them. Testable, one behaviour
+   each, no implementation detail.
+<span class="k">3.</span> Produce a summary plan. Files, order,
+   what you will not touch.
+<span class="k">4.</span> List separately:
+     ASSUMPTIONS you had to make
+     RISKS you cannot resolve from source
+
+<span class="k">Stop.</span> Do not implement until a human has
+signed off the plan and both lists.</div>
+      </div>
+      <div class="anim" data-d="3">
+        <p class="body" style="max-width:38ch; font-size:32px;">
+          The criteria are the easy half. The valuable half is
+          <strong style="color:var(--ink); font-weight:700;">what it had to assume</strong> and
+          <strong style="color:var(--ink); font-weight:700;">what it could not find out</strong>.
+        </p>
+        <p class="small" style="margin-top:28px; max-width:40ch;">
+          An agent that lists its assumptions has told you exactly where it is about to go wrong.
+          An agent that does not will pick a reading and commit.
+        </p>
+        <div class="row" style="gap:12px; flex-wrap:wrap; margin-top:30px;">
+          <span class="pill">Criteria</span>
+          <span class="pill grad-b">Assumptions</span>
+          <span class="pill grad-b">Risks</span>
+          <span class="pill muted">Sign-off before code</span>
+        </div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <p class="small anim" data-d="4" style="color:var(--faint);">The cheapest checkpoint in the process. Sixty seconds here saves forty minutes reviewing the wrong thing.</p>
+  </section>
+
+  <!-- 9 STEP 3 CHOOSE THE MODEL -->
+  <section class="slide" data-label="03 Choose the model">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 03&nbsp;·&nbsp;Choose the model</p>
+    <h2 class="title anim" data-d="1" style="margin-top:24px;">Plan on Opus, <span class="grad">build on Sonnet</span>.</h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:26px;">
+      <div class="card anim" data-d="2" style="padding:32px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:32px;">Opus</div>
+        <p class="small" style="margin-top:14px;">Planning, ambiguous specs, architecture, review.</p>
+      </div>
+      <div class="card anim" data-d="3" style="padding:32px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:32px;">Sonnet</div>
+        <p class="small" style="margin-top:14px;">Implementation against a clear spec. Cheap enough to run three at once.</p>
+      </div>
+      <div class="card anim" data-d="4" style="padding:32px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:32px;">Haiku</div>
+        <p class="small" style="margin-top:14px;">Mechanical work. Renames, scaffolding, extraction.</p>
+      </div>
+    </div>
+    <div class="row anim" data-d="5" style="gap:34px; align-items:center; margin-top:34px;">
+      <div class="code" style="font-size:22px;">---
+name: test-author
+<span class="k">model: sonnet</span>
+---</div>
+      <p class="small" style="max-width:34ch;">The default is <strong style="color:var(--ink);">inherit</strong>. An Opus session spawns Opus subagents unless you say otherwise.</p>
+    </div>
+    <div class="spacer"></div>
+    <p class="subtitle anim" data-d="6" style="font-weight:700; max-width:44ch; font-size:40px;">
+      If you need Opus to implement, <span class="grad">your spec is not finished</span>.
+    </p>
+  </section>
+
+  <!-- 10 STEP 4 SPLIT IT -->
+  <section class="slide" data-label="04 Split it">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 04&nbsp;·&nbsp;Split it</p>
+    <h2 class="title anim" data-d="1" style="margin-top:20px;">Do not queue them. <span class="grad">Fan them out.</span></h2>
+    <div class="spacer"></div>
+    <div class="anim" data-d="2" style="display:flex; justify-content:center;">
+      <svg viewBox="0 0 1180 480" width="1180" height="470" role="img" aria-label="One planning pass produces a frozen contract which fans out to three parallel lanes">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#F26FA6"/><stop offset="36%" stop-color="#A682D6"/>
+            <stop offset="66%" stop-color="#6E8DEF"/><stop offset="100%" stop-color="#4FD1C5"/>
+          </linearGradient>
+        </defs>
+        <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+          <rect x="330" y="0" width="210" height="56" rx="28" fill="none" stroke="#615A72"/>
+          <text x="418" y="35" font-size="24" fill="#9C95AB">Jira</text>
+          <rect x="640" y="0" width="210" height="56" rx="28" fill="none" stroke="#615A72"/>
+          <text x="715" y="35" font-size="24" fill="#9C95AB">/docs</text>
+          <path d="M435 56 L435 84 L590 84 L590 104" fill="none" stroke="#615A72" stroke-width="1.5"/>
+          <path d="M745 56 L745 84 L590 84" fill="none" stroke="#615A72" stroke-width="1.5"/>
+
+          <rect x="450" y="104" width="280" height="70" rx="16" fill="rgba(255,255,255,.025)" stroke="url(#g)" stroke-width="1.5"/>
+          <text x="512" y="140" font-size="26" font-weight="700" fill="#F4F1F6">Plan agent</text>
+          <text x="640" y="140" font-size="22" fill="#615A72">Opus</text>
+          <path d="M590 174 L590 202" fill="none" stroke="#615A72" stroke-width="1.5"/>
+
+          <rect x="360" y="202" width="460" height="104" rx="16" fill="rgba(255,255,255,.025)" stroke="url(#g)" stroke-width="2"/>
+          <text x="460" y="243" font-size="28" font-weight="800" fill="#F4F1F6">THE CONTRACT</text>
+          <text x="700" y="243" font-size="22" fill="#615A72">frozen</text>
+          <text x="400" y="282" font-size="22" fill="#9C95AB">types · data shape · ownership · criteria per job</text>
+
+          <path d="M590 306 L590 336" fill="none" stroke="#615A72" stroke-width="1.5"/>
+          <path d="M210 336 L970 336" fill="none" stroke="#615A72" stroke-width="1.5"/>
+          <path d="M210 336 L210 366 M590 336 L590 366 M970 336 L970 366" fill="none" stroke="#615A72" stroke-width="1.5"/>
+
+          <rect x="80" y="366" width="260" height="78" rx="14" fill="none" stroke="#615A72"/>
+          <text x="112" y="398" font-size="24" fill="#F4F1F6">worktree A</text>
+          <text x="112" y="426" font-size="21" fill="#615A72">feat/rules · Sonnet</text>
+
+          <rect x="460" y="366" width="260" height="78" rx="14" fill="none" stroke="#615A72"/>
+          <text x="492" y="398" font-size="24" fill="#F4F1F6">worktree B</text>
+          <text x="492" y="426" font-size="21" fill="#615A72">feat/solver · Sonnet</text>
+
+          <rect x="840" y="366" width="260" height="78" rx="14" fill="none" stroke="#615A72"/>
+          <text x="872" y="398" font-size="24" fill="#F4F1F6">worktree C</text>
+          <text x="872" y="426" font-size="21" fill="#615A72">feat/ui · Sonnet</text>
+        </g>
+      </svg>
+    </div>
+    <div class="spacer"></div>
+    <p class="small anim" data-d="3" style="color:var(--faint);">One planning pass, then three jobs start together. The contract is the only thing that crosses lanes.</p>
+  </section>
+
+  <!-- 11 STEP 4 IN PARALLEL -->
+  <section class="slide" data-label="04 In parallel">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 04&nbsp;·&nbsp;Split it</p>
+    <h2 class="title anim" data-d="1" style="margin-top:22px;">Three jobs, <span class="grad">one codebase, at once</span>.</h2>
+    <div class="spacer"></div>
+    <div class="anim" data-d="2" style="border:1px solid var(--line); border-radius:16px; background:var(--panel); overflow:hidden;">
+      <div style="padding:16px 28px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:21px; color:var(--faint); display:flex; justify-content:space-between;">
+        <span>wedding-planner</span><span>3 agents running</span>
+      </div>
+      <div style="padding:26px 28px; font-family:var(--mono); font-size:24px; line-height:2.15;">
+        <div style="display:grid; grid-template-columns:24px 200px 230px 1fr;">
+          <span style="color:#4FD1C5;">●</span><span style="color:#F4F1F6;">rules</span><span style="color:#615A72;">feat/rules</span><span style="color:#9C95AB;">conflicts.rule.ts added, 4 tests green</span>
+        </div>
+        <div style="display:grid; grid-template-columns:24px 200px 230px 1fr;">
+          <span style="color:#F26FA6;">●</span><span style="color:#F4F1F6;">solver</span><span style="color:#615A72;">feat/solver</span><span style="color:#9C95AB;">swap-repair loop, 41 iterations, running</span>
+        </div>
+        <div style="display:grid; grid-template-columns:24px 200px 230px 1fr;">
+          <span style="color:#6E8DEF;">●</span><span style="color:#F4F1F6;">ui</span><span style="color:#615A72;">feat/ui</span><span style="color:#9C95AB;">violations panel wired, 3 files changed</span>
+        </div>
+      </div>
+      <div style="padding:16px 28px; border-top:1px solid var(--line); font-family:var(--mono); font-size:21px; color:var(--faint);">
+        git worktree add ../wp-rules feat/rules&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;one folder per agent, no collisions
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:60px;">
+      <p class="small anim" data-d="3">You are not waiting on any of them. The bottleneck stops being the agent and becomes how many diffs you can review properly.</p>
+      <p class="small anim" data-d="4">Core git underneath, so it works anywhere. The <strong style="color:var(--ink);">Claude app</strong> runs them side by side natively if you would rather not manage terminals, and <strong style="color:var(--ink);">Conductor</strong> is a third way on a Mac. Same three branches underneath, whichever you pick.</p>
+    </div>
+  </section>
+
+  <!-- 12 STEP 5 DELEGATE -->
+  <section class="slide" data-label="05 Delegate it">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 05&nbsp;·&nbsp;Delegate it</p>
+    <h2 class="title anim" data-d="1" style="margin-top:22px;">One job, <span class="grad">one agent, one model</span>.</h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:26px;">
+      <div class="card anim" data-d="2" style="padding:34px; border:1px solid transparent; background:linear-gradient(var(--bg),var(--bg)) padding-box, var(--grad) border-box;">
+        <div class="subtitle" style="font-size:30px;"><span class="grad">spec-writer</span></div>
+        <p class="small" style="margin-top:8px; color:var(--faint);">opus</p>
+        <p class="small" style="margin-top:18px; color:var(--ink);">Elaborates the ticket and plans the work. Names the assumptions. Writes no code.</p>
+      </div>
+      <div class="card anim" data-d="3" style="padding:34px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:30px;">model-developer</div>
+        <p class="small" style="margin-top:8px; color:var(--faint);">sonnet</p>
+        <p class="small" style="margin-top:18px;">Domain and rules. Pure functions only. Cannot import a framework.</p>
+      </div>
+      <div class="card anim" data-d="4" style="padding:34px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:30px;">ui-developer</div>
+        <p class="small" style="margin-top:8px; color:var(--faint);">sonnet</p>
+        <p class="small" style="margin-top:18px;">Feature code. Renders from the violation list, never re-implements a rule.</p>
+      </div>
+    </div>
+    <div class="row anim" data-d="5" style="gap:12px; flex-wrap:wrap; margin-top:26px;">
+      <span class="pill muted">test-author</span>
+      <span class="pill muted">fixer</span>
+      <span class="pill muted">refactorer</span>
+      <span class="pill muted">migration-author</span>
+      <span class="pill muted">and whatever your codebase needs</span>
+    </div>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:44px;">
+      <div class="anim" data-d="6">
+        <div class="subtitle" style="font-size:28px;"><span class="grad">Dynamic, not a pipeline</span></div>
+        <p class="small" style="margin-top:14px;">The dispatch reads the ticket and picks the path. A rule change and a migration do not need the same sequence, and hardcoding one means every job gets the worst of both.</p>
+      </div>
+      <div class="anim" data-d="6">
+        <div class="subtitle" style="font-size:28px;"><span class="grad">Effort is a dial</span></div>
+        <p class="small" style="margin-top:14px;">How hard it thinks is set per job, not per session. Planning wants all of it. A rename wants none, and paying for thinking on a rename is just slower.</p>
+      </div>
+    </div>
+    <p class="small anim" data-d="6" style="margin-top:26px; color:var(--faint);">An agent earns its place when it has a constraint you want enforced rather than remembered. Not when it sounds like a job title.</p>
+  </section>
+
+  <!-- 13 STEP 6 AGENT REVIEW -->
+  <section class="slide" data-label="06 Agent review">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 06&nbsp;·&nbsp;Agent review</p>
+    <h2 class="title anim" data-d="1" style="margin-top:20px; max-width:30ch;">Nothing reaches you that <span class="grad">a machine could have caught</span>.</h2>
+    <div class="spacer"></div>
+    <div class="row anim" data-d="2" style="align-items:center; gap:13px; flex-wrap:wrap;">
+      <span class="pill muted">model-developer</span><span class="arrow">→</span>
+      <span class="pill grad-b">verifiers</span><span class="arrow">→</span>
+      <span class="pill">findings</span><span class="arrow">→</span>
+      <span class="pill muted">model-developer</span><span class="arrow">→</span>
+      <span class="pill">re-verify</span><span class="arrow">→</span>
+      <span class="pill grad-b">you</span>
+    </div>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1fr 1.25fr; gap:32px; align-items:stretch;">
+      <div class="card anim" data-d="3" style="padding:32px; border-style:dashed;">
+        <div class="subtitle" style="font-size:27px; color:var(--muted);">Deterministic, and early</div>
+        <p class="small" style="margin-top:16px; color:var(--faint);">pre-commit</p>
+        <div class="row" style="gap:9px; flex-wrap:wrap; margin-top:8px;">
+          <span class="pill muted">format</span><span class="pill muted">lint</span><span class="pill muted">gitleaks</span>
+        </div>
+        <p class="small" style="margin-top:18px; color:var(--faint);">CI</p>
+        <div class="row" style="gap:9px; flex-wrap:wrap; margin-top:8px;">
+          <span class="pill muted">typecheck</span><span class="pill muted">tests</span><span class="pill muted">dep audit</span>
+        </div>
+        <p class="small" style="margin-top:auto; padding-top:22px; color:var(--faint);">Table stakes. You already do this.</p>
+      </div>
+      <div class="card anim" data-d="4" style="padding:32px; border:1px solid transparent; background:linear-gradient(var(--bg),var(--bg)) padding-box, var(--grad) border-box;">
+        <div class="subtitle" style="font-size:27px;"><span class="grad">Verification agents</span></div>
+        <p class="small" style="margin-top:8px; color:var(--faint);">the judgement a linter cannot do</p>
+        <p class="small" style="margin-top:16px; color:var(--ink);"><strong>spec-auditor</strong> which acceptance criteria the diff does not cover</p>
+        <p class="small" style="margin-top:8px; color:var(--ink);"><strong>security-reviewer</strong> injection, secrets, authz on every new path</p>
+        <p class="small" style="margin-top:8px; color:var(--ink);"><strong>data-analyst</strong> query shape, cardinality, what breaks at scale</p>
+        <p class="small" style="margin-top:8px; color:var(--ink);"><strong>test-author</strong> tests from the criteria, never reads the implementation</p>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <p class="subtitle anim" data-d="5" style="font-weight:700; max-width:54ch; font-size:38px;">
+      Set up properly, this catches <span class="grad">more than a human reviewer</span> skimming three pull requests.
+    </p>
+  </section>
+
+  <!-- 14 STEP 7 HUMAN REVIEW -->
+  <section class="slide" data-label="07 Human review">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 07&nbsp;·&nbsp;Human review</p>
+    <h2 class="title anim" data-d="1" style="margin-top:20px; max-width:32ch;">Shape, novelty, and <span class="grad">who answers for it</span>.</h2>
+    <p class="small anim" data-d="1" style="margin-top:22px; max-width:78ch;">The agents settled whether it is correct. Criteria met, tests green, no secrets, lints clean. Do not spend your attention there, it was done better than you would do it.</p>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:26px;">
+      <div class="card anim" data-d="2" style="padding:32px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:27px;">Shape</div>
+        <p class="small" style="margin-top:14px;">Does this look like how we build things here, or like something that arrived from somewhere else?</p>
+      </div>
+      <div class="card anim" data-d="3" style="padding:32px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:27px;">New patterns</div>
+        <p class="small" style="margin-top:14px;">Has one been introduced, and did we want one? Three agents inventing three is how a codebase goes.</p>
+      </div>
+      <div class="card anim" data-d="4" style="padding:32px; border:1px solid transparent; background:linear-gradient(var(--bg),var(--bg)) padding-box, var(--grad) border-box;">
+        <div class="subtitle" style="font-size:27px;"><span class="grad">Point inspection</span></div>
+        <p class="small" style="margin-top:14px; color:var(--ink);">Line by line where the risk is. A scan where it is not. Two pairs of eyes on the first, one on the rest.</p>
+      </div>
+    </div>
+    <p class="small anim" data-d="5" style="margin-top:26px; color:var(--faint);">Where the risk is:</p>
+    <div class="row anim" data-d="5" style="gap:13px; flex-wrap:wrap; margin-top:13px;">
+      <span class="pill grad-b">Data, money, auth</span>
+      <span class="pill">The seams between two jobs</span>
+      <span class="pill">Anything a verifier flagged and the builder waved off</span>
+    </div>
+    <div class="spacer"></div>
+    <p class="subtitle anim" data-d="6" style="font-weight:700; max-width:58ch; font-size:37px;">
+      The agents check whether it is correct. <span class="grad">You check whether it is right</span>, and you still answer for it.
+    </p>
+  </section>
+
+  <!-- 15 STEP 8 AUDIT IT -->
+  <section class="slide" data-label="08 Audit it">
+    <p class="label anim" data-d="1"><span class="tick"></span>Step 08&nbsp;·&nbsp;Audit it</p>
+    <h2 class="title anim" data-d="1" style="margin-top:22px;">The summary goes <span class="grad">back on the ticket</span>.</h2>
+    <div class="spacer"></div>
+    <div class="anim" data-d="2" style="display:flex; justify-content:center;">
+      <svg viewBox="0 0 1360 200" width="1290" height="190" role="img" aria-label="Ticket to branch to pull request to CI to merge to deploy, with the build summary posted back to the ticket">
+        <defs>
+          <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#F26FA6"/><stop offset="100%" stop-color="#4FD1C5"/>
+          </linearGradient>
+        </defs>
+        <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="25">
+          <rect x="0" y="16" width="180" height="60" rx="30" fill="none" stroke="url(#g2)" stroke-width="1.5"/>
+          <text x="62" y="54" fill="#F4F1F6">ticket</text>
+          <text x="196" y="54" fill="#615A72">→</text>
+          <rect x="228" y="16" width="180" height="60" rx="30" fill="none" stroke="#615A72"/>
+          <text x="285" y="54" fill="#F4F1F6">branch</text>
+          <text x="424" y="54" fill="#615A72">→</text>
+          <rect x="456" y="16" width="180" height="60" rx="30" fill="none" stroke="#615A72"/>
+          <text x="528" y="54" fill="#F4F1F6">PR</text>
+          <text x="652" y="54" fill="#615A72">→</text>
+          <rect x="684" y="16" width="180" height="60" rx="30" fill="none" stroke="#615A72"/>
+          <text x="757" y="54" fill="#F4F1F6">CI</text>
+          <text x="880" y="54" fill="#615A72">→</text>
+          <rect x="912" y="16" width="180" height="60" rx="30" fill="none" stroke="#615A72"/>
+          <text x="977" y="54" fill="#F4F1F6">merge</text>
+          <text x="1108" y="54" fill="#615A72">→</text>
+          <rect x="1140" y="16" width="180" height="60" rx="30" fill="none" stroke="#615A72"/>
+          <text x="1204" y="54" fill="#F4F1F6">deploy</text>
+          <path d="M1230 76 L1230 142 L90 142 L90 84" fill="none" stroke="url(#g2)" stroke-width="2"/>
+          <path d="M90 78 L83 92 L97 92 Z" fill="#F26FA6"/>
+          <text x="556" y="178" fill="#9C95AB" font-size="24">build summary posted back</text>
+        </g>
+      </svg>
+    </div>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:44px;">
+      <div class="anim" data-d="3">
+        <div class="subtitle" style="font-size:28px;">Every commit</div>
+        <p class="small" style="margin-top:14px;">References the ticket key. That is the line-level trail and most teams already have it.</p>
+      </div>
+      <div class="anim" data-d="4">
+        <div class="subtitle" style="font-size:28px;"><span class="grad">On merge</span></div>
+        <p class="small" style="margin-top:14px;">A build summary goes back on the ticket: the criteria that were agreed, the assumptions that were signed off, what shipped, what did not.</p>
+      </div>
+    </div>
+    <p class="small anim" data-d="5" style="margin-top:30px; color:var(--faint);">Commit messages tell you what changed. The summary tells you what was asked for, and the BA who wrote the thin ticket finds out what detail you needed.</p>
+  </section>
+
+  <!-- 17 DEMO -->
+  <section class="slide" data-label="The task" style="align-items:center; justify-content:center; text-align:center;">
+    <p class="label anim" data-d="1" style="justify-content:center;"><span class="tick"></span>The task</p>
+
+    <svg class="anim" data-d="2" viewBox="0 0 40 40" width="150" height="150" aria-hidden="true" style="margin-top:44px;">
+      <rect x="7" y="6" width="26" height="7" rx="3.5" fill="#F4F1F6"/>
+      <circle cx="12" cy="24" r="4.6" fill="none" stroke="#9C95AB" stroke-width="1.7"/>
+      <circle cx="28" cy="24" r="4.6" fill="none" stroke="#9C95AB" stroke-width="1.7"/>
+      <circle cx="20" cy="34" r="4.6" fill="none" stroke="#9C95AB" stroke-width="1.7"/>
+    </svg>
+
+    <div class="anim" data-d="3" style="font-size:86px; font-weight:800; letter-spacing:-.035em; line-height:1.05; margin-top:26px;">Top Table</div>
+
+    <h2 class="anim" data-d="4" style="font-size:48px; font-weight:600; letter-spacing:-.02em; line-height:1.25; margin:34px 0 0; max-width:26ch;">
+      Two hundred guests. One room.<br><span class="grad">A venue waiting on a plan.</span>
+    </h2>
+
+    <p class="anim" data-d="5" style="font-size:27px; color:var(--faint); margin-top:36px;">toptable.enablis.tech</p>
+  </section>
+
+  <!-- THE NOTE -->
+  <section class="slide" data-label="The note" style="justify-content:center;">
+    <p class="label anim" data-d="1"><span class="tick"></span>Sunday, 23:47</p>
+    <div class="spacer" style="max-height:26px;"></div>
+    <div class="anim" data-d="2" style="border:1px solid var(--line); border-radius:18px; background:var(--panel); padding:0;">
+
+      <div style="display:flex; align-items:center; gap:26px; padding:34px 52px 26px;">
+        <div style="width:76px; height:76px; border-radius:50%; background:var(--grad); display:flex; align-items:center; justify-content:center; flex:none;">
+          <span style="font-size:34px; font-weight:800; color:var(--bg);">R</span>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:32px; font-weight:700; letter-spacing:-.01em;">Rachel Okonjo</div>
+          <div style="color:var(--faint); font-size:25px; margin-top:2px;">rachel@okonjoevents.co.uk&nbsp;&nbsp;·&nbsp;&nbsp;to Priya, Tom</div>
+        </div>
+        <div style="color:var(--faint); font-size:25px;">Sun 23:47</div>
+      </div>
+
+      <div style="padding:0 52px 22px;">
+        <div class="subtitle" style="font-size:40px;">I am so sorry</div>
+      </div>
+
+      <div style="height:1px; background:var(--line);"></div>
+
+      <div style="padding:34px 52px 40px; font-size:34px; line-height:1.45; color:var(--muted);">
+        <p style="margin:0 0 24px;">Hiya,</p>
+        <p style="margin:0 0 24px;">Something has come up. I am out of the country for two weeks and I cannot go into it.</p>
+        <p style="margin:0 0 24px;">It is all in Top Table. Two hundred guests, room set up how the venue wants it. Press the button and it seats everyone.</p>
+        <p style="margin:0 0 24px; color:var(--ink);">It just seats them <em>anywhere</em>. It does not know Maureen and her sister have not spoken since the christening, or that the top table order is already printed.</p>
+        <p style="margin:0 0 24px;">Everything I spotted is in the tracker.</p>
+        <p style="margin:0 0 24px; color:var(--ink);"><strong style="font-weight:700;">The venue need the plan by Friday.</strong> Not a list of what is wrong with it. The actual plan, in their hands.</p>
+        <p style="margin:0 0 8px;">Sorry. Back in a fortnight.</p>
+        <p style="margin:0; color:var(--ink);">Rachel x--x</p>
+      </div>
+
+    </div>
+    <div class="spacer" style="max-height:26px;"></div>
+  </section>
+
+  <!-- THE SCENARIO -->
+  <section class="slide" data-label="The scenario">
+    <div class="row between anim" data-d="1" style="align-items:center;">
+      <p class="label" style="margin:0;"><span class="tick"></span>The scenario</p>
+      <div class="row" style="align-items:center; gap:24px;">
+        <svg viewBox="0 0 40 40" width="82" height="82" aria-hidden="true">
+          <rect x="7" y="6" width="26" height="7" rx="3.5" fill="#F4F1F6"/>
+          <circle cx="12" cy="24" r="4.6" fill="none" stroke="#9C95AB" stroke-width="1.9"/>
+          <circle cx="28" cy="24" r="4.6" fill="none" stroke="#9C95AB" stroke-width="1.9"/>
+          <circle cx="20" cy="34" r="4.6" fill="none" stroke="#9C95AB" stroke-width="1.9"/>
+        </svg>
+        <div style="text-align:left;">
+          <div style="font-size:38px; font-weight:800; letter-spacing:-.025em; line-height:1.05;">Top Table</div>
+          <div style="font-size:26px; color:var(--faint); margin-top:4px;">toptable.enablis.tech</div>
+        </div>
+      </div>
+    </div>
+    <h2 class="title anim" data-d="1" style="margin-top:14px; max-width:28ch;">What she left you, <span class="grad">in numbers</span>.</h2>
+    <div class="spacer"></div>
+    <div class="stats anim" data-d="2" style="grid-template-columns:repeat(4,1fr);">
+      <div class="stat"><div class="num grad sm">200</div><div class="lab">guests</div></div>
+      <div class="stat"><div class="num grad sm">27</div><div class="lab">tables</div></div>
+      <div class="stat"><div class="num grad sm">216</div><div class="lab">seats, 16 spare</div></div>
+      <div class="stat"><div class="num grad sm">Fri</div><div class="lab">venue wants the plan</div></div>
+    </div>
+    <p class="small anim" data-d="3" style="margin-top:30px; color:var(--faint);">Celebrity Scale. Ninety-six households, nine feuds, twenty-one access needs, eleven friendship groups.</p>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:60px;">
+      <p class="small anim" data-d="4">The rules conflict. You cannot satisfy all of them at once, and no amount of cleverness changes that.</p>
+      <p class="small anim" data-d="5">So the job is knowing which ones stop the plan going to the venue, and which ones are a conversation with the couple. <strong style="color:var(--ink);">Jira says which is which.</strong></p>
+    </div>
+  </section>
+
+  <!-- BUILT AND MISSING -->
+  <section class="slide" data-label="Built and missing">
+    <div class="row between anim" data-d="1" style="align-items:center;">
+      <p class="label" style="margin:0;"><span class="tick"></span>Where the build is up to</p>
+      <div class="row" style="align-items:center; gap:24px;">
+        <svg viewBox="0 0 40 40" width="82" height="82" aria-hidden="true">
+          <rect width="40" height="40" rx="9" fill="#0F6E6E"/>
+          <path d="M9 15.5a2 2 0 0 1 2-2h18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2z" fill="#FFFFFF"/>
+          <circle cx="24" cy="13.5" r="2.6" fill="#0F6E6E"/>
+          <circle cx="24" cy="26.5" r="2.6" fill="#0F6E6E"/>
+          <line x1="24" y1="17.6" x2="24" y2="22.4" stroke="#0F6E6E" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1.4 1.8"/>
+        </svg>
+        <div style="text-align:left;">
+          <div style="font-size:38px; font-weight:800; letter-spacing:-.025em; line-height:1.05;">Tickety</div>
+          <div style="font-size:26px; color:var(--faint); margin-top:4px;">tickety.enablis.tech</div>
+        </div>
+      </div>
+    </div>
+    <h2 class="title anim" data-d="1" style="margin-top:14px;">It runs. <span class="grad">Sort of.</span></h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1fr 1.4fr; gap:30px; align-items:stretch;">
+      <div class="card anim" data-d="2" style="padding:30px; border-style:dashed;">
+        <div class="subtitle" style="font-size:27px; color:var(--muted);">Done</div>
+        <div class="row" style="gap:9px; flex-wrap:wrap; margin-top:20px;">
+          <span class="pill muted">Set up the room</span><span class="pill muted">Scenarios</span>
+          <span class="pill muted">Guest list</span><span class="pill muted">Floorplan</span>
+          <span class="pill muted">Click to place</span><span class="pill muted">Auto-allocate</span>
+          <span class="pill muted">Three rules</span><span class="pill muted">Scoring</span>
+        </div>
+        <p class="small" style="margin-top:auto; padding-top:22px; color:var(--faint);">Enough to produce a plan. Not enough to produce a good one.</p>
+      </div>
+      <div class="card anim" data-d="3" style="padding:30px; border:1px solid transparent; background:linear-gradient(var(--bg),var(--bg)) padding-box, var(--grad) border-box;">
+        <div class="subtitle" style="font-size:27px;"><span class="grad">Six rules that move the score</span></div>
+        <p class="small" style="margin-top:16px; color:var(--ink);"><strong>TT-17</strong>&nbsp;&nbsp;Keep conflicting guests apart</p>
+        <p class="small" style="margin-top:7px; color:var(--ink);"><strong>TT-18</strong>&nbsp;&nbsp;Flag tables that need a kitchen brief</p>
+        <p class="small" style="margin-top:7px; color:var(--ink);"><strong>TT-19</strong>&nbsp;&nbsp;Keep households together</p>
+        <p class="small" style="margin-top:7px; color:var(--ink);"><strong>TT-20</strong>&nbsp;&nbsp;Do not seat all the children together</p>
+        <p class="small" style="margin-top:7px; color:var(--ink);"><strong>TT-21</strong>&nbsp;&nbsp;Spread the tag groups</p>
+        <p class="small" style="margin-top:7px; color:var(--ink);"><strong>TT-22</strong>&nbsp;&nbsp;Give every table someone sociable</p>
+      </div>
+    </div>
+    <div class="anim" data-d="4" style="margin-top:26px; border-left:3px solid var(--red); padding:18px 26px; background:var(--panel);">
+      <div class="row between" style="align-items:baseline;">
+        <span class="subtitle" style="font-size:26px;">Or finish the job. <strong>TT-31</strong>, print a plan the venue can use.</span>
+        <span class="small" style="color:var(--faint);">nobody has written it</span>
+      </div>
+    </div>
+    <p class="small anim" data-d="5" style="margin-top:22px; color:var(--faint);">Two of the seven are a title and nothing else. You write the spec, and step 02 is how.</p>
+  </section>
+
+  <!-- HOW YOU WORK -->
+  <section class="slide" data-label="How you work">
+    <p class="label anim" data-d="1"><span class="tick"></span>How you work</p>
+    <h2 class="title anim" data-d="1" style="margin-top:22px;">Pick freely. <span class="grad">Fan them out.</span></h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:26px;">
+      <div class="card anim" data-d="2" style="padding:32px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:27px;">The contract is frozen</div>
+        <p class="small" style="margin-top:16px;">Types, data shape and the scenario files. Changing one means stopping and saying so out loud.</p>
+      </div>
+      <div class="card anim" data-d="3" style="padding:32px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:27px;">Five agents, already there</div>
+        <p class="small" style="margin-top:16px;">/implement-issue reads the ticket and picks the right one. You do not choose the agent.</p>
+      </div>
+      <div class="card anim" data-d="4" style="padding:32px;"><div class="rule"></div>
+        <div class="subtitle" style="font-size:27px;">Adding a rule touches one file</div>
+        <p class="small" style="margin-top:16px;">No registry to edit, so three agents can add three rules without meeting.</p>
+      </div>
+    </div>
+    <div class="row anim" data-d="5" style="gap:14px; flex-wrap:wrap; margin-top:30px;">
+      <span class="pill grad-b">Start with TT-17</span>
+      <span class="pill">Seven to choose from</span>
+      <span class="pill">Jira is already wired up</span>
+    </div>
+    <div class="spacer"></div>
+    <p class="body anim" data-d="6" style="max-width:66ch; font-size:30px;">
+      Develop against <strong style="color:var(--ink); font-weight:700;">Small and cosy</strong>, because forty guests fits in your head.
+      Then prove it on Celebrity Scale before you call anything done.
+    </p>
+  </section>
+
+  <!-- HOW YOU WIN -->
+  <section class="slide" data-label="How you win">
+    <p class="label anim" data-d="1"><span class="tick"></span>How you win</p>
+    <h2 class="title anim" data-d="1" style="margin-top:20px;">Two ways, <span class="grad">and they pull against each other</span>.</h2>
+    <div class="spacer"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:stretch;">
+      <div class="card anim" data-d="2" style="padding:32px; border:1px solid transparent; background:linear-gradient(var(--bg),var(--bg)) padding-box, var(--grad) border-box;">
+        <div class="subtitle" style="font-size:29px;"><span class="grad">Best plan</span></div>
+        <p class="small" style="margin-top:8px; color:var(--faint);">a guest list nobody has seen, at 1:35</p>
+        <p class="small" style="margin-top:18px; color:var(--ink);">Any hard violation and you do not score. The plan cannot go to the venue.</p>
+        <p class="small" style="margin-top:10px; color:var(--ink);">Then ranked by what is left. Every soft violation costs a point.</p>
+      </div>
+      <div class="card anim" data-d="3" style="padding:32px; border:1px solid transparent; background:linear-gradient(var(--bg),var(--bg)) padding-box, var(--grad) border-box;">
+        <div class="subtitle" style="font-size:29px;"><span class="grad">Finished the job</span></div>
+        <p class="small" style="margin-top:8px; color:var(--faint);">TT-31</p>
+        <p class="small" style="margin-top:18px; color:var(--ink);">The plan actually reaches the venue, in something they can use.</p>
+        <p class="small" style="margin-top:10px; color:var(--ink);">Worth nothing on the leaderboard. It is the only ticket that answers the brief.</p>
+      </div>
+    </div>
+    <p class="small anim" data-d="4" style="margin-top:28px; color:var(--faint);">And whichever you pick:</p>
+    <div class="row anim" data-d="4" style="gap:13px; flex-wrap:wrap; margin-top:13px;">
+      <span class="pill">Tests that mean something</span>
+      <span class="pill">Tickets linked to PRs, CI green, summary back on the ticket</span>
+      <span class="pill">Ninety seconds on one thing your agent got wrong</span>
+    </div>
+    <div class="spacer"></div>
+    <p class="small anim" data-d="5" style="color:var(--faint);">Anything that only works on the guest list in front of you is not a solution, it is a lookup table.</p>
+  </section>
+
+  <!-- 20 GO -->
+  <section class="slide" data-label="Go">
+    <p class="label anim" data-d="1"><span class="tick"></span>Over to you</p>
+    <h2 class="display anim" data-d="2" style="max-width:19ch; margin-top:26px;">Less talking, <span class="grad">more building</span>.</h2>
+    <div class="spacer"></div>
+
+    <div class="row between" style="align-items:center; gap:70px;">
+
+      <div style="flex:1;">
+        <div class="row anim" data-d="3" style="align-items:center; gap:26px; margin-bottom:34px;">
+          <svg viewBox="0 0 40 40" width="76" height="76" aria-hidden="true">
+            <rect x="7" y="6" width="26" height="7" rx="3.5" fill="#F4F1F6"/>
+            <circle cx="12" cy="24" r="4.6" fill="none" stroke="#9C95AB" stroke-width="1.9"/>
+            <circle cx="28" cy="24" r="4.6" fill="none" stroke="#9C95AB" stroke-width="1.9"/>
+            <circle cx="20" cy="34" r="4.6" fill="none" stroke="#9C95AB" stroke-width="1.9"/>
+          </svg>
+          <div>
+            <div style="font-size:36px; font-weight:800; letter-spacing:-.025em; line-height:1.05;">Top Table</div>
+            <div style="font-size:26px; color:var(--faint); margin-top:4px;">toptable.enablis.tech</div>
+          </div>
+        </div>
+
+        <div class="row anim" data-d="4" style="align-items:center; gap:26px;">
+          <svg viewBox="0 0 40 40" width="76" height="76" aria-hidden="true">
+            <rect width="40" height="40" rx="9" fill="#0F6E6E"/>
+            <path d="M9 15.5a2 2 0 0 1 2-2h18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2z" fill="#FFFFFF"/>
+            <circle cx="24" cy="13.5" r="2.6" fill="#0F6E6E"/>
+            <circle cx="24" cy="26.5" r="2.6" fill="#0F6E6E"/>
+            <line x1="24" y1="17.6" x2="24" y2="22.4" stroke="#0F6E6E" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1.4 1.8"/>
+          </svg>
+          <div>
+            <div style="font-size:36px; font-weight:800; letter-spacing:-.025em; line-height:1.05;">Tickety</div>
+            <div style="font-size:26px; color:var(--faint); margin-top:4px;">tickety.enablis.tech</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="anim" data-d="5" style="text-align:center; flex:none;">
+        <div style="background:#F4F1F6; border-radius:22px; padding:26px; display:inline-block; line-height:0;">
+          <svg viewBox="0 0 41 41" width="430" height="430" role="img" aria-label="QR code linking to github.com/enablis-co/TopTable">
+            <path stroke="#0A0710" stroke-width="1" d="M2 2.5h7m2 0h5m4 0h2m2 0h1m1 0h2m4 0h7m-37 1h1m5 0h1m4 0h1m1 0h2m1 0h1m1 0h1m1 0h1m1 0h1m2 0h1m2 0h1m1 0h1m5 0h1m-37 1h1m1 0h3m1 0h1m4 0h1m2 0h2m3 0h1m1 0h2m1 0h3m3 0h1m1 0h3m1 0h1m-37 1h1m1 0h3m1 0h1m5 0h1m3 0h2m1 0h1m2 0h2m1 0h1m4 0h1m1 0h3m1 0h1m-37 1h1m1 0h3m1 0h1m1 0h2m1 0h5m1 0h5m4 0h2m2 0h1m1 0h3m1 0h1m-37 1h1m5 0h1m2 0h9m2 0h1m3 0h2m4 0h1m5 0h1m-37 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-29 1h4m1 0h1m1 0h1m1 0h7m3 0h2m-27 1h2m2 0h5m1 0h1m1 0h1m2 0h3m3 0h3m1 0h4m1 0h1m-32 1h2m2 0h1m4 0h4m1 0h3m2 0h2m2 0h5m2 0h1m-32 1h1m1 0h1m3 0h3m1 0h1m2 0h1m2 0h2m1 0h1m1 0h1m2 0h2m1 0h1m1 0h1m2 0h1m-32 1h1m2 0h2m1 0h1m4 0h1m1 0h1m2 0h4m1 0h1m2 0h3m4 0h4m-31 1h3m1 0h1m3 0h2m1 0h1m2 0h1m4 0h3m2 0h6m1 0h1m-37 1h6m4 0h3m3 0h1m1 0h2m2 0h1m2 0h4m1 0h3m1 0h3m-37 1h1m4 0h2m2 0h6m2 0h1m2 0h1m1 0h1m3 0h1m2 0h2m3 0h2m-34 1h3m3 0h1m2 0h1m2 0h1m1 0h5m2 0h2m1 0h1m5 0h1m3 0h1m-37 1h1m1 0h1m1 0h1m1 0h1m2 0h1m3 0h2m1 0h2m1 0h1m3 0h1m1 0h1m7 0h2m-35 1h4m1 0h1m2 0h2m1 0h1m4 0h2m2 0h1m2 0h1m3 0h1m2 0h2m4 0h1m-37 1h1m2 0h1m2 0h2m1 0h1m1 0h2m1 0h2m2 0h1m2 0h1m1 0h1m1 0h4m1 0h1m1 0h2m1 0h2m-37 1h1m4 0h1m2 0h1m1 0h4m1 0h1m3 0h1m3 0h2m2 0h2m1 0h1m1 0h2m1 0h2m-35 1h2m2 0h1m1 0h1m3 0h2m1 0h1m2 0h2m3 0h1m1 0h4m3 0h2m1 0h1m-35 1h1m3 0h1m2 0h3m2 0h2m4 0h1m1 0h1m1 0h4m4 0h1m1 0h1m1 0h2m-37 1h2m4 0h1m3 0h1m1 0h3m1 0h1m2 0h2m1 0h1m2 0h1m6 0h1m1 0h1m-35 1h1m1 0h3m3 0h1m1 0h3m1 0h1m1 0h2m1 0h1m1 0h1m1 0h1m3 0h3m3 0h2m-34 1h1m2 0h3m3 0h1m3 0h1m6 0h2m1 0h1m1 0h1m3 0h1m1 0h3m1 0h1m-35 1h1m1 0h2m1 0h3m1 0h2m1 0h3m1 0h7m1 0h1m2 0h1m1 0h2m2 0h2m-36 1h1m1 0h6m1 0h3m1 0h1m2 0h1m2 0h1m1 0h2m2 0h1m1 0h1m2 0h5m-36 1h1m1 0h1m1 0h2m1 0h1m6 0h2m1 0h1m1 0h5m2 0h2m1 0h1m-27 1h4m3 0h2m1 0h1m1 0h1m1 0h1m2 0h3m1 0h2m2 0h5m1 0h1m1 0h1m-29 1h1m1 0h2m2 0h2m1 0h3m2 0h4m2 0h1m3 0h5m-37 1h7m1 0h1m4 0h1m1 0h2m2 0h1m2 0h1m3 0h1m1 0h1m1 0h1m1 0h2m1 0h2m-37 1h1m5 0h1m2 0h3m1 0h1m2 0h1m1 0h2m1 0h1m2 0h1m2 0h2m3 0h2m-34 1h1m1 0h3m1 0h1m3 0h2m1 0h1m1 0h1m5 0h1m1 0h2m1 0h1m1 0h6m2 0h1m-37 1h1m1 0h3m1 0h1m1 0h2m1 0h2m2 0h2m3 0h1m3 0h1m5 0h1m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h1m1 0h2m3 0h2m4 0h4m2 0h2m1 0h4m1 0h1m-36 1h1m5 0h1m3 0h1m1 0h1m1 0h1m2 0h1m2 0h3m2 0h1m5 0h1m1 0h2m-35 1h7m2 0h1m1 0h7m1 0h4m1 0h3m2 0h1m1 0h6"/>
+          </svg>
+        </div>
+        <div style="font-size:30px; font-weight:700; margin-top:24px; letter-spacing:-.01em;">The repo, and how to start</div>
+        <div style="font-size:26px; color:var(--faint); margin-top:6px;">github.com/enablis-co/TopTable</div>
+      </div>
+
+    </div>
+
+    <div class="spacer"></div>
+    <div class="row between anim" data-d="6" style="align-items:flex-end;">
+      <span class="logo">enablis<span class="dot">.</span></span>
+      <span class="small" style="color:var(--faint);">Helpers are roaming, grab one</span>
+    </div>
+  </section>
+
+</div>
+
+<div class="deck-nav">
+  <button id="rail-toggle" aria-label="Toggle slide navigator">Slides</button>
+  <button id="prev" aria-label="Previous slide">←</button>
+  <span class="count" id="count">1 / 1</span>
+  <button id="next" aria-label="Next slide">→</button>
+  <button id="present" aria-label="Present full screen">Present</button>
+</div>
+
+<script>
+(function(){
+  var deck = document.getElementById('deck');
+  var rail = document.getElementById('rail');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll('.slide'));
+  var countEl = document.getElementById('count');
+  var thumbs = [];
+  var i = 0;
+
+  slides.forEach(function(sl, idx){
+    var t = document.createElement('div'); t.className = 'thumb';
+    var sc = document.createElement('div'); sc.className = 'scaler';
+    sc.style.transform = 'scale(' + (200 / 1920) + ')';
+    var clone = sl.cloneNode(true);
+    clone.removeAttribute('data-deck-active');
+    Array.prototype.forEach.call(clone.querySelectorAll('.anim'), function(e){ e.classList.remove('anim'); });
+    sc.appendChild(clone);
+    var num = document.createElement('span'); num.className = 'num'; num.textContent = idx + 1;
+    t.appendChild(sc); t.appendChild(num);
+    t.addEventListener('click', function(e){ e.stopPropagation(); show(idx); });
+    rail.appendChild(t);
+    thumbs.push(t);
+  });
+
+  function fit(){
+    var railW = (rail && !rail.classList.contains('hidden')) ? rail.offsetWidth : 0;
+    var availW = window.innerWidth - railW;
+    var s = Math.min(availW / 1920, window.innerHeight / 1080);
+    deck.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+    deck.style.left = (railW + availW / 2) + 'px';
+    deck.style.top = '50%';
+  }
+
+  function show(n){
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach(function(sl, idx){
+      if (idx === i) sl.setAttribute('data-deck-active', '');
+      else sl.removeAttribute('data-deck-active');
+    });
+    thumbs.forEach(function(t, idx){ t.classList.toggle('active', idx === i); });
+    var active = thumbs[i]; if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' });
+    countEl.textContent = (i + 1) + ' / ' + slides.length;
+    if (history.replaceState) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  function go(d){ show(i + d); }
+  function toggleRail(){ rail.classList.toggle('hidden'); fit(); }
+
+  function present(){
+    if (!document.fullscreenElement) {
+      rail.classList.add('hidden');
+      if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+    } else if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+    setTimeout(fit, 60);
+  }
+
+  document.getElementById('next').addEventListener('click', function(){ go(1); });
+  document.getElementById('prev').addEventListener('click', function(){ go(-1); });
+  document.getElementById('rail-toggle').addEventListener('click', function(e){ e.stopPropagation(); toggleRail(); });
+  document.getElementById('present').addEventListener('click', function(e){ e.stopPropagation(); present(); });
+  document.addEventListener('fullscreenchange', function(){ setTimeout(fit, 60); });
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); go(1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); }
+    else if (e.key === 'Home') { show(0); }
+    else if (e.key === 'End') { show(slides.length - 1); }
+    else if (e.key === 's' || e.key === 'S') { toggleRail(); }
+    else if (e.key === 'f' || e.key === 'F') { present(); }
+  });
+
+  document.addEventListener('click', function(e){
+    if (e.target.closest('.deck-nav') || e.target.closest('.rail')) return;
+    go(1);
+  });
+
+  window.addEventListener('resize', fit);
+
+  var start = 0;
+  if (location.hash) { var h = parseInt(location.hash.slice(1), 10); if (h >= 1) start = h - 1; }
+  fit();
+  show(start);
+})();
+</script>
+
+</body>
+</html>
