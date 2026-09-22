@@ -55,11 +55,8 @@ rather than quietly resolving.
 **Against the criteria**
 
 - Is every acceptance criterion met?
-- Is anything built that no criterion asked for? Building ahead of the board is a finding — KB-1
-  lists what is deliberately out of the MVP, and TT-23, TT-25 and TT-31 to TT-34 already own it.
-  Note that every rule on KB-2 *is* in scope and the rules have their own tickets, so a seating
-  rule is only a finding when it is not this ticket's rule. Check the board, not this line.
-- Has a thin ticket been filled in? They are thin on purpose.
+- Has a thin ticket been filled in? Criteria may be proposed on one, but the user approves them
+  before a build — unapproved criteria treated as the ticket's own are a finding.
 
 **The domain**, against `docs/engineering-standards.md` rather than memory
 

@@ -64,9 +64,7 @@ direction. Whatever writes them keeps both sides in step.
 
 ## Hold the line on scope
 
-- What is out of the MVP is in `docs/engineering-standards.md`, under Scope. **Every rule on KB-2
-  is in the MVP**, at the severity KB-2 gives it, so no seating rule is "ahead of the board".
-- But each rule has its own ticket — `TT-14` builds the engine and the first three, `TT-17` to
+- Each rule has its own ticket — `TT-14` builds the engine and the first three, `TT-17` to
   `TT-22` add the rest — and only the one your plan names is yours. Check the board; do not build a
   neighbouring rule because the engine is open in front of you.
 - Pinning is the idea the product turns on: placing someone by hand pins them, and auto-allocate

@@ -143,15 +143,10 @@ workflow, so there is one definition of the gate rather than two that drift.
 
 ## Scope
 
-**Never build ahead of the board.** KB-1 lists what is deliberately out of the MVP: drag and drop,
-undo, catering output, export, print, sharing and accounts. Those are ticketed under `TT-23`,
-`TT-25` and `TT-31` to `TT-34` — exactly the child set of the `TT-30` Enhancements epic, which is
-the durable way to look them up, because the range itself has gone stale twice.
+**A thin ticket is thin on purpose.** Someone else writes that specification, so the criteria are
+not yours to assume.
 
-**A seating rule is not out of scope.** KB-1 says every rule on KB-2 is in scope, at the severity
-KB-2 gives it, and the rules carry their own tickets inside the `TT-10` MVP epic. What is out of
-scope is building one *before its ticket*, which is a different thing from building ahead of the
-board.
-
-**A thin ticket is thin on purpose.** Never fill one in, and never invent an acceptance criterion
-to have something to build.
+They are yours to *propose*. Draft the acceptance criteria, say plainly that the ticket did not
+carry them, and put them in front of the user. Build once they have approved them, and not before.
+A plan that quietly supplies its own criteria and carries on is the thing this rule exists to
+stop — the failure is not writing them, it is building from them unapproved.
