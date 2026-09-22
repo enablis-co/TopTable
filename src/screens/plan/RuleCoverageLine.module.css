@@ -1,0 +1,13 @@
+/*
+ * TT-53. Mirrors .publishState in PlanHeader.module.css, the sibling it sits above in the same
+ * right-aligned .statsColumn. --ink-muted rather than --ink: this line qualifies the Fit figure,
+ * while .publishState states a fact KB-8 requires never be missed, so that line stays the more
+ * prominent of the two. Neither carries meaning by colour (KB-5). The negative right margin
+ * mirrors .stats and .publishState so the text lands flush with the header's right edge.
+ */
+.coverage {
+  margin: 0 calc(var(--s-2) * -1) 0 0;
+  font: var(--t-caption);
+  color: var(--ink-muted);
+  text-align: right;
+}
