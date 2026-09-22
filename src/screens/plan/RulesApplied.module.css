@@ -1,0 +1,43 @@
+/* The breaker line between the violations and the rule list: 1px solid var(--rule), the same
+   idiom UnseatedRail.module.css and SlideOver.module.css use to break a section off. KB-5 allows
+   1px borders and no shadows, so depth here is the border and the space around it, nothing else.
+   padding-top matches margin-top so the line sits with equal air on both sides. */
+.rulesApplied {
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--rule);
+}
+
+/* --ink, not --ink-muted, for both headings: at one colour the section title and the group
+   labels read as more rules rather than as the structure around them. The rules themselves stay
+   muted, so the three levels differ without a second type token (KB-5). */
+.heading {
+  margin: 0;
+  font: var(--t-caption);
+  color: var(--ink);
+}
+
+.group {
+  margin-top: var(--s-3);
+}
+
+.groupHeading {
+  margin: 0 0 var(--s-1);
+  font: var(--t-caption);
+  color: var(--ink);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  margin: 0;
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}

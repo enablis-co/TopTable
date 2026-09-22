@@ -10,11 +10,9 @@ import { REGISTERED_RULES } from './registry'
  */
 
 /**
- * What the specification declares: KB-2's own rules, plus `everyone-seated`, which TT-47
- * registered and scores but never added to that page — its own first acceptance criterion asked
- * for the row and it did not land. Ten until that gap closes, at which point KB-2 says ten for
- * the same reason rather than by coincidence. Counted off the page rather than listed here: a
- * hand-copied list of a page this very constant exists because of would go stale the same way.
+ * What the specification declares: the rules listed on KB-2, hard and soft together. Counted off
+ * that page rather than enumerated here — a hand-copied list would go stale, which is the failure
+ * this constant exists to make visible rather than repeat.
  *
  * Deliberately not exported, so `ruleCoverage()` stays the only seam onto this figure and no
  * caller can do its own arithmetic on the raw constant.

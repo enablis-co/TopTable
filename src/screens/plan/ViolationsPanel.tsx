@@ -1,6 +1,7 @@
 import type { Violation } from '../../domain/rules/contract'
 import { hardViolations, softViolations, type RuleReport } from '../../domain/rules/engine'
 import { Panel, tabularClass } from '../../ui'
+import { RulesApplied } from './RulesApplied'
 import styles from './ViolationsPanel.module.css'
 
 type ViolationsPanelProps = {
@@ -82,6 +83,7 @@ export function ViolationsPanel({ report }: ViolationsPanelProps) {
         </ul>
       )}
       <Footer hardCount={hard.length} softCount={soft.length} />
+      <RulesApplied />
     </Panel>
   )
 }
