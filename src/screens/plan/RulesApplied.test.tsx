@@ -10,8 +10,8 @@ import { REGISTERED_RULES } from '../../domain/rules/registry'
  * `*.rule.ts` file must not need an edit here to be picked up).
  *
  * The grouping and ordering assertions are derived from `REGISTERED_RULES`, so they hold as
- * TT-17 to TT-22 add rules. The roster of descriptions below is not: it pins today's four by
- * name as the honest current-state check, and it is expected to need a line adding as each of
+ * TT-18, TT-20 to TT-22 add rules. The roster of descriptions below is not: it pins today's five
+ * by name as the honest current-state check, and it is expected to need a line adding as each of
  * those tickets lands. That is a scheduled edit, not a regression — but this file does have to
  * be edited, which `registry.test.ts` and `ruleCoverage.test.ts` deliberately avoid.
  */
@@ -39,7 +39,7 @@ describe('RulesApplied — grouped by severity, Hard then Soft, each a real head
     expect(headings).toEqual(['Rules applied', 'Hard', 'Soft'])
   })
 
-  it('renders today\'s four registered rules under the right severity group, id-ascending', () => {
+  it('renders today\'s five registered rules under the right severity group, id-ascending', () => {
     render(<RulesApplied />)
     const expected = expectedDescriptionsBySeverity()
 
@@ -48,7 +48,10 @@ describe('RulesApplied — grouped by severity, Hard then Soft, each a real head
       'Every guest has a seat while the room still has an empty one',
       'The top table contains only guests holding a protocol role, in the protocol order',
     ])
-    expect(expected.soft).toEqual(['Partners should sit next to each other, not merely at the same table'])
+    expect(expected.soft).toEqual([
+      'A household should not be spread across more than two tables',
+      'Partners should sit next to each other, not merely at the same table',
+    ])
 
     // Queried by each list's accessible name, which comes from its own <h4> via aria-labelledby.
     // That is the tie between a rule and its severity here — not a class name, and not a DOM
