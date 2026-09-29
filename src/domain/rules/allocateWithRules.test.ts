@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { allocate } from '../allocate'
 import { evaluateRegistered, registeredSeatGuard } from './registry'
-import { hardViolations } from './engine'
+import { hardViolations, isPublishable } from './engine'
 import { PROTOCOL_ROLES } from '../types'
 import type { Guest, Pin, RoomConfig } from '../types'
 import type { ScenarioId } from '../scenarios'
@@ -14,7 +14,19 @@ import type { ScenarioId } from '../scenarios'
  * ones"), made checkable: wiring the registered rules' guard into the solver must not change a
  * single placement `allocate` makes. Written from TT-14's acceptance criteria. Does not open
  * registry.ts or any rule file.
+ *
+ * TT-17 (F2): the top describe block below is rewritten. The old claim — the guard never changes
+ * a placement — was true only by accident, because nothing registered before TT-17 could ever
+ * refuse a seat the solver's own greedy fill would otherwise choose. `conflicts` (KB-1: "Auto-
+ * allocate satisfies the hard ones") can and does, so the claim actually being tested is KB-1's:
+ * the guard changes placements only to keep hard rules satisfied, never for any other reason.
+ * G1-G4 are TT-17's plan section 3. The hand-built-room-with-pins case is kept as it was — its
+ * guests carry no conflicts, so the guard is still a no-op there, which is itself part of G3.
  */
+
+function sortedIds(ids: readonly string[]): string[] {
+  return [...ids].sort()
+}
 
 function makeGuest(id: string, overrides: Partial<Guest> = {}): Guest {
   return {
@@ -51,30 +63,42 @@ function readScenario(id: ScenarioId): ScenarioFixture {
   return JSON.parse(readFileSync(path, 'utf8')) as ScenarioFixture
 }
 
-describe('allocate with the registered rules wired in produces exactly the plan allocate would without them (TT-14, A10)', () => {
-  it.each(['small-and-cosy', 'adding-up', 'celebrity-scale'] as const)(
-    '%s: identical plans, with and without the guard',
-    (id) => {
+describe('the guard changes placements only to satisfy hard rules (TT-17; KB-1: "Auto-allocate satisfies the hard ones")', () => {
+  /**
+   * Trap: G2 and G3 below only make sense together, because they say opposite things about the
+   * same claim. A pair a scenario's unguarded fill happens to keep apart already (Adding up,
+   * Celebrity scale) proves the guard is a no-op *there*; it does not show the guard does
+   * anything at all. Small and cosy is the scenario the guard actually has to work in (G2), so it
+   * carries the case where guarded and unguarded plans are expected to differ.
+   */
+
+  it('G1: with the registered guard, every scenario seats everyone and raises no conflicts finding', () => {
+    for (const id of ['small-and-cosy', 'adding-up', 'celebrity-scale'] as const) {
       const { meta, guests } = readScenario(id)
 
-      const withRules = allocate(meta.tables, guests, [], { allowSeat: registeredSeatGuard() })
+      const plan = allocate(meta.tables, guests, [], { allowSeat: registeredSeatGuard() })
+
+      expect(plan.unseated).toEqual([])
+      const report = evaluateRegistered(plan)
+      expect(hardViolations(report).some((violation) => violation.ruleId === 'conflicts')).toBe(false)
+    }
+  })
+
+  it.each(['adding-up', 'celebrity-scale'] as const)(
+    'G3: %s — the unguarded plan already keeps every conflict pair apart, so the guarded plan is identical',
+    (id) => {
+      const { meta, guests } = readScenario(id)
       const withoutRules = allocate(meta.tables, guests, [])
+      const unguardedReport = evaluateRegistered(withoutRules)
+      expect(hardViolations(unguardedReport).some((violation) => violation.ruleId === 'conflicts')).toBe(false)
+
+      const withRules = allocate(meta.tables, guests, [], { allowSeat: registeredSeatGuard() })
 
       expect(withRules).toEqual(withoutRules)
     },
   )
 
-  it('holds even where capacity bites immediately and every placement is forced ("Small and cosy": 40 guests, 40 seats, no spare)', () => {
-    const { meta, guests } = readScenario('small-and-cosy')
-
-    const withRules = allocate(meta.tables, guests, [], { allowSeat: registeredSeatGuard() })
-    const withoutRules = allocate(meta.tables, guests, [])
-
-    expect(withRules).toEqual(withoutRules)
-    expect(withRules.unseated).toEqual([])
-  })
-
-  it('holds for a hand-built room with pins and a full set of protocol roles, not only the three shipped scenarios', () => {
+  it('G3: holds for a hand-built room with pins and a full set of protocol roles, not only the three shipped scenarios', () => {
     const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 8 }
     const protocolGuests = PROTOCOL_ROLES.map((role, i) => makeGuest(`protocol-${i}`, { role }))
     const fillers = Array.from({ length: 6 }, (_, i) => makeGuest(`filler-${i + 1}`))
@@ -85,6 +109,59 @@ describe('allocate with the registered rules wired in produces exactly the plan 
     const withoutRules = allocate(room, guests, pins)
 
     expect(withRules).toEqual(withoutRules)
+  })
+
+  it('G2: "Small and cosy" — unguarded, g-009 and g-013 share a table; guarded, they are apart and nobody is unseated', () => {
+    const { meta, guests } = readScenario('small-and-cosy')
+
+    const withoutRules = allocate(meta.tables, guests, [])
+    const tableOfUnguarded = (guestId: string) =>
+      withoutRules.tables.find(
+        (table) =>
+          table.seats.some((seat) => seat?.guest.id === guestId) || table.overflow.some((seat) => seat.guest.id === guestId),
+      )?.id
+    expect(tableOfUnguarded('g-009')).toBeDefined()
+    expect(tableOfUnguarded('g-009')).toBe(tableOfUnguarded('g-013'))
+
+    const withRules = allocate(meta.tables, guests, [], { allowSeat: registeredSeatGuard() })
+    const tableOfGuarded = (guestId: string) =>
+      withRules.tables.find(
+        (table) =>
+          table.seats.some((seat) => seat?.guest.id === guestId) || table.overflow.some((seat) => seat.guest.id === guestId),
+      )?.id
+
+    expect(withRules.unseated).toEqual([])
+    expect(tableOfGuarded('g-009')).toBeDefined()
+    expect(tableOfGuarded('g-013')).toBeDefined()
+    expect(tableOfGuarded('g-009')).not.toBe(tableOfGuarded('g-013'))
+  })
+
+  it('G4: pins are honoured even when they seat a conflict pair together; the violation is reported, not silently fixed', () => {
+    const room: RoomConfig = { roundTables: 2, seatsEach: 4, topTableSeats: 2 }
+    const a = makeGuest('conflict-a', { conflictsWith: ['conflict-b'] })
+    const b = makeGuest('conflict-b', { conflictsWith: ['conflict-a'] })
+    const fillers = Array.from({ length: 6 }, (_, i) => makeGuest(`filler-${i + 1}`))
+    const guests = [a, b, ...fillers]
+    const pins: Pin[] = [
+      { guestId: 'conflict-a', tableId: 'round-1' },
+      { guestId: 'conflict-b', tableId: 'round-1' },
+    ]
+
+    const plan = allocate(room, guests, pins, { allowSeat: registeredSeatGuard() })
+
+    const seatedAt = (guestId: string) =>
+      plan.tables.find(
+        (table) =>
+          table.seats.some((seat) => seat?.guest.id === guestId) || table.overflow.some((seat) => seat.guest.id === guestId),
+      )?.id
+    expect(seatedAt('conflict-a')).toBe('round-1')
+    expect(seatedAt('conflict-b')).toBe('round-1')
+
+    const report = evaluateRegistered(plan)
+    const conflictViolation = hardViolations(report).find((violation) => violation.ruleId === 'conflicts')
+    expect(conflictViolation).toBeDefined()
+    expect(sortedIds(conflictViolation?.guestIds ?? [])).toEqual(['conflict-a', 'conflict-b'])
+    expect(isPublishable(report)).toBe(false)
   })
 })
 

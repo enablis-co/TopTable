@@ -320,7 +320,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
     })
     const guard = seatGuardFrom([rule])
 
-    const allowed = guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1') })
+    const allowed = guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1'), guests: [] })
 
     expect(allowed).toBe(false)
   })
@@ -334,7 +334,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
     })
     const guard = seatGuardFrom([rule])
 
-    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1') })).toBe(true)
+    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1'), guests: [] })).toBe(true)
   })
 
   it('a hard rule whose remedy is "flag" never refuses a seat — this is the criterion auto-allocate depends on most', () => {
@@ -346,7 +346,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
     })
     const guard = seatGuardFrom([rule])
 
-    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1') })).toBe(true)
+    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1'), guests: [] })).toBe(true)
   })
 
   it('refuses only when a finding names both the candidate table and the candidate guest, never one alone', () => {
@@ -362,7 +362,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
       remedy: 'seating',
       evaluate: () => assessment([{ tableIds: ['round-2'], guestIds: ['g-1'], message: 'x' }]),
     })
-    const candidate = { plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1') }
+    const candidate = { plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1'), guests: [] }
 
     expect(seatGuardFrom([namesWrongGuest])(candidate)).toBe(true)
     expect(seatGuardFrom([namesWrongTable])(candidate)).toBe(true)
@@ -371,7 +371,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
   it('allows everything when given no rules at all', () => {
     const guard = seatGuardFrom([])
 
-    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1') })).toBe(true)
+    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1'), guests: [] })).toBe(true)
   })
 
   it('allows everything when every rule given is hard-or-seating but none is both at once', () => {
@@ -391,7 +391,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
     ]
     const guard = seatGuardFrom(onlySoftAndFlag)
 
-    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1') })).toBe(true)
+    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1'), guests: [] })).toBe(true)
   })
 
   it('asks its hard, seating rules about the hypothetical plan with the candidate already seated, not the plan as it stands', () => {
@@ -409,7 +409,7 @@ describe("seatGuardFrom — only a hard, seating-remedy rule may refuse a candid
 
     // g-1 is nowhere in makePlan(); a refusal here is only possible if the rule was asked about
     // withSeat's hypothetical, not the plan as handed to the guard.
-    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1') })).toBe(false)
+    expect(guard({ plan: makePlan(), tableId: 'round-1', seatIndex: 0, guest: makeGuest('g-1'), guests: [] })).toBe(false)
   })
 })
 

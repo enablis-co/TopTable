@@ -972,7 +972,7 @@ describe('PlanHeader — the coverage line beside the score (TT-53)', () => {
         publishable={true}
       />,
     )
-    expect(container.textContent).toContain('4 of 10 rules built')
+    expect(container.textContent).toContain('5 of 10 rules built')
   })
 
   it('reads the coverage line after the stat row and before the publishability line', () => {
@@ -992,8 +992,8 @@ describe('PlanHeader — the coverage line beside the score (TT-53)', () => {
     // above the stat row — where TT-53 does not want it — and this test would stay green.
     const text = container.textContent ?? ''
     expect(text).toContain('Can be published')
-    expect(text.indexOf('Unseated')).toBeLessThan(text.indexOf('4 of 10 rules built'))
-    expect(text.indexOf('4 of 10 rules built')).toBeLessThan(text.indexOf('Can be published'))
+    expect(text.indexOf('Unseated')).toBeLessThan(text.indexOf('5 of 10 rules built'))
+    expect(text.indexOf('5 of 10 rules built')).toBeLessThan(text.indexOf('Can be published'))
   })
 
   it('with "Nothing to score" there is no coverage line', () => {

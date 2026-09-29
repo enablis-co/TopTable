@@ -1,4 +1,4 @@
-import type { Finding, SeatingRule } from './contract'
+import type { Finding, GuardPlan, SeatingRule } from './contract'
 
 /**
  * KB-2, hard: "A table must not be seated above its capacity". Written as `total > capacity`,
@@ -17,7 +17,11 @@ export const rule = {
   severity: 'hard',
   remedy: 'seating',
   description: 'A table must not be seated above its capacity',
-  evaluate: (plan) => {
+  // Explicit `GuardPlan` (TT-17): this rule reads only `plan.tables`, so it does not need the
+  // wider `RulePlan` a `GuardableRule` may now be handed. Left to infer, the parameter would take
+  // `RulePlan` from `contract.ts`'s contextual type, and every direct caller — capacity.rule.test.ts
+  // among them — would have to pass `unseated` even though nothing here reads it.
+  evaluate: (plan: GuardPlan) => {
     const findings: Finding[] = []
 
     for (const table of plan.tables) {

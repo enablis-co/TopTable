@@ -5,9 +5,10 @@ import { planOccupancy } from '../seating'
  * TT-47, hard: "A guest without a seat is a violation while a seat is free. A room with fewer
  * seats than guests is short rather than in violation."
  *
- * `remedy: 'flag'` is forced, not chosen: `contract.ts` types a hard `remedy: 'seating'` rule's
- * `evaluate` against `GuardPlan` (tables only), and this rule needs the full guest list to know
- * who has no seat.
+ * `remedy: 'flag'` is kept by choice, not forced: TT-17 lets a guardable rule see the guest list,
+ * so nothing in the types stops this rule reading it. As a guard it would still be inert: its
+ * finding names no table and no guest, so `seatGuardFrom` could never match it to a candidate
+ * seat — `registry.test.ts` also requires every hard seating rule's findings to name both.
  */
 export const rule = {
   id: 'everyone-seated',
