@@ -101,15 +101,14 @@ function pinnedWithoutRoleCount(table: SeatedTable): number {
 export const rule = {
   id: 'top-table',
   severity: 'hard',
-  // `remedy: 'flag'` is forced, not chosen: `contract.ts` types a hard `remedy: 'seating'` rule's
-  // `evaluate` against `GuardPlan` (tables only), and this rule needs the full guest list. That
-  // drops it out of `seatGuardFrom`'s guardable set, which is inert twice over even setting that
-  // aside: `seatProtocolOverflowBlock` (phase 3) and `seatIntoFirstAllowedSeat` (phase 4) are the
-  // only other callers of `allowSeat`, and — as `allocate`'s own doc comment says — both walk
-  // round slots only, while every finding this rule raises carries `tableIds: ['top']`, a value
-  // `seatGuardFrom`'s `finding.tableIds.includes(candidate.tableId)` can never match. A top table
-  // becoming a fill destination must re-examine this; allocateWithRules.test.ts is the suite that
-  // would catch it.
+  // `remedy: 'flag'` is kept by choice, not forced: TT-17 lets a guardable rule see the guest
+  // list, so `contract.ts` no longer types `GuardableRule['evaluate']` against `GuardPlan` alone.
+  // As a guard this rule would still be inert, though: `seatProtocolOverflowBlock` (phase 3) and
+  // `seatIntoFirstAllowedSeat` (phase 4) are the only callers of `allowSeat`, and — as
+  // `allocate`'s own doc comment says — both walk round slots only, while every finding this rule
+  // raises carries `tableIds: ['top']`, a value `seatGuardFrom`'s
+  // `finding.tableIds.includes(candidate.tableId)` can never match. A top table becoming a fill
+  // destination must re-examine this; allocateWithRules.test.ts is the suite that would catch it.
   remedy: 'flag',
   description: 'The top table contains only guests holding a protocol role, in the protocol order',
   evaluate: (plan) => {
