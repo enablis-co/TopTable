@@ -10,10 +10,11 @@ import { REGISTERED_RULES } from '../../domain/rules/registry'
  * `*.rule.ts` file must not need an edit here to be picked up).
  *
  * The grouping and ordering assertions are derived from `REGISTERED_RULES`, so they hold as
- * TT-17 to TT-22 add rules. The roster of descriptions below is not: it pins today's four by
- * name as the honest current-state check, and it is expected to need a line adding as each of
- * those tickets lands. That is a scheduled edit, not a regression — but this file does have to
- * be edited, which `registry.test.ts` and `ruleCoverage.test.ts` deliberately avoid.
+ * TT-17 to TT-22 add rules. The roster of descriptions below is not: it pins today's five by
+ * name (TT-17 added `conflicts`) as the honest current-state check, and it is expected to need a
+ * line adding as each of TT-18 to TT-22 lands. That is a scheduled edit, not a regression — but
+ * this file does have to be edited, which `registry.test.ts` and `ruleCoverage.test.ts`
+ * deliberately avoid.
  */
 
 function expectedDescriptionsBySeverity(): { hard: string[]; soft: string[] } {
@@ -39,12 +40,13 @@ describe('RulesApplied — grouped by severity, Hard then Soft, each a real head
     expect(headings).toEqual(['Rules applied', 'Hard', 'Soft'])
   })
 
-  it('renders today\'s four registered rules under the right severity group, id-ascending', () => {
+  it('renders today\'s five registered rules under the right severity group, id-ascending (TT-17)', () => {
     render(<RulesApplied />)
     const expected = expectedDescriptionsBySeverity()
 
     expect(expected.hard).toEqual([
       'A table must not be seated above its capacity',
+      'Two guests recorded as in conflict must not share a table',
       'Every guest has a seat while the room still has an empty one',
       'The top table contains only guests holding a protocol role, in the protocol order',
     ])
