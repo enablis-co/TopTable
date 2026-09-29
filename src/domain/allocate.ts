@@ -23,6 +23,9 @@ export type SeatCandidate = {
   tableId: string
   seatIndex: number
   guest: Guest
+  /** The whole guest list being allocated, the one `allocate` was called with. `seatGuardFrom`
+   *  builds the hypothetical plan's `unseated` from it (TT-17). */
+  guests: readonly Guest[]
 }
 
 /** Asked before the fill takes a seat. `true` allows it. TT-14 supplies the rules-backed one. */
@@ -154,6 +157,7 @@ function fitBlockAt(
   block: readonly Guest[],
   allowSeat: SeatGuard,
   planSoFar: PlanSoFar,
+  guests: readonly Guest[],
 ): { guest: Guest; seatIndex: number }[] | null {
   const claimed = new Set<number>()
   const assignments: { guest: Guest; seatIndex: number }[] = []
@@ -163,7 +167,7 @@ function fitBlockAt(
       (seat, index) =>
         seat === null &&
         !claimed.has(index) &&
-        allowSeat({ plan: planSoFar, tableId: table.id, seatIndex: index, guest }),
+        allowSeat({ plan: planSoFar, tableId: table.id, seatIndex: index, guest, guests }),
     )
     if (seatIndex === -1) return null
     claimed.add(seatIndex)
@@ -202,7 +206,7 @@ function seatProtocolOverflowBlock(
     .filter((table) => countFreeSeats(table) >= block.length)
 
   for (const table of candidates) {
-    const assignments = fitBlockAt(table, block, allowSeat, planSoFar)
+    const assignments = fitBlockAt(table, block, allowSeat, planSoFar, guests)
     if (!assignments) continue
 
     for (const { guest, seatIndex } of assignments) {
@@ -230,12 +234,13 @@ function seatIntoFirstAllowedSeat(
   guest: Guest,
   allowSeat: SeatGuard,
   planSoFar: PlanSoFar,
+  guests: readonly Guest[],
 ): boolean {
   for (const slot of roundSlotsInOrder) {
     const table = tableFor(tables, slot.id)
     for (let seatIndex = 0; seatIndex < table.seats.length; seatIndex++) {
       if (table.seats[seatIndex] !== null) continue
-      if (!allowSeat({ plan: planSoFar, tableId: slot.id, seatIndex, guest })) continue
+      if (!allowSeat({ plan: planSoFar, tableId: slot.id, seatIndex, guest, guests })) continue
 
       table.seats[seatIndex] = { guest, pinned: false }
       return true
@@ -258,7 +263,7 @@ function fillRemainingGuests(
   for (const guest of guests) {
     if (seatedGuestIds.has(guest.id)) continue
 
-    if (seatIntoFirstAllowedSeat(tables, roundSlotsInOrder, guest, allowSeat, planSoFar)) {
+    if (seatIntoFirstAllowedSeat(tables, roundSlotsInOrder, guest, allowSeat, planSoFar, guests)) {
       seatedGuestIds.add(guest.id)
     } else {
       unseated.push(guest)
