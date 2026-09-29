@@ -66,10 +66,12 @@ describe('TT-17 — the panel gains a fifth rule, conflicts (P1, P2, P3)', () =>
 
     await user.click(screen.getByRole('button', { name: 'Auto-allocate' }))
 
-    // P2, P3 — derived from the real registry rather than hardcoded, so this stays true as more
-    // rules land; today it happens to be 5 registered of 10 declared.
-    expect(document.body.textContent).toContain(`${REGISTERED_RULES.length} rules registered`)
-    expect(document.body.textContent).toContain(`${REGISTERED_RULES.length} of 10 rules built`)
+    // P2, P3 — pinned as literals, not derived from REGISTERED_RULES.length: a derived count
+    // would still read correctly at 4 if conflicts failed to register at all, so it could never
+    // catch the one failure this test exists to catch. TT-17 registers a fifth rule, so this
+    // reads "5 of 10" today and is expected to need a one-line bump as TT-18 to TT-22 land.
+    expect(document.body.textContent).toContain('5 rules registered')
+    expect(document.body.textContent).toContain('5 of 10 rules built')
 
     // P1 — "Rules applied", Hard group, conflicts directly after capacity, derived from the
     // registry's own id-ascending order (the same order RulesApplied.tsx renders in).
