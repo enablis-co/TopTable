@@ -280,7 +280,7 @@ describe('evaluateRegistered and registeredSeatGuard bind REGISTERED_RULES into 
 
   it('registeredSeatGuard agrees with seatGuardFrom(REGISTERED_RULES) on the same candidate', () => {
     const plan = buildViolatingPlan()
-    const candidate = { plan, tableId: 'round-2', seatIndex: 3, guest: makeGuest('candidate') }
+    const candidate = { plan, tableId: 'round-2', seatIndex: 3, guest: makeGuest('candidate'), guests: [...plan.unseated] }
 
     expect(registeredSeatGuard()(candidate)).toBe(seatGuardFrom(REGISTERED_RULES)(candidate))
   })
