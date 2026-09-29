@@ -3,6 +3,23 @@ import type { SeatCandidate, SeatGuard } from '../allocate'
 import type { GuardPlan, GuardableRule, RulePlan, SeatingRule, Severity, Violation } from './contract'
 import { defaultWeightFor } from './contract'
 
+/** Every guest in `guests` who holds no real seat in `tables` — neither a table's `seats` nor its
+ *  `overflow` — in `guests`' own order. TT-17: this is `seatGuardFrom`'s own derivation of a
+ *  hypothetical plan's `unseated`, built fresh per candidate since the hypothetical plan changes
+ *  with every seat offered. */
+function guestsWithoutATable(guests: readonly Guest[], tables: GuardPlan['tables']): Guest[] {
+  const placed = new Set<string>()
+  for (const table of tables) {
+    for (const seat of table.seats) {
+      if (seat) placed.add(seat.guest.id)
+    }
+    for (const seat of table.overflow) {
+      placed.add(seat.guest.id)
+    }
+  }
+  return guests.filter((guest) => !placed.has(guest.id))
+}
+
 /**
  * Evaluation, the hard/soft split, and the guard `allocate.ts`'s fill can consult. Every
  * function here takes an explicit rule array — `registry.ts` is the only file that knows about
@@ -105,8 +122,9 @@ export function tablesWithHardViolation(report: RuleReport): ReadonlySet<string>
  * when `tableId` names no table, mirroring `seating.ts`'s `tableFor`: the solver only ever offers
  * a real id, and silently allowing an unknown one would hide a bug rather than surface it.
  *
- * Takes and returns `GuardPlan`, not `RulePlan`: its only caller is `seatGuardFrom`, below, whose
- * hypothetical plan has no guest list to carry in the first place.
+ * Takes and returns `GuardPlan`, not `RulePlan`: it only ever fills a seat into the tables-only
+ * plan built so far. `seatGuardFrom`, below, turns its result into a full `RulePlan` — `unseated`
+ * included — before handing it to a rule (TT-17).
  */
 export function withSeat(plan: GuardPlan, tableId: string, seatIndex: number, guest: Guest): GuardPlan {
   const table = plan.tables.find((candidate) => candidate.id === tableId)
@@ -133,9 +151,13 @@ function isGuardable(rule: SeatingRule): rule is GuardableRule {
  * auto-allocate hunting for a seat that does not exist. Allows every seat when that set is empty,
  * mirroring `allocate.ts`'s own "no rules registered yet" default.
  *
- * Asks the rule's own `evaluate` a speculative question over `withSeat(...)` rather than a
+ * Asks the rule's own `evaluate` a speculative question over the hypothetical plan rather than a
  * second `allowsSeat` function per rule: two functions per rule are two things to keep in step,
  * and one `evaluate` over a hypothetical plan cannot disagree with itself.
+ *
+ * TT-17: that hypothetical is a full `RulePlan`, not a `GuardPlan` — `unseated` is derived from
+ * `candidate.guests` (the whole guest list `allocate` was called with) once per candidate, shared
+ * across every guardable rule asked about it, not recomputed per rule.
  */
 export function seatGuardFrom(rules: readonly SeatingRule[]): SeatGuard {
   const guardRules = rules.filter(isGuardable)
@@ -144,7 +166,8 @@ export function seatGuardFrom(rules: readonly SeatingRule[]): SeatGuard {
   }
 
   return (candidate: SeatCandidate) => {
-    const hypothetical = withSeat(candidate.plan, candidate.tableId, candidate.seatIndex, candidate.guest)
+    const { tables } = withSeat(candidate.plan, candidate.tableId, candidate.seatIndex, candidate.guest)
+    const hypothetical: RulePlan = { tables, unseated: guestsWithoutATable(candidate.guests, tables) }
 
     return !guardRules.some((rule) =>
       rule
