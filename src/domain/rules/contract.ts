@@ -9,9 +9,10 @@ export type Severity = 'hard' | 'soft'
 export type Remedy = 'seating' | 'flag'
 
 /**
- * What a hard, remedy:'seating' rule is judged against — the only kind `seatGuardFrom` ever
- * calls, before `allocate.ts`'s solver has finished and while there is no real guest list to
- * give it (see `PlanSoFar` there). Such a rule's `evaluate` may ask for nothing more than this.
+ * The tables-only view `withSeat` works over. A rule or fixture that reads only `tables` may
+ * type its `evaluate` against this rather than `RulePlan`, but no rule is ever actually handed
+ * less than a `RulePlan` — `seatGuardFrom` builds a full `RulePlan` for the guard to reason about
+ * (TT-17), `unseated` included, from the guest list carried on the candidate it is asked about.
  */
 export type GuardPlan = Pick<SeatingPlan, 'tables'>
 
@@ -92,13 +93,18 @@ type RuleFields = {
 
 /**
  * A hard, remedy:'seating' rule — `seatGuardFrom` filters to exactly this shape, and only this
- * shape, so its `evaluate` is typed to accept `GuardPlan` and nothing wider: it can never be
- * handed a guest list, and so can never require one.
+ * shape, so a solver can act on its findings. TT-17: its `evaluate` takes a `RulePlan`, the same
+ * shape every other rule reads, because the guard asks it about a hypothetical `RulePlan` whose
+ * `unseated` is every guest on the candidate's guest list not yet on a table (TT-16's seam defect
+ * — this used to be typed against `GuardPlan`, tables-only, which is what forced top-table and
+ * everyone-seated onto `remedy: 'flag'` even though neither is actually a candidate to act as a
+ * guard). Only its findings decide the guard's veto; its `opportunities`/`missed` counts are
+ * ignored there and read only when this rule is also evaluated as part of the settled plan.
  */
 export type GuardableRule = RuleFields & {
   severity: 'hard'
   remedy: 'seating'
-  evaluate: (plan: GuardPlan) => RuleAssessment
+  evaluate: (plan: RulePlan) => RuleAssessment
 }
 
 /**
